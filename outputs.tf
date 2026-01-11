@@ -31,5 +31,29 @@ output "notes_table_stream_arn" {
 # アプリケーションでuserIdで検索する際に使用します
 output "notes_gsi_name" {
   description = "userId検索用のグローバルセカンダリインデックス名"
-  value       = aws_dynamodb_table.notes.global_secondary_index[0].name
+  value       = [for gsi in aws_dynamodb_table.notes.global_secondary_index : gsi.name if gsi.hash_key == "userId"][0]
+}
+
+# KMS CMK（カスタマーマスターキー）のARNを出力
+# DynamoDBテーブル暗号化に使用するキーの識別子です。
+# IAMポリシーやアプリケーション設定でこのARNを参照する際に使用します。
+output "kms_key_arn" {
+  description = "DynamoDBテーブル暗号化用のKMS CMK ARN"
+  value       = aws_kms_key.dynamodb_key.arn
+}
+
+# KMS CMKのキーIDを出力
+# キーを直接参照する場合に使用します。
+# ARNよりも短いID形式です。
+output "kms_key_id" {
+  description = "DynamoDBテーブル暗号化用のKMS CMK ID"
+  value       = aws_kms_key.dynamodb_key.key_id
+}
+
+# KMS キーのエイリアスを出力
+# 人間が読みやすい形式でキーを識別する場合に使用します。
+# AWSコンソールやCLIコマンドでこのエイリアス名を指定することで、キーを簡単に参照できます。
+output "kms_key_alias" {
+  description = "DynamoDBテーブル暗号化用のKMS キーエイリアス"
+  value       = aws_kms_alias.dynamodb_key_alias.name
 }
