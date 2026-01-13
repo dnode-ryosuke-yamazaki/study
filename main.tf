@@ -287,3 +287,280 @@ resource "aws_dynamodb_table" "api_logs" {
 # - timestamp でスケーラブルな時系列クエリを実現
 #
 # =====================================================
+
+# =====================================================
+# IAM ロール：Lambda実行ロール
+# =====================================================
+# Lambda関数が使用するIAMロールです。
+# CloudWatch Logs への書き込み権限などを持ちます。
+resource "aws_iam_role" "lambda_execution_role" {
+  # ロールの名前
+  # Lambda関数の識別に使用します
+  name = "lambda-execution-role-${var.environment}"
+  
+  # ロールの信頼ポリシー
+  # Lambdaサービスがこのロールを引き受けることを許可します
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+  
+  # タグの設定
+  tags = {
+    Name        = "lambda-execution-role"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =====================================================
+# IAM ポリシー：CloudWatch Logs への書き込み権限
+# =====================================================
+# Lambda関数がCloudWatch Logsにログを書き込むための権限です。
+# これはAWSが提供する基本的なポリシーです。
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  # アタッチするIAMポリシーの名前
+  # AWS管理ポリシーを使用します
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  
+  # このポリシーをアタッチするIAMロール
+  role       = aws_iam_role.lambda_execution_role.name
+}
+
+# =====================================================
+# Lambda 関数：hello_world
+# =====================================================
+# シンプルなHello Worldを返すLambda関数です。
+# イベント駆動アーキテクチャの基盤として機能します。
+resource "aws_lambda_function" "hello_world" {
+  # Lambda関数の名前
+  # 関数を識別するための一意な名前です
+  function_name = "hello-world-function-${var.environment}"
+  
+  # Lambda関数の実行時言語
+  # Python 3.11で実装しています
+  runtime       = "python3.11"
+  
+  # Lambda関数が実行するコードをZIP形式で指定
+  # ここではinline_codeを使用してコードを直接指定
+  filename      = "lambda_function.zip"
+  
+  # ZIPファイルのソースコード
+  # アップロード時にこのファイルをハッシュ化して変更を検出
+  source_code_hash = filebase64sha256("${path.module}/lambda_function.zip")
+  
+  # Lambda関数が使用するIAMロール
+  role          = aws_iam_role.lambda_execution_role.arn
+  
+  # Lambda関数のハンドラー
+  # 「ファイル名.関数名」の形式で指定します
+  # lambda_function.py内のlambda_handlerという関数が呼び出されます
+  handler       = "lambda_function.lambda_handler"
+  
+  # Lambda関数のタイムアウト時間（秒）
+  # デフォルトの3秒では不足する場合があるため、30秒に設定
+  timeout       = 30
+  
+  # Lambda関数のメモリサイズ（MB）
+  # 128MB（最小）～ 10240MB（最大）
+  # 一般的なAPI処理には512MBで十分です
+  memory_size   = 512
+  
+  # Lambda関数の実行環境変数
+  # アプリケーションコード内で $ENVIRONMENT 変数として参照可能
+  environment {
+    variables = {
+      ENVIRONMENT = var.environment
+    }
+  }
+  
+  # タグの設定
+  tags = {
+    Name        = "hello-world-function"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =====================================================
+# CloudWatch Logs ロググループ
+# =====================================================
+# Lambda関数のログを保存するロググループです。
+# Lambda実行時のログ出力先になります。
+resource "aws_cloudwatch_log_group" "lambda_log_group" {
+  # ロググループの名前
+  # Lambda関数のログは自動的にここに出力されます
+  # AWS命名規則：/aws/lambda/関数名
+  name              = "/aws/lambda/hello-world-function-${var.environment}"
+  
+  # ログの保持期間（日数）
+  # 30日でログを自動削除し、ストレージコストを削減します
+  retention_in_days = 30
+  
+  # タグの設定
+  tags = {
+    Name        = "hello-world-log-group"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =====================================================
+# Lambda 関数の説明
+# =====================================================
+# 
+# 【関数の特徴】
+# - Hello Worldを返すシンプルなダミー関数
+# - DynamoDBへのアクセスなし（初版）
+# - Python 3.11で実装
+# - CloudWatch Logsに自動的にログを出力
+# 
+# 【実行フロー】
+# 1. API Gateway経由でリクエスト受信
+# 2. Lambda関数が実行（lambda_handler関数）
+# 3. レスポンス（Hello World）を返す
+# 4. ログはCloudWatch Logsに記録
+# 
+# 【将来の拡張例】
+# - DynamoDBのnotesテーブルへのアクセス
+# - api_logsテーブルへのログ記録
+# - APIリクエスト/レスポンスの検証
+# - エラーハンドリングの強化
+# - X-Ray トレーシングの統合
+#
+# =====================================================
+
+# =====================================================
+# API Gateway REST API
+# =====================================================
+# HTTPリクエストを受け付けてLambda関数に振り分けるAPI Gateway
+resource "aws_api_gateway_rest_api" "hello_api" {
+  name           = "hello-world-api-${var.environment}"
+  description    = "API Gateway for Hello World Lambda function"
+  
+  tags = {
+    Name        = "hello-world-api"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =====================================================
+# API Gateway リソース：/hello
+# =====================================================
+# API Gatewayの/helloパスに対応するリソース
+resource "aws_api_gateway_resource" "hello" {
+  rest_api_id = aws_api_gateway_rest_api.hello_api.id
+  parent_id   = aws_api_gateway_rest_api.hello_api.root_resource_id
+  path_part   = "hello"
+}
+
+# =====================================================
+# API Gateway メソッド：GET /hello
+# =====================================================
+# HTTPの GET メソッドを定義
+resource "aws_api_gateway_method" "hello_get" {
+  rest_api_id      = aws_api_gateway_rest_api.hello_api.id
+  resource_id      = aws_api_gateway_resource.hello.id
+  http_method      = "GET"
+  authorization    = "NONE"  # 認証なしで公開
+}
+
+# =====================================================
+# API Gateway 統合：Lambda との連携
+# =====================================================
+# API GatewayのGETリクエストをLambda関数に統合
+resource "aws_api_gateway_integration" "hello_lambda" {
+  rest_api_id      = aws_api_gateway_rest_api.hello_api.id
+  resource_id      = aws_api_gateway_resource.hello.id
+  http_method      = aws_api_gateway_method.hello_get.http_method
+  
+  type             = "AWS_PROXY"  # Lambda プロキシ統合
+  integration_http_method = "POST"  # Lambda呼び出しはPOSTで行われる
+  uri              = aws_lambda_function.hello_world.invoke_arn
+}
+
+# =====================================================
+# Lambda 権限：API Gatewayからの呼び出しを許可
+# =====================================================
+# API Gatewayがこの Lambda 関数を呼び出すことを許可するポリシー
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.hello_world.function_name
+  
+  # API Gatewayサービスが呼び出し可能にする
+  principal     = "apigateway.amazonaws.com"
+  
+  # このAPIとステージからのみ呼び出し可能
+  source_arn    = "${aws_api_gateway_rest_api.hello_api.execution_arn}/*/*"
+}
+
+# =====================================================
+# API Gateway デプロイメント
+# =====================================================
+# API Gatewayの設定を AWS にデプロイ
+resource "aws_api_gateway_deployment" "hello" {
+  depends_on = [
+    aws_api_gateway_integration.hello_lambda
+  ]
+  
+  rest_api_id = aws_api_gateway_rest_api.hello_api.id
+}
+
+# =====================================================
+# API Gateway ステージ
+# =====================================================
+# API Gatewayの実行ステージ（本番環境を想定）
+# このステージのURLでAPIがアクセス可能になります
+resource "aws_api_gateway_stage" "hello" {
+  deployment_id = aws_api_gateway_deployment.hello.id
+  rest_api_id   = aws_api_gateway_rest_api.hello_api.id
+  stage_name    = var.environment
+  
+  # ステージログの設定
+  # API Gatewayのアクセスログを CloudWatch Logs に出力
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_log_group.arn
+    format = jsonencode({
+      requestId       = "$context.requestId"
+      ip              = "$context.identity.sourceIp"
+      requestTime     = "$context.requestTime"
+      httpMethod      = "$context.httpMethod"
+      resourcePath    = "$context.resourcePath"
+      status          = "$context.status"
+      protocol        = "$context.protocol"
+      responseLength  = "$context.responseLength"
+      integrationLatency = "$context.integration.latency"
+    })
+  }
+  
+  tags = {
+    Name        = "hello-world-stage"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =====================================================
+# CloudWatch Logs ロググループ：API Gateway
+# =====================================================
+# API Gatewayのアクセスログを保存するロググループ
+resource "aws_cloudwatch_log_group" "api_gateway_log_group" {
+  name              = "/aws/apigateway/hello-world-api-${var.environment}"
+  retention_in_days = 30
+  
+  tags = {
+    Name        = "api-gateway-log-group"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}

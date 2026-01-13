@@ -96,3 +96,68 @@ output "api_logs_userId_gsi_name" {
   description = "userId検索用のグローバルセカンダリインデックス名"
   value       = [for gsi in aws_dynamodb_table.api_logs.global_secondary_index : gsi.name if gsi.hash_key == "userId"][0]
 }
+
+# =====================================================
+# Lambda 関数の出力値
+# =====================================================
+
+# Lambda関数のARNを出力
+# API GatewayやIAMポリシーで関数を参照する際に使用します
+output "lambda_function_arn" {
+  description = "Hello World Lambda関数のARN"
+  value       = aws_lambda_function.hello_world.arn
+}
+
+# Lambda関数の名前を出力
+# AWS CLIやコンソールで関数を実行する際に使用します
+output "lambda_function_name" {
+  description = "Hello World Lambda関数の名前"
+  value       = aws_lambda_function.hello_world.function_name
+}
+
+# Lambda関数の最新バージョンを出力
+# デプロイメント時のバージョン追跡に使用します
+output "lambda_function_version" {
+  description = "Hello World Lambda関数の最新バージョン"
+  value       = aws_lambda_function.hello_world.version
+}
+
+# Lambda実行ロールのARNを出力
+# 他のリソースがLambda関数に権限を付与する際に使用します
+output "lambda_execution_role_arn" {
+  description = "Lambda実行ロールのARN"
+  value       = aws_iam_role.lambda_execution_role.arn
+}
+
+# CloudWatch Logsロググループの名前を出力
+# ログを確認する際に使用します
+output "lambda_log_group_name" {
+  description = "Lambda関数のCloudWatch Logsロググループ名"
+  value       = aws_cloudwatch_log_group.lambda_log_group.name
+}
+
+# =====================================================
+# API Gateway の出力値
+# =====================================================
+
+# API GatewayのURL（完全なエンドポイント）を出力
+# このURLにHTTPリクエストを送信することでLambda関数が実行されます
+# 例：https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/hello
+output "api_gateway_url" {
+  description = "API GatewayのエンドポイントURL"
+  value       = "${aws_api_gateway_stage.hello.invoke_url}/hello"
+}
+
+# API GatewayのARNを出力
+# 他のAWSリソースからAPI Gatewayを参照する際に使用します
+output "api_gateway_arn" {
+  description = "API GatewayのARN"
+  value       = aws_api_gateway_rest_api.hello_api.arn
+}
+
+# API Gateway ロググループの名前を出力
+# API Gatewayのアクセスログを確認する際に使用します
+output "api_gateway_log_group_name" {
+  description = "API GatewayのCloudWatch Logsロググループ名"
+  value       = aws_cloudwatch_log_group.api_gateway_log_group.name
+}
