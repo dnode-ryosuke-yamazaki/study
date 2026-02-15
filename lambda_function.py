@@ -80,12 +80,12 @@ def create_response(status_code: int, body: Any) -> Dict:
     return {
         'statusCode': status_code,
         'headers': {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type'
         },
-        'body': json.dumps(body, cls=DecimalEncoder)
+        'body': json.dumps(body, cls=DecimalEncoder, ensure_ascii=False)
     }
 
 
