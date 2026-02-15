@@ -1,73 +1,422 @@
 """
-Lambda 関数：Hello World
+Lambda 関数：Notes API
 
-このLambda関数はシンプルなHello Worldレスポンスを返します。
-初版はダミー関数で、DynamoDBへのアクセスなし。
-将来的には実際のビジネスロジックを実装予定です。
+このLambda関数はメモ管理APIを提供します。
+OpenAPI仕様に従ったRESTful APIを実装しています。
 """
 
 import json
 import logging
 import os
+import uuid
 from datetime import datetime
+from decimal import Decimal
+from typing import Dict, Any, List, Optional
+
+import boto3
+from boto3.dynamodb.conditions import Key
 
 # ロギング設定
-# ロガーを取得し、ログレベルをINFOに設定
-# これにより、INFO以上のレベルのログ（INFO、WARNING、ERROR、CRITICAL）が出力されます
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def lambda_handler(event, context):
+# DynamoDB クライアント初期化
+dynamodb = boto3.resource('dynamodb')
+environment = os.environ.get('ENVIRONMENT', 'yamazaki-dev')
+notes_table = dynamodb.Table(f'notes-table-{environment}')
+api_logs_table = dynamodb.Table(f'api-logs-table-{environment}')
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """DynamoDBのDecimal型をJSON化するためのエンコーダー"""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+
+def log_api_call(
+    note_id: Optional[str],
+    user_id: Optional[str],
+    action_type: str,
+    endpoint: str,
+    method: str,
+    request_body: Optional[Dict],
+    response_status: int
+) -> None:
+    """API呼び出しログをDynamoDBに記録"""
+    try:
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        log_id = str(uuid.uuid4())
+        
+        # TTL: 90日後に自動削除
+        expires_at = int(datetime.utcnow().timestamp()) + (90 * 24 * 60 * 60)
+        
+        log_item = {
+            'logId': log_id,
+            'timestamp': timestamp,
+            'actionType': action_type,
+            'endpoint': endpoint,
+            'method': method,
+            'responseStatus': response_status,
+            'expiresAt': expires_at
+        }
+        
+        if note_id:
+            log_item['noteId'] = note_id
+        if user_id:
+            log_item['userId'] = user_id
+        if request_body:
+            log_item['requestBody'] = json.dumps(request_body)
+        
+        api_logs_table.put_item(Item=log_item)
+        logger.info(f"API call logged: {log_id}")
+    except Exception as e:
+        logger.error(f"Failed to log API call: {str(e)}")
+
+
+def create_response(status_code: int, body: Any) -> Dict:
+    """HTTPレスポンスを構築"""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        },
+        'body': json.dumps(body, cls=DecimalEncoder)
+    }
+
+
+def create_error_response(status_code: int, error: str, message: str, details: Optional[Dict] = None) -> Dict:
+    """エラーレスポンスを構築"""
+    error_body = {
+        'error': error,
+        'message': message
+    }
+    if details:
+        error_body['details'] = details
+    return create_response(status_code, error_body)
+
+
+def validate_create_note_request(body: Dict) -> Optional[Dict]:
+    """メモ作成リクエストのバリデーション"""
+    required_fields = ['userId', 'title', 'content']
+    for field in required_fields:
+        if field not in body:
+            return create_error_response(
+                400,
+                'BadRequest',
+                f'必須フィールドが不足しています: {field}',
+                {'field': field, 'reason': 'required'}
+            )
+    
+    if len(body['title']) > 200:
+        return create_error_response(
+            400,
+            'BadRequest',
+            'タイトルは200文字以内にしてください',
+            {'field': 'title', 'reason': 'maxLength'}
+        )
+    
+    if len(body['content']) > 10000:
+        return create_error_response(
+            400,
+            'BadRequest',
+            '本文は10000文字以内にしてください',
+            {'field': 'content', 'reason': 'maxLength'}
+        )
+    
+    return None
+
+
+def list_notes(event: Dict) -> Dict:
+    """メモ一覧取得 (GET /notes?userId=xxx)"""
+    try:
+        query_params = event.get('queryStringParameters') or {}
+        user_id = query_params.get('userId')
+        
+        if not user_id:
+            return create_error_response(
+                400,
+                'BadRequest',
+                'userIdパラメータは必須です',
+                {'field': 'userId', 'reason': 'required'}
+            )
+        
+        # GSIを使ってuserIdで検索
+        response = notes_table.query(
+            IndexName='userId-index',
+            KeyConditionExpression=Key('userId').eq(user_id)
+        )
+        
+        notes = response.get('Items', [])
+        
+        # API呼び出しログを記録
+        log_api_call(
+            note_id=None,
+            user_id=user_id,
+            action_type='LIST_NOTES',
+            endpoint='/notes',
+            method='GET',
+            request_body=None,
+            response_status=200
+        )
+        
+        return create_response(200, {'notes': notes})
+        
+    except Exception as e:
+        logger.error(f"Error in list_notes: {str(e)}")
+        return create_error_response(
+            500,
+            'InternalServerError',
+            'サーバー内部でエラーが発生しました'
+        )
+
+
+def create_note(event: Dict) -> Dict:
+    """メモ作成 (POST /notes)"""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        
+        # バリデーション
+        validation_error = validate_create_note_request(body)
+        if validation_error:
+            return validation_error
+        
+        # メモ作成
+        note_id = f"note-{uuid.uuid4()}"
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        
+        note_item = {
+            'noteId': note_id,
+            'userId': body['userId'],
+            'title': body['title'],
+            'content': body['content'],
+            'tags': body.get('tags', []),
+            'createdAt': timestamp,
+            'updatedAt': timestamp
+        }
+        
+        notes_table.put_item(Item=note_item)
+        
+        # API呼び出しログを記録
+        log_api_call(
+            note_id=note_id,
+            user_id=body['userId'],
+            action_type='CREATE_NOTE',
+            endpoint='/notes',
+            method='POST',
+            request_body=body,
+            response_status=201
+        )
+        
+        return create_response(201, note_item)
+        
+    except json.JSONDecodeError:
+        return create_error_response(
+            400,
+            'BadRequest',
+            'リクエストボディのJSON形式が不正です'
+        )
+    except Exception as e:
+        logger.error(f"Error in create_note: {str(e)}")
+        return create_error_response(
+            500,
+            'InternalServerError',
+            'サーバー内部でエラーが発生しました'
+        )
+
+
+def get_note(event: Dict) -> Dict:
+    """メモ取得 (GET /notes/{noteId})"""
+    try:
+        note_id = event['pathParameters']['noteId']
+        
+        response = notes_table.get_item(Key={'noteId': note_id})
+        
+        if 'Item' not in response:
+            return create_error_response(
+                404,
+                'NotFound',
+                '指定されたメモが見つかりません'
+            )
+        
+        note = response['Item']
+        
+        # API呼び出しログを記録
+        log_api_call(
+            note_id=note_id,
+            user_id=note.get('userId'),
+            action_type='GET_NOTE',
+            endpoint=f'/notes/{note_id}',
+            method='GET',
+            request_body=None,
+            response_status=200
+        )
+        
+        return create_response(200, note)
+        
+    except Exception as e:
+        logger.error(f"Error in get_note: {str(e)}")
+        return create_error_response(
+            500,
+            'InternalServerError',
+            'サーバー内部でエラーが発生しました'
+        )
+
+
+def update_note(event: Dict) -> Dict:
+    """メモ更新 (PUT /notes/{noteId})"""
+    try:
+        note_id = event['pathParameters']['noteId']
+        body = json.loads(event.get('body', '{}'))
+        
+        # 既存メモの確認
+        response = notes_table.get_item(Key={'noteId': note_id})
+        if 'Item' not in response:
+            return create_error_response(
+                404,
+                'NotFound',
+                '指定されたメモが見つかりません'
+            )
+        
+        # 更新式の構築
+        update_expression = 'SET updatedAt = :updatedAt'
+        expression_values = {':updatedAt': datetime.utcnow().isoformat() + "Z"}
+        
+        if 'title' in body:
+            if len(body['title']) > 200:
+                return create_error_response(
+                    400,
+                    'BadRequest',
+                    'タイトルは200文字以内にしてください',
+                    {'field': 'title', 'reason': 'maxLength'}
+                )
+            update_expression += ', title = :title'
+            expression_values[':title'] = body['title']
+        
+        if 'content' in body:
+            if len(body['content']) > 10000:
+                return create_error_response(
+                    400,
+                    'BadRequest',
+                    '本文は10000文字以内にしてください',
+                    {'field': 'content', 'reason': 'maxLength'}
+                )
+            update_expression += ', content = :content'
+            expression_values[':content'] = body['content']
+        
+        if 'tags' in body:
+            update_expression += ', tags = :tags'
+            expression_values[':tags'] = body['tags']
+        
+        # メモ更新
+        response = notes_table.update_item(
+            Key={'noteId': note_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=expression_values,
+            ReturnValues='ALL_NEW'
+        )
+        
+        updated_note = response['Attributes']
+        
+        # API呼び出しログを記録
+        log_api_call(
+            note_id=note_id,
+            user_id=updated_note.get('userId'),
+            action_type='UPDATE_NOTE',
+            endpoint=f'/notes/{note_id}',
+            method='PUT',
+            request_body=body,
+            response_status=200
+        )
+        
+        return create_response(200, updated_note)
+        
+    except json.JSONDecodeError:
+        return create_error_response(
+            400,
+            'BadRequest',
+            'リクエストボディのJSON形式が不正です'
+        )
+    except Exception as e:
+        logger.error(f"Error in update_note: {str(e)}")
+        return create_error_response(
+            500,
+            'InternalServerError',
+            'サーバー内部でエラーが発生しました'
+        )
+
+
+def delete_note(event: Dict) -> Dict:
+    """メモ削除 (DELETE /notes/{noteId})"""
+    try:
+        note_id = event['pathParameters']['noteId']
+        
+        # 既存メモの確認
+        response = notes_table.get_item(Key={'noteId': note_id})
+        if 'Item' not in response:
+            return create_error_response(
+                404,
+                'NotFound',
+                '指定されたメモが見つかりません'
+            )
+        
+        note = response['Item']
+        
+        # メモ削除
+        notes_table.delete_item(Key={'noteId': note_id})
+        
+        # API呼び出しログを記録
+        log_api_call(
+            note_id=note_id,
+            user_id=note.get('userId'),
+            action_type='DELETE_NOTE',
+            endpoint=f'/notes/{note_id}',
+            method='DELETE',
+            request_body=None,
+            response_status=204
+        )
+        
+        return create_response(204, {})
+        
+    except Exception as e:
+        logger.error(f"Error in delete_note: {str(e)}")
+        return create_error_response(
+            500,
+            'InternalServerError',
+            'サーバー内部でエラーが発生しました'
+        )
+
+
+def lambda_handler(event: Dict, context: Any) -> Dict:
     """
     Lambda ハンドラー関数
     
-    このエントリーポイント関数はAWS Lambdaから直接呼び出されます。
-    リクエストイベントを受け取り、処理を実行してHTTPレスポンスを返します。
-    
-    Args:
-        event (dict): Lambda トリガーから渡されるイベント。
-                      API Gatewayの場合はリクエスト情報を含みます。
-        context (LambdaContext): Lambda実行コンテキスト。
-                                関数の実行情報（リクエストID、関数名など）を提供します。
-    
-    Returns:
-        dict: HTTPレスポンス辞書
-            - statusCode (int): HTTPステータスコード（200: 成功）
-            - headers (dict): レスポンスヘッダー（Content-Typeなど）
-            - body (str): レスポンスボディ（JSON文字列形式）
+    OpenAPI仕様に従ったRESTful APIのルーティングを行います。
     """
-    
-    # ロギング：関数が呼び出されたことを記録
-    logger.info("Lambda function invoked")
     logger.info(f"Event: {json.dumps(event)}")
     
-    # 環境変数から環境名を取得
-    environment = os.environ.get("ENVIRONMENT", "unknown")
-    logger.info(f"Environment: {environment}")
+    # HTTPメソッドとパスを取得
+    http_method = event.get('httpMethod', '')
+    path = event.get('path', '')
     
-    # 現在の時刻を取得（ISO8601形式）
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    
-    # レスポンスボディを構築
-    response_body = {
-        "message": "Hello World from Lambda!",
-        "timestamp": timestamp,
-        "environment": environment,
-        "requestId": context.aws_request_id,
-        "functionName": context.function_name,
-        "functionVersion": context.function_version,
-    }
-    
-    # ログにレスポンスを記録
-    logger.info(f"Response: {json.dumps(response_body)}")
-    
-    # HTTPレスポンスを構築
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "Content-Type": "application/json",
-        },
-        "body": json.dumps(response_body),
-    }
-    
-    return response
+    # ルーティング
+    if path == '/notes' and http_method == 'GET':
+        return list_notes(event)
+    elif path == '/notes' and http_method == 'POST':
+        return create_note(event)
+    elif path.startswith('/notes/') and http_method == 'GET':
+        return get_note(event)
+    elif path.startswith('/notes/') and http_method == 'PUT':
+        return update_note(event)
+    elif path.startswith('/notes/') and http_method == 'DELETE':
+        return delete_note(event)
+    else:
+        return create_error_response(
+            404,
+            'NotFound',
+            '指定されたエンドポイントが見つかりません'
+        )

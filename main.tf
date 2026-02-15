@@ -336,6 +336,62 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 }
 
 # =====================================================
+# IAM ポリシー：DynamoDB への読み書き権限
+# =====================================================
+resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
+  name = "lambda-dynamodb-policy-${var.environment}"
+  role = aws_iam_role.lambda_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [
+          aws_dynamodb_table.notes.arn,
+          "${aws_dynamodb_table.notes.arn}/index/*",
+          aws_dynamodb_table.api_logs.arn,
+          "${aws_dynamodb_table.api_logs.arn}/index/*"
+        ]
+      }
+    ]
+  })
+}
+
+# =====================================================
+# IAM ポリシー：KMS 暗号化キーへのアクセス権限
+# =====================================================
+# Lambda関数がDynamoDBの暗号化データを読み書きするために必要なKMS権限
+resource "aws_iam_role_policy" "lambda_kms_policy" {
+  name = "lambda-kms-policy-${var.environment}"
+  role = aws_iam_role.lambda_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.dynamodb_key.arn
+      }
+    ]
+  })
+}
+
+# =====================================================
 # Lambda 関数：hello_world
 # =====================================================
 # シンプルなHello Worldを返すLambda関数です。
@@ -442,109 +498,221 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
 # API Gateway REST API
 # =====================================================
 # HTTPリクエストを受け付けてLambda関数に振り分けるAPI Gateway
-resource "aws_api_gateway_rest_api" "hello_api" {
-  name           = "hello-world-api-${var.environment}"
-  description    = "API Gateway for Hello World Lambda function"
+resource "aws_api_gateway_rest_api" "notes_api" {
+  name           = "notes-api-${var.environment}"
+  description    = "Notes API - OpenAPI仕様に準拠したRESTful API"
   
   tags = {
-    Name        = "hello-world-api"
+    Name        = "notes-api"
     Environment = var.environment
     ManagedBy   = "Terraform"
   }
 }
 
 # =====================================================
-# API Gateway リソース：/hello
+# API Gateway リソース：/notes
 # =====================================================
-# API Gatewayの/helloパスに対応するリソース
-resource "aws_api_gateway_resource" "hello" {
-  rest_api_id = aws_api_gateway_rest_api.hello_api.id
-  parent_id   = aws_api_gateway_rest_api.hello_api.root_resource_id
-  path_part   = "hello"
+resource "aws_api_gateway_resource" "notes" {
+  rest_api_id = aws_api_gateway_rest_api.notes_api.id
+  parent_id   = aws_api_gateway_rest_api.notes_api.root_resource_id
+  path_part   = "notes"
 }
 
 # =====================================================
-# API Gateway メソッド：GET /hello
+# API Gateway リソース：/notes/{noteId}
 # =====================================================
-# HTTPの GET メソッドを定義
-resource "aws_api_gateway_method" "hello_get" {
-  rest_api_id      = aws_api_gateway_rest_api.hello_api.id
-  resource_id      = aws_api_gateway_resource.hello.id
-  http_method      = "GET"
-  authorization    = "NONE"  # 認証なしで公開
+resource "aws_api_gateway_resource" "notes_item" {
+  rest_api_id = aws_api_gateway_rest_api.notes_api.id
+  parent_id   = aws_api_gateway_resource.notes.id
+  path_part   = "{noteId}"
+}
+
+# =====================================================
+# API Gateway メソッド：GET /notes
+# =====================================================
+resource "aws_api_gateway_method" "notes_list" {
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
+  resource_id   = aws_api_gateway_resource.notes.id
+  http_method   = "GET"
+  authorization = "NONE"
+  
+  request_parameters = {
+    "method.request.querystring.userId" = true
+  }
+}
+
+# =====================================================
+# API Gateway メソッド：POST /notes
+# =====================================================
+resource "aws_api_gateway_method" "notes_create" {
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
+  resource_id   = aws_api_gateway_resource.notes.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+# =====================================================
+# API Gateway メソッド：GET /notes/{noteId}
+# =====================================================
+resource "aws_api_gateway_method" "notes_get" {
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
+  resource_id   = aws_api_gateway_resource.notes_item.id
+  http_method   = "GET"
+  authorization = "NONE"
+  
+  request_parameters = {
+    "method.request.path.noteId" = true
+  }
+}
+
+# =====================================================
+# API Gateway メソッド：PUT /notes/{noteId}
+# =====================================================
+resource "aws_api_gateway_method" "notes_update" {
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
+  resource_id   = aws_api_gateway_resource.notes_item.id
+  http_method   = "PUT"
+  authorization = "NONE"
+  
+  request_parameters = {
+    "method.request.path.noteId" = true
+  }
+}
+
+# =====================================================
+# API Gateway メソッド：DELETE /notes/{noteId}
+# =====================================================
+resource "aws_api_gateway_method" "notes_delete" {
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
+  resource_id   = aws_api_gateway_resource.notes_item.id
+  http_method   = "DELETE"
+  authorization = "NONE"
+  
+  request_parameters = {
+    "method.request.path.noteId" = true
+  }
 }
 
 # =====================================================
 # API Gateway 統合：Lambda との連携
 # =====================================================
-# API GatewayのGETリクエストをLambda関数に統合
-resource "aws_api_gateway_integration" "hello_lambda" {
-  rest_api_id      = aws_api_gateway_rest_api.hello_api.id
-  resource_id      = aws_api_gateway_resource.hello.id
-  http_method      = aws_api_gateway_method.hello_get.http_method
-  
-  type             = "AWS_PROXY"  # Lambda プロキシ統合
-  integration_http_method = "POST"  # Lambda呼び出しはPOSTで行われる
-  uri              = aws_lambda_function.hello_world.invoke_arn
+resource "aws_api_gateway_integration" "notes_list_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.notes_api.id
+  resource_id             = aws_api_gateway_resource.notes.id
+  http_method             = aws_api_gateway_method.notes_list.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_function.hello_world.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "notes_create_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.notes_api.id
+  resource_id             = aws_api_gateway_resource.notes.id
+  http_method             = aws_api_gateway_method.notes_create.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_function.hello_world.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "notes_get_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.notes_api.id
+  resource_id             = aws_api_gateway_resource.notes_item.id
+  http_method             = aws_api_gateway_method.notes_get.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_function.hello_world.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "notes_update_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.notes_api.id
+  resource_id             = aws_api_gateway_resource.notes_item.id
+  http_method             = aws_api_gateway_method.notes_update.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_function.hello_world.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "notes_delete_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.notes_api.id
+  resource_id             = aws_api_gateway_resource.notes_item.id
+  http_method             = aws_api_gateway_method.notes_delete.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_function.hello_world.invoke_arn
 }
 
 # =====================================================
 # Lambda 権限：API Gatewayからの呼び出しを許可
 # =====================================================
-# API Gatewayがこの Lambda 関数を呼び出すことを許可するポリシー
-resource "aws_lambda_permission" "api_gateway" {
+resource "aws_lambda_permission" "api_gateway_notes" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.hello_world.function_name
-  
-  # API Gatewayサービスが呼び出し可能にする
   principal     = "apigateway.amazonaws.com"
-  
-  # このAPIとステージからのみ呼び出し可能
-  source_arn    = "${aws_api_gateway_rest_api.hello_api.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.notes_api.execution_arn}/*/*"
 }
 
 # =====================================================
 # API Gateway デプロイメント
 # =====================================================
-# API Gatewayの設定を AWS にデプロイ
-resource "aws_api_gateway_deployment" "hello" {
+resource "aws_api_gateway_deployment" "notes" {
   depends_on = [
-    aws_api_gateway_integration.hello_lambda
+    aws_api_gateway_integration.notes_list_lambda,
+    aws_api_gateway_integration.notes_create_lambda,
+    aws_api_gateway_integration.notes_get_lambda,
+    aws_api_gateway_integration.notes_update_lambda,
+    aws_api_gateway_integration.notes_delete_lambda
   ]
   
-  rest_api_id = aws_api_gateway_rest_api.hello_api.id
+  rest_api_id = aws_api_gateway_rest_api.notes_api.id
+  
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.notes.id,
+      aws_api_gateway_resource.notes_item.id,
+      aws_api_gateway_method.notes_list.id,
+      aws_api_gateway_method.notes_create.id,
+      aws_api_gateway_method.notes_get.id,
+      aws_api_gateway_method.notes_update.id,
+      aws_api_gateway_method.notes_delete.id,
+      aws_api_gateway_integration.notes_list_lambda.id,
+      aws_api_gateway_integration.notes_create_lambda.id,
+      aws_api_gateway_integration.notes_get_lambda.id,
+      aws_api_gateway_integration.notes_update_lambda.id,
+      aws_api_gateway_integration.notes_delete_lambda.id,
+    ]))
+  }
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # =====================================================
 # API Gateway ステージ
 # =====================================================
-# API Gatewayの実行ステージ（本番環境を想定）
-# このステージのURLでAPIがアクセス可能になります
-resource "aws_api_gateway_stage" "hello" {
-  deployment_id = aws_api_gateway_deployment.hello.id
-  rest_api_id   = aws_api_gateway_rest_api.hello_api.id
+resource "aws_api_gateway_stage" "notes" {
+  deployment_id = aws_api_gateway_deployment.notes.id
+  rest_api_id   = aws_api_gateway_rest_api.notes_api.id
   stage_name    = var.environment
   
-  # ステージログの設定
-  # API Gatewayのアクセスログを CloudWatch Logs に出力
   access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api_gateway_log_group.arn
+    destination_arn = aws_cloudwatch_log_group.api_gateway_log_group_notes.arn
     format = jsonencode({
-      requestId       = "$context.requestId"
-      ip              = "$context.identity.sourceIp"
-      requestTime     = "$context.requestTime"
-      httpMethod      = "$context.httpMethod"
-      resourcePath    = "$context.resourcePath"
-      status          = "$context.status"
-      protocol        = "$context.protocol"
-      responseLength  = "$context.responseLength"
+      requestId          = "$context.requestId"
+      ip                 = "$context.identity.sourceIp"
+      requestTime        = "$context.requestTime"
+      httpMethod         = "$context.httpMethod"
+      resourcePath       = "$context.resourcePath"
+      status             = "$context.status"
+      protocol           = "$context.protocol"
+      responseLength     = "$context.responseLength"
       integrationLatency = "$context.integration.latency"
     })
   }
   
   tags = {
-    Name        = "hello-world-stage"
+    Name        = "notes-api-stage"
     Environment = var.environment
     ManagedBy   = "Terraform"
   }
@@ -553,13 +721,12 @@ resource "aws_api_gateway_stage" "hello" {
 # =====================================================
 # CloudWatch Logs ロググループ：API Gateway
 # =====================================================
-# API Gatewayのアクセスログを保存するロググループ
-resource "aws_cloudwatch_log_group" "api_gateway_log_group" {
-  name              = "/aws/apigateway/hello-world-api-${var.environment}"
+resource "aws_cloudwatch_log_group" "api_gateway_log_group_notes" {
+  name              = "/aws/apigateway/notes-api-${var.environment}"
   retention_in_days = 30
   
   tags = {
-    Name        = "api-gateway-log-group"
+    Name        = "api-gateway-notes-log-group"
     Environment = var.environment
     ManagedBy   = "Terraform"
   }

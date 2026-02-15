@@ -1,0 +1,433 @@
+# OpenAPI 3.0.3仕様に準拠したメモ管理APIの定義
+# 以下のセクションで、ユーザーのメモの作成・取得・更新・削除機能を提供します
+
+# ============================================================================
+# info セクション
+# ============================================================================
+# 【必須】APIの基本情報を定義します
+# - title: 【必須】API の名前
+# - description: 【任意】API の説明（マークダウン形式対応）
+# - version: 【必須】API のバージョン（セマンティックバージョニング推奨）
+# - contact: 【任意】API のサポート連絡先
+#   - name: 【任意】サポート担当者/チーム名
+#   - email: 【任意】サポート用メールアドレス
+
+# ============================================================================
+# servers セクション
+# ============================================================================
+# 【任意】API が利用可能なサーバーを定義します
+# 複数環境（開発・ステージング・本番）対応で、パスパラメータで切り替え可能
+# - url: 【必須】サーバーの URL（パスパラメータ使用可）
+# - description: 【任意】サーバーの説明
+# - variables: 【任意】URL 内のプレースホルダ変数
+#   - apiId: 【任意】API Gateway ID（デフォルト値、説明、列挙値を指定）
+#   - environment: 【任意】デプロイ環境名（デフォルト値、説明、列挙値を指定）
+
+# ============================================================================
+# paths セクション
+# ============================================================================
+# 【必須】REST API が提供するエンドポイントを定義します
+
+# -------- /notes エンドポイント --------
+# メモの一覧取得と新規作成の機能を提供
+
+# 【必須】GET /notes
+# - summary: 【推奨】操作の短い説明
+# - description: 【任意】操作の詳細説明
+# - operationId: 【任意】操作の一意識別子（コード生成時に使用）
+# - tags: 【任意】操作を分類するためのタグ
+# - parameters: 【任意】クエリパラメータ、パスパラメータなどを定義
+#   - name: 【必須】パラメータ名
+#   - in: 【必須】パラメータの位置（query, path, header, cookie）
+#   - required: 【必須】必須かどうか
+#   - description: 【任意】パラメータの説明
+#   - schema: 【必須】パラメータの型定義
+# - responses: 【必須】可能なレスポンスを定義
+#   - 200: 成功時のレスポンス（スキーマ参照可）
+#   - 400: バリデーションエラー時のレスポンス
+#   - 500: サーバーエラー時のレスポンス
+
+# 【必須】POST /notes
+# - requestBody: 【任意】リクエスト本体を定義
+#   - required: 【必須】リクエスト本体が必須かどうか
+#   - content: 【必須】コンテンツタイプと対応スキーマ
+# - responses:
+#   - 201: リソース作成成功時のレスポンス
+
+# -------- /notes/{noteId} エンドポイント --------
+# 特定のメモに対する取得・更新・削除機能を提供
+
+# 【必須】GET /notes/{noteId}
+# メモ ID で指定されたメモを取得
+
+# 【必須】PUT /notes/{noteId}
+# メモ ID で指定されたメモを更新
+
+# 【必須】DELETE /notes/{noteId}
+# メモ ID で指定されたメモを削除
+
+# ============================================================================
+# components セクション
+# ============================================================================
+# 【任意】複数のエンドポイント間で再利用可能なスキーマとレスポンスを定義
+
+# -------- parameters --------
+# 【任意】複数回使用されるパラメータ定義を集約し、参照（$ref）で利用
+
+# NoteId: 【推奨】パスパラメータとして使用
+#   - name: 【必須】パラメータ名
+#   - in: 【必須】"path" を指定
+#   - required: 【必須】true を指定（パスパラメータは常に必須）
+#   - description: 【任意】パラメータの説明
+#   - schema: 【必須】型定義（type, example など）
+
+# -------- schemas --------
+# 【任意】リクエスト/レスポンスで使用されるデータ構造を定義
+
+# Note: 【推奨】メモオブジェクトのスキーマ（取得・作成・更新後のレスポンス）
+#   - type: 【必須】"object" を指定
+#   - required: 【任意】必須フィールド名の配列
+#   - properties: 【必須】各フィールドの型定義
+#     - noteId: 【必須】メモの一意識別子（UUID 推奨）
+#     - userId: 【必須】所有者のユーザー ID
+#     - title: 【必須】メモタイトル（最大200文字）
+#     - content: 【必須】メモ本文（最大10000文字）
+#     - tags: 【任意】付与されたタグの配列
+#     - createdAt: 【必須】作成日時（ISO8601 形式）
+#     - updatedAt: 【必須】更新日時（ISO8601 形式）
+
+# CreateNoteRequest: 【推奨】メモ作成時のリクエストスキーマ
+#   - required: 【必須】作成時に必須となるフィールド（title, content）
+#   - properties: title, content, tags を定義
+
+# UpdateNoteRequest: 【推奨】メモ更新時のリクエストスキーマ
+#   - required: 【任意】更新時は全フィールドを任意に（部分更新対応）
+#   - properties: title, content, tags を定義
+
+# Error: 【推奨】エラーレスポンス用の統一スキーマ
+#   - required: エラーコード（error）と メッセージ（message）は必須
+#   - properties:
+#     - error: 【必須】エラーコード（BadRequest, NotFound など）
+#     - message: 【必須】ユーザー向けエラーメッセージ
+#     - details: 【任意】詳細情報（キーバリュー形式）
+
+# -------- responses --------
+# 【任意】複数エンドポイント間で再利用可能なレスポンス定義
+
+# BadRequest: 【推奨】400 エラーレスポンス（パラメータ/リクエスト不正）
+#   - description: 【必須】レスポンスの説明
+#   - content: 【必須】コンテンツタイプ（application/json推奨）
+#   - schema: 【必須】Error スキーマへの参照
+#   - example: 【任意】具体的なエラーレスポンス例
+
+# NotFound: 【推奨】404 エラーレスポンス（リソースが見つからない）
+#   - description: リソースが見つからない旨を記載
+
+# InternalServerError: 【推奨】500 エラーレスポンス（サーバー内部エラー）
+#   - description: サーバーエラーが発生した旨を記載
+openapi: 3.0.3
+info:
+  title: Notes API
+  description: メモ管理APIのOpenAPI定義
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://{apiId}.execute-api.ap-northeast-1.amazonaws.com/{environment}
+    description: API Gateway エンドポイント
+    variables:
+      apiId:
+        default: xxxxx
+        description: API Gateway ID
+      environment:
+        default: yamazaki-dev
+        description: 環境名
+        enum:
+          - yamazaki-dev
+          - yamazaki-stg
+          - yamazaki-prod
+
+paths:
+  /notes:
+    get:
+      summary: メモ一覧取得
+      description: ユーザーのメモ一覧を取得します
+      operationId: listNotes
+      tags:
+        - notes
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          description: ユーザーID
+          schema:
+            type: string
+            example: "user123"
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: メモ作成
+      description: 新しいメモを作成します
+      operationId: createNote
+      tags:
+        - notes
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          description: ユーザーID
+          schema:
+            type: string
+            example: "user123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNoteRequest'
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /notes/{noteId}:
+    get:
+      summary: メモ取得
+      description: 指定されたIDのメモを取得します
+      operationId: getNote
+      tags:
+        - notes
+      parameters:
+        - $ref: '#/components/parameters/NoteId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: メモ更新
+      description: 指定されたIDのメモを更新します
+      operationId: updateNote
+      tags:
+        - notes
+      parameters:
+        - $ref: '#/components/parameters/NoteId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNoteRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: メモ削除
+      description: 指定されたIDのメモを削除します
+      operationId: deleteNote
+      tags:
+        - notes
+      parameters:
+        - $ref: '#/components/parameters/NoteId'
+      responses:
+        '204':
+          description: 削除成功
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      description: メモID
+      schema:
+        type: string
+        example: "note-123e4567-e89b-12d3-a456-426614174000"
+
+  schemas:
+    Note:
+      type: object
+      required:
+        - noteId
+        - userId
+        - title
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        noteId:
+          type: string
+          description: メモの一意識別子
+          example: "note-123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          description: ユーザーID
+          example: "user123"
+        title:
+          type: string
+          description: メモのタイトル
+          example: "会議メモ"
+          maxLength: 200
+        content:
+          type: string
+          description: メモの本文
+          example: "今日の会議の内容"
+          maxLength: 10000
+        tags:
+          type: array
+          description: メモに付与されたタグ
+          items:
+            type: string
+          example: ["仕事", "重要"]
+        createdAt:
+          type: string
+          format: date-time
+          description: 作成日時（ISO8601形式）
+          example: "2024-01-15T10:30:45.123Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: 更新日時（ISO8601形式）
+          example: "2024-01-15T10:30:45.123Z"
+
+    CreateNoteRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          description: メモのタイトル
+          example: "会議メモ"
+          maxLength: 200
+        content:
+          type: string
+          description: メモの本文
+          example: "今日の会議の内容"
+          maxLength: 10000
+        tags:
+          type: array
+          description: メモに付与するタグ
+          items:
+            type: string
+          example: ["仕事", "重要"]
+
+    UpdateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: メモのタイトル
+          example: "会議メモ（更新版）"
+          maxLength: 200
+        content:
+          type: string
+          description: メモの本文
+          example: "今日の会議の内容（更新）"
+          maxLength: 10000
+        tags:
+          type: array
+          description: メモに付与するタグ
+          items:
+            type: string
+          example: ["仕事", "重要", "完了"]
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: エラーコード
+          example: "BadRequest"
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "リクエストパラメータが不正です"
+        details:
+          type: object
+          description: 詳細情報
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "BadRequest"
+            message: "リクエストパラメータが不正です"
+            details:
+              field: "userId"
+              reason: "required"
+
+    NotFound:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NotFound"
+            message: "指定されたメモが見つかりません"
+
+    InternalServerError:
+      description: サーバー内部エラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "InternalServerError"
+            message: "サーバー内部でエラーが発生しました"

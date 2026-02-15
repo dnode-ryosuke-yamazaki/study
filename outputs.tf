@@ -142,22 +142,54 @@ output "lambda_log_group_name" {
 
 # API GatewayのURL（完全なエンドポイント）を出力
 # このURLにHTTPリクエストを送信することでLambda関数が実行されます
-# 例：https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/hello
+# 例：https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/notes
 output "api_gateway_url" {
   description = "API GatewayのエンドポイントURL"
-  value       = "${aws_api_gateway_stage.hello.invoke_url}/hello"
+  value       = "${aws_api_gateway_stage.notes.invoke_url}/notes"
 }
 
 # API GatewayのARNを出力
 # 他のAWSリソースからAPI Gatewayを参照する際に使用します
 output "api_gateway_arn" {
   description = "API GatewayのARN"
-  value       = aws_api_gateway_rest_api.hello_api.arn
+  value       = aws_api_gateway_rest_api.notes_api.arn
 }
 
 # API Gateway ロググループの名前を出力
 # API Gatewayのアクセスログを確認する際に使用します
 output "api_gateway_log_group_name" {
   description = "API GatewayのCloudWatch Logsロググループ名"
-  value       = aws_cloudwatch_log_group.api_gateway_log_group.name
+  value       = aws_cloudwatch_log_group.api_gateway_log_group_notes.name
+}
+
+# =====================================================
+# 出力値の定義
+# =====================================================
+
+# Notes API Gateway の出力値
+output "notes_api_gateway_url" {
+  description = "Notes API GatewayのエンドポイントURL"
+  value       = aws_api_gateway_stage.notes.invoke_url
+}
+
+output "notes_api_endpoints" {
+  description = "Notes APIの各エンドポイント"
+  value = {
+    list_notes   = "${aws_api_gateway_stage.notes.invoke_url}/notes?userId=USER_ID"
+    create_note  = "${aws_api_gateway_stage.notes.invoke_url}/notes"
+    get_note     = "${aws_api_gateway_stage.notes.invoke_url}/notes/NOTE_ID"
+    update_note  = "${aws_api_gateway_stage.notes.invoke_url}/notes/NOTE_ID"
+    delete_note  = "${aws_api_gateway_stage.notes.invoke_url}/notes/NOTE_ID"
+  }
+}
+
+# DynamoDB テーブルの出力値
+output "dynamodb_notes_table_name" {
+  description = "DynamoDB notesテーブル名"
+  value       = aws_dynamodb_table.notes.name
+}
+
+output "dynamodb_api_logs_table_name" {
+  description = "DynamoDB api_logsテーブル名"
+  value       = aws_dynamodb_table.api_logs.name
 }
