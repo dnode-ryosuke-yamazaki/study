@@ -9,8 +9,10 @@ import json
 import logging
 import os
 import uuid
+import yaml
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 import boto3
@@ -25,6 +27,16 @@ dynamodb = boto3.resource('dynamodb')
 environment = os.environ.get('ENVIRONMENT', 'yamazaki-dev')
 notes_table = dynamodb.Table(f'notes-table-{environment}')
 api_logs_table = dynamodb.Table(f'api-logs-table-{environment}')
+
+# OpenAPI仕様をロード（スキーマ検証用）
+OPENAPI_SPEC = {}
+try:
+    openapi_path = Path(__file__).parent.parent / 'openapi.yaml'
+    with open(openapi_path, 'r', encoding='utf-8') as f:
+        OPENAPI_SPEC = yaml.safe_load(f)
+    logger.info("OpenAPI spec loaded successfully")
+except Exception as e:
+    logger.warning(f"Failed to load OpenAPI spec: {str(e)}. Proceeding with fallback validation.")
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -101,8 +113,15 @@ def create_error_response(status_code: int, error: str, message: str, details: O
 
 
 def validate_create_note_request(body: Dict) -> Optional[Dict]:
-    """メモ作成リクエストのバリデーション"""
-    required_fields = ['userId', 'title', 'content']
+    """メモ作成リクエストのバリデーション（OpenAPI仕様に基づく）"""
+    # OpenAPI仕様から CreateNoteRequest の必須フィールドを取得
+    try:
+        create_note_schema = OPENAPI_SPEC.get('components', {}).get('schemas', {}).get('CreateNoteRequest', {})
+        required_fields = create_note_schema.get('required', ['title', 'content'])
+    except:
+        required_fields = ['title', 'content']  # フォールバック
+    
+    # 必須フィールドのチェック（userId は query パラメータなので除外）
     for field in required_fields:
         if field not in body:
             return create_error_response(
@@ -112,21 +131,33 @@ def validate_create_note_request(body: Dict) -> Optional[Dict]:
                 {'field': field, 'reason': 'required'}
             )
     
-    if len(body['title']) > 200:
-        return create_error_response(
-            400,
-            'BadRequest',
-            'タイトルは200文字以内にしてください',
-            {'field': 'title', 'reason': 'maxLength'}
-        )
-    
-    if len(body['content']) > 10000:
-        return create_error_response(
-            400,
-            'BadRequest',
-            '本文は10000文字以内にしてください',
-            {'field': 'content', 'reason': 'maxLength'}
-        )
+    # maxLength 制約を OpenAPI仕様から取得・検証
+    try:
+        props = create_note_schema.get('properties', {})
+        if 'title' in body and 'title' in props:
+            max_length = props['title'].get('maxLength')
+            if max_length and len(body['title']) > max_length:
+                return create_error_response(
+                    400,
+                    'BadRequest',
+                    f'タイトルは{max_length}文字以内にしてください',
+                    {'field': 'title', 'reason': 'maxLength'}
+                )
+        if 'content' in body and 'content' in props:
+            max_length = props['content'].get('maxLength')
+            if max_length and len(body['content']) > max_length:
+                return create_error_response(
+                    400,
+                    'BadRequest',
+                    f'本文は{max_length}文字以内にしてください',
+                    {'field': 'content', 'reason': 'maxLength'}
+                )
+    except:
+        # フォールバック: ハードコード値でチェック
+        if 'title' in body and len(body['title']) > 200:
+            return create_error_response(400, 'BadRequest', 'タイトルは200文字以内にしてください', {'field': 'title', 'reason': 'maxLength'})
+        if 'content' in body and len(body['content']) > 10000:
+            return create_error_response(400, 'BadRequest', '本文は10000文字以内にしてください', {'field': 'content', 'reason': 'maxLength'})
     
     return None
 
@@ -176,11 +207,23 @@ def list_notes(event: Dict) -> Dict:
 
 
 def create_note(event: Dict) -> Dict:
-    """メモ作成 (POST /notes)"""
+    """メモ作成 (POST /notes?userId=xxx)"""
     try:
+        # query から userId を取得（OpenAPI仕様に準拠）
+        query_params = event.get('queryStringParameters') or {}
+        user_id = query_params.get('userId')
+        
+        if not user_id:
+            return create_error_response(
+                400,
+                'BadRequest',
+                'userIdパラメータは必須です',
+                {'field': 'userId', 'reason': 'required'}
+            )
+        
         body = json.loads(event.get('body', '{}'))
         
-        # バリデーション
+        # バリデーション（body の title/content のみ）
         validation_error = validate_create_note_request(body)
         if validation_error:
             return validation_error
@@ -191,7 +234,7 @@ def create_note(event: Dict) -> Dict:
         
         note_item = {
             'noteId': note_id,
-            'userId': body['userId'],
+            'userId': user_id,  # query パラメータから取得
             'title': body['title'],
             'content': body['content'],
             'tags': body.get('tags', []),
@@ -204,7 +247,7 @@ def create_note(event: Dict) -> Dict:
         # API呼び出しログを記録
         log_api_call(
             note_id=note_id,
-            user_id=body['userId'],
+            user_id=user_id,  # query パラメータから取得した userId
             action_type='CREATE_NOTE',
             endpoint='/notes',
             method='POST',

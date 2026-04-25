@@ -3,3 +3,13 @@
 *.tfstate
 *.tfstate.*
 .env
+
+# Lambda ビルド成果物（package_lambda.sh で生成）
+lambda/lambda_function.zip
+lambda/yaml/          # PyYAML
+lambda/_yaml/         # PyYAML
+lambda/*.dist-info/   # PyYAML dist-info
+lambda/__pycache__/   # Python キャッシュ
+
+# リポジトリの手動スナップショット（不要）
+archive.zip
