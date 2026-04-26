@@ -5,11 +5,11 @@
 .env
 
 # Lambda ビルド成果物（package_lambda.sh で生成）
-lambda/lambda_function.zip
-lambda/yaml/          # PyYAML
-lambda/_yaml/         # PyYAML
-lambda/*.dist-info/   # PyYAML dist-info
-lambda/__pycache__/   # Python キャッシュ
+application/lambda/lambda_function.zip
+application/lambda/yaml/          # PyYAML
+application/lambda/_yaml/         # PyYAML
+application/lambda/*.dist-info/   # PyYAML dist-info
+application/lambda/__pycache__/   # Python キャッシュ
 
 # リポジトリの手動スナップショット（不要）
 archive.zip
