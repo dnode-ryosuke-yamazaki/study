@@ -126,6 +126,65 @@ curl -X POST "$BASE_URL?userId=user123" \
 curl "$BASE_URL?userId=user123"
 ```
 
+## APIクライアント（言語別）
+
+クライアントの違いが分かるように、言語ごとにフォルダを分離しています。
+
+- Python SDK: `application/client/python-sdk/notes_client/`
+- TypeScript SDK (React向け): `application/client/typescript-sdk/`
+
+### Python SDK
+
+- 実装: `application/client/python-sdk/notes_client/client.py`
+- エントリポイント: `application/client/python-sdk/notes_client/__init__.py`
+
+利用例:
+
+```python
+from notes_client import NotesClient
+
+# api_gateway_url は .../{env}/notes 形式なので末尾 /notes を除去して渡す
+client = NotesClient(base_url="https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/yamazaki-dev")
+
+created = client.create_note(
+  user_id="user123",
+  title="会議メモ",
+  content="本文",
+  tags=["仕事", "重要"],
+)
+
+notes = client.list_notes(user_id="user123")
+one = client.get_note(created["noteId"])
+updated = client.update_note(created["noteId"], title="会議メモ(更新)")
+client.delete_note(created["noteId"])
+```
+
+### TypeScript SDK（React向け）
+
+- 実装: `application/client/typescript-sdk/notesApiClient.ts`
+- エクスポート: `application/client/typescript-sdk/index.ts`
+
+利用例:
+
+```ts
+import { NotesApiClient } from "./application/client/typescript-sdk";
+
+const client = new NotesApiClient({
+  baseUrl: "https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/yamazaki-dev",
+});
+
+const created = await client.createNote("user123", {
+  title: "会議メモ",
+  content: "本文",
+  tags: ["仕事", "重要"],
+});
+
+const notes = await client.listNotes("user123");
+const one = await client.getNote(created.noteId);
+const updated = await client.updateNote(created.noteId, { title: "会議メモ(更新)" });
+await client.deleteNote(created.noteId);
+```
+
 ## 環境の削除
 
 ```bash
