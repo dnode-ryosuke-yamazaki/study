@@ -5,4 +5,4 @@
  * React等のブラウザ環境での利用を想定しています。
  */
 
-export * from "./notesApiClient";
+export * from './notesApiClient';

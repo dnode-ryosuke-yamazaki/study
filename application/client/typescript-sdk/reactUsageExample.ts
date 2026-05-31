@@ -5,7 +5,7 @@
  * 実際のReactプロジェクトでは、このファイルをベースにカスタマイズして使用してください。
  */
 
-import { NotesApiClient } from "./notesApiClient";
+import { NotesApiClient } from './notesApiClient';
 
 // ============================================================================
 // クライアント初期化
@@ -17,7 +17,7 @@ import { NotesApiClient } from "./notesApiClient";
  *     ここでは環境名までを指定する
  */
 const client = new NotesApiClient({
-  baseUrl: "https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/yamazaki-dev",
+  baseUrl: 'https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/yamazaki-dev',
 });
 
 // ============================================================================

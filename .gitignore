@@ -13,3 +13,6 @@ application/lambda/__pycache__/   # Python キャッシュ
 
 # リポジトリの手動スナップショット（不要）
 archive.zip
+
+# Node.js
+node_modules/

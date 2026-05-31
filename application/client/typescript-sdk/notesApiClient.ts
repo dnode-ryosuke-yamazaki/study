@@ -59,7 +59,7 @@ export class ApiError extends Error {
 
   constructor(statusCode: number, message: string, body?: ApiErrorBody) {
     super(message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.statusCode = statusCode;
     this.body = body;
   }
@@ -101,7 +101,7 @@ export class NotesApiClient {
    * @param options - クライアント初期化オプション
    */
   constructor(options: NotesApiClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.defaultHeaders = options.defaultHeaders ?? {};
   }
 
@@ -112,7 +112,7 @@ export class NotesApiClient {
    * @returns ユーザーが所有するメモのリスト
    */
   async listNotes(userId: string): Promise<ListNotesResponse> {
-    return this.request<ListNotesResponse>("GET", "/notes", {
+    return this.request<ListNotesResponse>('GET', '/notes', {
       query: { userId },
     });
   }
@@ -125,7 +125,7 @@ export class NotesApiClient {
    * @returns 作成されたメモオブジェクト
    */
   async createNote(userId: string, payload: CreateNoteRequest): Promise<Note> {
-    return this.request<Note>("POST", "/notes", {
+    return this.request<Note>('POST', '/notes', {
       query: { userId },
       body: payload,
     });
@@ -138,7 +138,7 @@ export class NotesApiClient {
    * @returns メモオブジェクト
    */
   async getNote(noteId: string): Promise<Note> {
-    return this.request<Note>("GET", `/notes/${encodeURIComponent(noteId)}`);
+    return this.request<Note>('GET', `/notes/${encodeURIComponent(noteId)}`);
   }
 
   /**
@@ -151,10 +151,10 @@ export class NotesApiClient {
    */
   async updateNote(noteId: string, payload: UpdateNoteRequest): Promise<Note> {
     if (!payload.title && !payload.content && !payload.tags) {
-      throw new Error("At least one field is required for update");
+      throw new Error('At least one field is required for update');
     }
 
-    return this.request<Note>("PUT", `/notes/${encodeURIComponent(noteId)}`, {
+    return this.request<Note>('PUT', `/notes/${encodeURIComponent(noteId)}`, {
       body: payload,
     });
   }
@@ -165,7 +165,7 @@ export class NotesApiClient {
    * @param noteId - メモID
    */
   async deleteNote(noteId: string): Promise<void> {
-    await this.request<void>("DELETE", `/notes/${encodeURIComponent(noteId)}`, {
+    await this.request<void>('DELETE', `/notes/${encodeURIComponent(noteId)}`, {
       expectedStatus: [204],
     });
   }
@@ -200,14 +200,14 @@ export class NotesApiClient {
     }
 
     const headers: Record<string, string> = {
-      Accept: "application/json",
+      Accept: 'application/json',
       ...this.defaultHeaders,
     };
 
     // リクエストボディを JSON 形式でエンコード
     let body: string | undefined;
     if (options?.body !== undefined) {
-      headers["Content-Type"] = "application/json";
+      headers['Content-Type'] = 'application/json';
       body = JSON.stringify(options.body);
     }
 
@@ -249,11 +249,7 @@ export class NotesApiClient {
     if (text) {
       try {
         const parsed = JSON.parse(text) as ApiErrorBody;
-        throw new ApiError(
-          response.status,
-          `${parsed.error}: ${parsed.message}`,
-          parsed,
-        );
+        throw new ApiError(response.status, `${parsed.error}: ${parsed.message}`, parsed);
       } catch {
         throw new ApiError(response.status, text);
       }
