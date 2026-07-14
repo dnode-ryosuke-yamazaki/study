@@ -14,11 +14,11 @@ resource "aws_lambda_function" "hello_world" {
   
   # Lambda関数が実行するコードをZIP形式で指定
   # ここではinline_codeを使用してコードを直接指定
-  filename      = "${path.module}/application/lambda/lambda_function.zip"
-  
+  filename      = "${path.module}/../application/lambda/lambda_function.zip"
+
   # ZIPファイルのソースコード
   # アップロード時にこのファイルをハッシュ化して変更を検出
-  source_code_hash = filebase64sha256("${path.module}/application/lambda/lambda_function.zip")
+  source_code_hash = filebase64sha256("${path.module}/../application/lambda/lambda_function.zip")
   
   # Lambda関数が使用するIAMロール
   role          = aws_iam_role.lambda_execution_role.arn
