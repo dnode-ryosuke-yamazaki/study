@@ -5,14 +5,18 @@
 .env
 
 # Lambda ビルド成果物（package_lambda.sh で生成）
-application/lambda/lambda_function.zip
-application/lambda/yaml/          # PyYAML
-application/lambda/_yaml/         # PyYAML
-application/lambda/*.dist-info/   # PyYAML dist-info
-application/lambda/__pycache__/   # Python キャッシュ
+# apps/<app-name>/application/lambda/ 配下、各アプリ共通
+apps/*/application/lambda/lambda_function.zip
+apps/*/application/lambda/yaml/          # PyYAML
+apps/*/application/lambda/_yaml/         # PyYAML
+apps/*/application/lambda/*.dist-info/   # PyYAML dist-info
+apps/*/application/lambda/__pycache__/   # Python キャッシュ
 
 # リポジトリの手動スナップショット（不要）
 archive.zip
 
 # Node.js
 node_modules/
+
+# Claude Code 個人用ローカル設定
+.claude/settings.local.json
