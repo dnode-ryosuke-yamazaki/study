@@ -52,6 +52,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 |---|---|---|
 | [architecture-workflow](architecture-workflow/SKILL.md) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新 | /requirement、/design |
 | [parallel-work](parallel-work/SKILL.md) | git worktreeで作業ディレクトリを分けて複数機能を並行開発する手順と注意事項 | /requirement、/fix、/implementation、/pr |
+| [record-sandbox-limitation](record-sandbox-limitation/SKILL.md) | サンドボックス制限が判明した際に`doc/claude-code-sandbox-limitations.md`へ追記する | 単独起動(サンドボックス制限が判明した任意のタイミング) |
 
 ### Agent(作業者)
 
