@@ -45,6 +45,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | Skill | 役割 | 頻度 | 異常時の遷移先 |
 |---|---|---|---|
 | [retrospective](retrospective/SKILL.md) | ワークフローと実際の進め方のずれを振り返り、Skill側を更新する | 月1回〜四半期に1回 | /pr(Skill更新PR) |
+| [scan-sandbox-sessions](scan-sandbox-sessions/SKILL.md) | 直近セッションのログから記録し忘れたサンドボックス制限の候補を棚卸しする | 任意(気づいたとき) | 候補あり: /record-sandbox-limitation の手順で追記 |
 
 ### 知識Skill(工程から参照される)
 
@@ -52,6 +53,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 |---|---|---|
 | [architecture-workflow](architecture-workflow/SKILL.md) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新 | /requirement、/design |
 | [parallel-work](parallel-work/SKILL.md) | git worktreeで作業ディレクトリを分けて複数機能を並行開発する手順と注意事項 | /requirement、/fix、/implementation、/pr |
+| [record-sandbox-limitation](record-sandbox-limitation/SKILL.md) | サンドボックス制限が判明した際に`doc/claude-code-sandbox-limitations.md`へ追記する | 単独起動(サンドボックス制限が判明した任意のタイミング)、/scan-sandbox-sessionsから候補確認後にも呼ばれる |
 
 ### Agent(作業者)
 
