@@ -18,20 +18,31 @@ description: PRを作成するときに使う。仕様承認PR(3点セット)と
 
 - 作業は必ず`feature/<機能名>`ブランチで行い、mainに直接pushしない(マージ後の後続作業も同様に新しいブランチを切る)。複数の機能を並行して進める場合は[parallel-work](../parallel-work/SKILL.md)(worktree)を使い、ブランチの切り替えはしない
 - ブランチの作成・コミットはローカルのgit操作のみで完結するため、ユーザーへの確認なしで進めてよい
-- **push・PR作成・CI確認はサンドボックスから直接実行できないことが多い**(GitHubへの通信がブロックされる環境があるため。詳細は[doc/claude-code-sandbox-limitations.md](../../../doc/claude-code-sandbox-limitations.md))。ネットワーク制限のない環境ではこちらで`git push`・`gh pr create`・`gh pr checks`を直接実行してよいが、失敗する場合は以下の手順でユーザーに引き継ぐ:
-  1. コミットまで済ませ、実行してほしいコマンドを提示する: `git push -u origin feature/<機能名>`
-  2. 続けて、本文テンプレート(下記)で下書きしたタイトル・本文を埋め込んだPR作成コマンドを提示する:
-     ```
+- **push・PR作成・CI確認・マージはサンドボックスから直接実行できないことが多い**(GitHubへの通信がブロックされる環境があるため。詳細は[doc/claude-code-sandbox-limitations.md](../../../doc/claude-code-sandbox-limitations.md))。ネットワーク制限のない環境ではこちらで直接実行してよいが、失敗する場合は以下の手順でユーザーに引き継ぐ:
+  1. コミットまで済ませ、`push`→PR作成→CI確認を1つのコピペ可能なコマンドブロックにまとめて提示する(本文テンプレートは下記):
+     ```bash
+     git push -u origin feature/<機能名>
+
      gh pr create --title "<タイトル>" --body "$(cat <<'EOF'
      <本文>
      EOF
      )"
+
+     gh pr checks
      ```
      `gh`が使えない場合は、pushすると表示されるcompare URL、またはGitHub Web UIからPRを作成してもらう
-  3. CI確認は`gh pr checks <PR番号>`をユーザーに実行してもらう(またはGitHub Web UIのChecksタブで確認してもらう)
-  4. 実行後、作成されたPRのURLとCI結果をユーザーから報告してもらってから次のステップに進む
+  2. 実行結果(PRのURL・CI結果)をユーザーから報告してもらう
+  3. 報告を受けたら、PRのURLを装飾なしの単独行で明示したうえで「マージ前に確認しますか?」と一言だけ確認する(ネットワーク制限がなくこちらで直接実行した場合も、`gh pr view --json url -q .url`等でURLを取得し同様に確認する)
+  4. ユーザーの返答で分岐する:
+     - 「確認不要です」等、確認不要の意思表示があれば、その場でマージ〜ブランチ掃除のコマンドをまとめて提示する:
+       ```bash
+       PR_NUMBER=$(gh pr view --json number -q .number)
+       gh pr merge "$PR_NUMBER" --merge --delete-branch
+       ```
+       (このリポジトリの既存履歴に合わせて`--merge`(マージコミット)を既定にする。`--delete-branch`によりローカル・リモート双方の作業ブランチが自動削除され`main`に切り替わる)
+     - 「確認します」等の返答であれば一旦待ち、後で「マージしました」等の報告を受けてから、ローカルの同期確認(`git status`・`git log`、必要なら`git pull`)と次のステップの案内に進む
 - ユーザーへの報告にはPR番号だけでなく完全なURLを明記する。URLは装飾なしの単独行に置く(`**`や括弧・日本語をURLに連結するとリンク検出が巻き込んで開けなくなる)
-- mainへのマージはユーザーがGitHub UI上でdiffを確認して行う(こちらからマージしない)
+- mainへのマージはユーザーがGitHub UI上でdiffを確認するか、上記の確認フローを経て行う想定であり、こちらから無条件に直接マージは実行しない
 
 # 仕様承認PR(仕様承認ゲート)
 
