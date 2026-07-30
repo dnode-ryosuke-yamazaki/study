@@ -4,7 +4,7 @@
 
 このリポジトリを Claude Code（VSCode拡張経由）で操作する際、ツール実行はサンドボックス化されており、組織のセキュリティ制限により一部の操作が実行できない。以下は実際に確認した制限事項と、試したが効果がなかった対処法をまとめたものである。同じ制限に当たるメンバーが再度同じ調査を繰り返さないよう記録する。
 
-検証日: 2026-07-15〜16 / 環境: VSCode拡張（FleetView）経由の Claude Code
+検証日: 2026-07-15〜16、2026-07-24、2026-07-30 / 環境: VSCode拡張（FleetView）経由の Claude Code
 
 ## 確認済みの制限事項
 
@@ -42,6 +42,24 @@ Bashツールで `.claude/skills/` 配下に `mkdir` や `touch` を実行する
 
 - 一方、WriteツールやEditツールで同じパスにファイルを作成・編集する操作は成功した。
 - ツールによって書き込み制限の掛かり方が異なるため、「Bashで書き込めない = 完全に書き込み不可」ではない点に注意。設定・スキル・フックなど自己書き換えにつながるファイルは、意図的にBash経由の一括操作から保護されている可能性がある。
+
+### 7. `.claude/hooks/` はファイルモードのみの差分もBash経由で復元・変更できない
+
+`.claude/hooks/` 配下のファイルで、内容変更を伴わずファイルモード（パーミッション）のみが変わった差分（`100644` → `100755`）であっても、Bashツールからは復元・変更ができない。
+
+- `git checkout -- .claude/hooks/xxx.sh` → `error: unable to unlink old '.claude/hooks/xxx.sh': Operation not permitted`
+- `chmod 644 .claude/hooks/xxx.sh` → ファイルシステム層のエラーにすら到達せず、コマンド実行の許可プロンプト自体が拒否される(`Permission to use Bash with command ... has been denied`)
+- 上記6と同様に`.claude/hooks/`もBash経由の書き込み保護の対象と考えられるが、こちらは内容を伴わないモード変更ですら防がれる点が異なる
+- 対処: ユーザーの手元ターミナル（サンドボックス外）で`chmod`または`git checkout`を実行してもらう
+
+### 8. Bash経由での `claude mcp add` は書き込み失敗を検知できず、誤った成功メッセージを出す
+
+`claude mcp add` をBashツールで実行して `~/.claude.json`(userスコープ)や `.mcp.json`(projectスコープ)にMCPサーバーを登録しようとすると、`Added HTTP MCP server ... / File modified: ...` という成功メッセージが表示されるが、実際にはファイルへの書き込みが行われていない。
+
+- 原因の切り分けとして `echo "test" >> ~/.claude.json` をBashツールで直接実行したところ `operation not permitted: /Users/ryosyamazaki/.claude.json` と明示的に拒否された。`~/.claude.json` へのBash経由の書き込みはサンドボックスでブロックされている。
+- `-s project` スコープでは `Failed to write to .mcp.json: Error: EPERM: operation not permitted, open '.../.claude/.cc-writes/.mcp.json.tmp...'` というエラーが出力される(こちらはエラーとして表示されるが、`-s user` の方は成功したかのように表示される点に注意)。
+- 一方、WriteツールでリポジトリルートやWriteツールの書き込み許可対象パスに直接 `.mcp.json` を作成する操作は成功した。
+- 対処: MCPサーバーの追加はBashツールで `claude mcp add` を実行するのではなく、Writeツールで対象の設定ファイル(`.mcp.json` など)を直接作成・編集する。`~/.claude.json` へのuserスコープ登録がどうしても必要な場合は、ユーザー自身の手元のターミナル(サンドボックス外)で `claude mcp add ... -s user` を実行してもらう。
 
 ## 試したが効果がなかった対処（ネットワーク制限について）
 
