@@ -16,7 +16,7 @@ description: PRを作成するときに使う。仕様承認PR(3点セット)と
 
 # 共通ルール
 
-- 作業は必ず`feature/<機能名>`ブランチで行い、mainに直接pushしない(マージ後の後続作業も同様に新しいブランチを切る)。複数の機能を並行して進める場合は[parallel-work](../parallel-work/SKILL.md)(worktree)を使い、ブランチの切り替えはしない
+- 作業は必ず`feature/<機能名>`(JIRAチケットがある場合は`feature/<JIRAキー>-<機能名>`)ブランチで行い、mainに直接pushしない(マージ後の後続作業も同様に新しいブランチを切る)。複数の機能を並行して進める場合は[parallel-work](../parallel-work/SKILL.md)(worktree)を使い、ブランチの切り替えはしない
 - ブランチの作成・コミットはローカルのgit操作のみで完結するため、ユーザーへの確認なしで進めてよい
 - **push・PR作成・CI確認・マージはサンドボックスから直接実行できないことが多い**(GitHubへの通信がブロックされる環境があるため。詳細は[doc/claude-code-sandbox-limitations.md](../../../doc/claude-code-sandbox-limitations.md))。ネットワーク制限のない環境ではこちらで直接実行してよいが、失敗する場合は以下の手順でユーザーに引き継ぐ:
   1. コミットまで済ませ、`push`→PR作成→CI確認を1つのコピペ可能なコマンドブロックにまとめて提示する(本文テンプレートは下記):
