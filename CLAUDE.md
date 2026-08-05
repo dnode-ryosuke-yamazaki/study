@@ -8,7 +8,7 @@
 
 - 入口: 新しい機能・アプリ → `/requirement`、既存機能のバグ・小規模改修 → `/fix`、方針の壁打ち → `/consult`
 - **要件定義より前にコードを書かない。** 3点セット(requirements.md/design.md/tasks.md)の仕様承認PRがマージされるまで実装(テストを含む)には着手しない
-- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、`.claude/skills/parallel-work/SKILL.md` の手順で git worktree を使う(`.claude/hooks/enforce-worktree.sh` が強制する)
+- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。基本手順は `~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通、`~/.claude/hooks/enforce-worktree.sh` が強制)、study固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照
 
 ## specs/ フォルダ規約
 
@@ -29,23 +29,16 @@ apps/<app-name>/
 - 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `.claude/skills/requirement/SKILL.md` のStep0を参照
 - `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `.claude/skills/architecture-workflow/SKILL.md` を参照
 - 複数アプリにまたがる技術選定(DB・ホスティング・認証基盤など)は `doc/adr/` にADRとして残す。1アプリ内に閉じた設計判断はarchitecture.md/design.mdに書き、ADRにはしない
+- 特定の`apps/<app-name>/`に属さない、リポジトリ横断のCI/tooling機能(例: JIRA連携などの`.github/workflows/`)の仕様3点セットは、上記構成の例外としてリポジトリ直下`specs/<feature-name>/`に置く(例: `doc/adr/0002-jira-automation-via-github-actions.md`)
 
 ## コマンド(テスト・lint・build)
 
-このリポジトリはアプリごとに技術スタックが異なりうるため、リポジトリ全体で共通のテスト・lint・buildコマンドは存在しない。各アプリのコマンドは `apps/<app-name>/README.md` に定義する(未整備のアプリでは、Skillの手順内にある `npm test` 等の記述はプレースホルダとして読み替える、またはその場でコマンドが無い旨を確認する)。
+アプリごとのコマンドの探し方は `~/.claude/CLAUDE.md`(全プロジェクト共通)の「モノレポ・サブプロジェクトのコマンド確認」を参照(`apps/<app-name>/README.md` にコマンドを定義する)。
 
-現状:
+study固有の現状:
 - `apps/notes-api/application/client/typescript-sdk/`: `npm run lint` / `npm run format` (テストコマンド未整備)
 - `apps/notes-api/application/lambda/`: Python 3.11のLambda関数。テストフレームワーク未導入
 
 ## Claude Codeサンドボックスの制限
 
-VSCode拡張(FleetView)経由でのBashツール実行には制限がある。詳細と回避策は [doc/claude-code-sandbox-limitations.md](doc/claude-code-sandbox-limitations.md) を参照(ネットワークアクセス不可、`.claude/`直下へのBash経由書き込み不可など)。`git push`・PR作成など外部ネットワークを要する操作は、ユーザーに手元のターミナルでの実行を依頼する。
-
-許可待ちによる作業の分断(コマンド1発ごとに都度ストップすること)を減らすため、以下を徹底する。
-
-- **許可不要な作業を先にまとめて片付ける**: 読み取り専用の調査、許可リスト内パス(スクラッチパッド、`.claude/`配下の一部等)への書き込みなど、許可を必要としない作業を先に済ませ、許可が必要な作業と混在させない
-- **許可が必要な操作はタスクの最後にまとめる**: 都度確認するのではなく、必要な操作の全体像を先に組み立ててから連続して提示し、ユーザーが一括で判断できるようにする
-- **同種のコマンドは`&&`/`;`で1回の実行に連結する**: 個別のBash呼び出しを連発して都度許可を求めることは避ける
-- **許可プロンプトが発生しにくいツールを優先する**: 例えばBash経由では書き込み拒否される`.claude/skills/`等のパスも、Write/Editツールでは書き込み可能な場合がある
-- **ネットワークが必要な操作は一式まとめて提案する**: `git push`やPR作成などは個別に試すのではなく、必要なコマンド一式を整理してユーザーに提示する
+VSCode拡張(FleetView)経由でのBashツール実行には制限がある。これはstudy固有ではなくこの環境自体の制約であり、制限一覧・回避策・許可プロンプトを減らす運用方針は `~/.claude/CLAUDE.md` / `~/.claude/sandbox-limitations.md`(全プロジェクト共通)を参照する。新しい制限に気づいたら `record-sandbox-limitation` スキルで同ファイルに追記する(このリポジトリ固有のファイルは持たない)。

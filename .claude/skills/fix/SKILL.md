@@ -9,6 +9,10 @@ description: バグ修正・既存機能の小規模な改修を行うときに�
 > - Step2で仕様変更が必要と判定した場合: 複数のビジネスルール変更・外部仕様への適合など影響範囲の特定が重要な場合のみ **Opus** を検討する
 > - 純粋なバグ修正の場合: 複雑なバグ・複数箇所の修正が必要な場合のみ **Opus** を検討する
 
+# 開始時: JIRAチケットの確認
+
+Step1より前に、`~/.claude/CLAUDE.md`の「開発フロー開始時のJIRAチケット確認」(グローバル方針)に従い、対応するJIRAチケットの有無を確認する(studyでの詳細な背景は`specs/jira-automation/requirements.md`参照)。[/requirement](../requirement/SKILL.md)でも同様にこの節を維持する。
+
 # Step1 入口の確認
 
 今回の変更が**既存spec更新**(本Skillの対象)であることを確認する。以下の**新規specを作るべきサイン**に1つでも該当したら、本Skillではなく[/requirement](../requirement/SKILL.md)のフローへ切り替える:

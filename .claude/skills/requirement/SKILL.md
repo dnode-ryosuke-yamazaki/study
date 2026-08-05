@@ -12,6 +12,10 @@ description: 新しい機能・アプリの要件定義を始めるときに使�
 
 > 別の機能の作業(承認待ちを含む)が進行中のまま本Skillを始める場合は、先に[parallel-work](../parallel-work/SKILL.md)(worktreeによる並行作業)を確認する。
 
+# 開始時: JIRAチケットの確認
+
+Step0より前に、`~/.claude/CLAUDE.md`の「開発フロー開始時のJIRAチケット確認」(グローバル方針)に従い、対応するJIRAチケットの有無を確認する(studyでの詳細な背景は`specs/jira-automation/requirements.md`参照)。[/fix](../fix/SKILL.md)でも同様にこの節を維持する。
+
 # Step0 入口の判断: 新規spec作成 vs 既存spec更新
 
 機能に着手する前に、新しい`apps/<アプリ名>/specs/<機能名>/`フォルダを作るか、既存specを更新するかをまず判断する。ここを誤ると、既存機能の修正が別機能のspecとして切り出され、同じビジネスルールが複数のrequirements.mdに分散してしまう。
