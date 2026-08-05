@@ -65,44 +65,49 @@ PRの作成・更新・マージといったgitイベントに連動して、対
 ```mermaid
 sequenceDiagram
     actor Dev as 開発者
+    participant CC as Claude Code
     participant Jira as JIRA
     participant GH as GitHub (PR)
     participant Actions as GitHub Actions
 
     Dev->>Jira: チケット起票
-    Dev->>GH: ブランチ作成 feature/<KEY>-<機能名>
+    Dev->>CC: 実装指示
+    CC->>GH: ブランチ作成 feature/<KEY>-<機能名>(指示に従いCCが実行)
 
-    Note over Dev,GH: 仕様承認PR(3点セット)
-    Dev->>GH: 仕様承認PR 作成
+    Note over CC,GH: 仕様承認PR(3点セット)
+    CC->>GH: 仕様承認PR 作成(push含む)
     GH->>Actions: pull_request(opened)
     Actions->>Jira: コメント追記(作成・PR URL等)
     Actions->>Jira: ステータス→「レビュー中」
 
     loop レビュー指摘対応
-        Dev->>GH: 仕様修正コミットをpush
+        Dev->>CC: 修正指示
+        CC->>GH: 仕様修正コミットをpush
         GH->>Actions: pull_request(synchronize)
         Actions->>Jira: コメント追記(更新)
     end
 
-    Dev->>GH: 仕様承認PR マージ(ユーザーがGitHub UIで実施)
+    Dev->>GH: 仕様承認PR マージ(GitHub UI上でDevが実施)
     GH->>Actions: pull_request(closed, merged)
     Actions->>Actions: 変更ファイルがspecs/配下のみと判定
     Actions->>Jira: コメント追記(マージ)
     Actions->>Jira: ステータス→「進行中」
 
-    Note over Dev,GH: 実装PR(TDD実装)
-    Dev->>GH: 実装PR 作成
+    Note over CC,GH: 実装PR(TDD実装)
+    Dev->>CC: 実装指示
+    CC->>GH: 実装PR 作成(push含む)
     GH->>Actions: pull_request(opened)
     Actions->>Jira: コメント追記(作成・PR URL等)
     Actions->>Jira: ステータス→「レビュー中」
 
     loop レビュー指摘対応
-        Dev->>GH: 修正コミットをpush
+        Dev->>CC: 修正指示
+        CC->>GH: 修正コミットをpush
         GH->>Actions: pull_request(synchronize)
         Actions->>Jira: コメント追記(更新)
     end
 
-    Dev->>GH: 実装PR マージ(ユーザーがGitHub UIで実施)
+    Dev->>GH: 実装PR マージ(GitHub UI上でDevが実施)
     GH->>Actions: pull_request(closed, merged)
     Actions->>Actions: 変更ファイルにアプリコードを含むと判定
     Actions->>Jira: コメント追記(マージ)
