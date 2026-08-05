@@ -20,6 +20,16 @@ PRの作成・更新・マージといったgitイベントに連動して、対
 
 ## 機能要件
 
+### 開発フロー開始時のJIRAチケット確認(`/requirement`・`/fix`)
+
+ブランチ名にJIRAキーを含める([前提](#前提-チケットキーとブランチの紐付け)[1])ためには、作業開始時点でキーが確定している必要がある。そのため`/requirement`・`/fix`の開始時点に以下を組み込む。
+
+- [1] `/requirement`または`/fix`の開始時に、対象のJIRAチケットが既に存在するかどうかをユーザーに確認すること
+- [2] 存在する場合、そのチケットキーを確認し、以降のブランチ命名に使うこと
+- [3] 存在しない場合、チケットを新規作成するか、チケット管理なしで進めるかをユーザーに選んでもらうこと
+- [4] チケットを新規作成する場合は、既存の`create-jira-ticket`スキルのフローを使うこと
+- [5] チケット管理なしを選んだ場合、ブランチ名にJIRAキーを含めず(`feature/<機能名>`)進めること。この場合、当該ブランチのPRは本機能によるJIRA自動更新の対象外となる(コメント追記・ステータス遷移は行われない)
+
 ### PR作成・更新時の自動更新
 
 - [1] 対象ブランチ名からJIRAチケットキーを抽出できた場合、そのチケットにコメントを追記すること
@@ -50,6 +60,7 @@ PRの作成・更新・マージといったgitイベントに連動して、対
 - GitHub Actions用にJIRA APIトークンをリポジトリ(または組織)シークレットとして発行する。対話セッションで使うAtlassian MCPの認可とは別の資格情報とする
 - 本番JIRAプロジェクトでいきなり有効化せず、投稿内容を絞ったドライラン(特定チケットのみ等)で検証してから本適用する
 - `.claude/skills/pr/SKILL.md`のブランチ命名規約(`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`)を本機能とあわせて更新する
+- `.claude/skills/requirement/SKILL.md`のStep0、`.claude/skills/fix/SKILL.md`のStep1に、上記のJIRAチケット確認フローを追記する(既存の「新規spec作成vs既存spec更新」の判断より前に確認する)
 
 ## スコープ外
 
@@ -70,8 +81,22 @@ sequenceDiagram
     participant GH as GitHub (PR)
     participant Actions as GitHub Actions
 
-    Dev->>Jira: チケット起票
-    Dev->>CC: 実装指示
+    Dev->>CC: 実装指示(/requirementまたは/fix)
+    CC->>Dev: JIRAチケットは既にありますか?
+
+    alt 既存チケットあり
+        Dev->>CC: チケットキーを回答
+    else チケットなし・新規作成する
+        CC->>Dev: 新規作成 or チケット管理なしを確認
+        Dev->>CC: 新規作成を選択
+        CC->>Jira: チケット作成(create-jira-ticketスキル)
+        Jira->>CC: チケットキーを発行
+    else チケットなし・チケット管理なし
+        CC->>Dev: 新規作成 or チケット管理なしを確認
+        Dev->>CC: チケット管理なしを選択
+        Note over CC: 以降 feature/<機能名>(JIRAキーなし)で進行。JIRA自動更新の対象外
+    end
+
     CC->>GH: ブランチ作成 feature/<KEY>-<機能名>(指示に従いCCが実行)
 
     Note over CC,GH: 仕様承認PR(3点セット)

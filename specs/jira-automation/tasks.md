@@ -66,3 +66,5 @@
 ## 8. ドキュメント更新
 
 - [ ] `.claude/skills/pr/SKILL.md`のブランチ命名規約を`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`に更新する
+- [ ] `.claude/skills/requirement/SKILL.md`のStep0より前に、JIRAチケットの存在確認(存在すればキー確認、なければ新規作成`create-jira-ticket`スキル/チケット管理なしの選択)を追記する
+- [ ] `.claude/skills/fix/SKILL.md`のStep1より前に、同内容のJIRAチケット確認フローを追記する

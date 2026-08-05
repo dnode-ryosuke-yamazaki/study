@@ -46,6 +46,8 @@
   - `buildComment.ts` — コメント本文を組み立てる
   - `jiraClient.ts` — JIRA REST API(コメント追加・遷移一覧取得・遷移実行)の呼び出しをラップする
 - `.claude/skills/pr/SKILL.md`(既存・更新) — ブランチ命名規約を`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`に変更する
+- `.claude/skills/requirement/SKILL.md`(既存・更新) — Step0より前に、JIRAチケットの存在確認→キー取得、または新規作成(`create-jira-ticket`スキル)/チケット管理なしの選択、を追記する
+- `.claude/skills/fix/SKILL.md`(既存・更新) — Step1より前に、`requirement/SKILL.md`と同内容のJIRAチケット確認フローを追記する
 
 ## セキュリティ
 
