@@ -7,6 +7,7 @@
 | # | タイトル | ステータス |
 |---|---|---|
 | [0001](0001-multi-app-monorepo-layout.md) | 複数アプリを収容するモノレポ構成への移行 | Accepted |
+| [0002](0002-jira-automation-via-github-actions.md) | GitHub ActionsによるJIRAチケット自動更新 | Accepted |
 
 ## 書き方
 
