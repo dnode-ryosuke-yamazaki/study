@@ -52,8 +52,9 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | Skill | 役割 | 参照元 |
 |---|---|---|
 | [architecture-workflow](architecture-workflow/SKILL.md) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新 | /requirement、/design |
-| [parallel-work](parallel-work/SKILL.md) | git worktreeで作業ディレクトリを分けて複数機能を並行開発する手順と注意事項 | /requirement、/fix、/implementation、/pr |
-| [record-sandbox-limitation](record-sandbox-limitation/SKILL.md) | サンドボックス制限が判明した際に`doc/claude-code-sandbox-limitations.md`へ追記する | 単独起動(サンドボックス制限が判明した任意のタイミング)、/scan-sandbox-sessionsから候補確認後にも呼ばれる |
+| [parallel-work](parallel-work/SKILL.md) | git worktreeでの並行開発のうち、study固有の部分(specs/フォルダでの重複検出)。worktreeの基本手順は`~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通)を参照 | /requirement、/fix、/implementation、/pr |
+
+> `record-sandbox-limitation` はプロジェクト固有ではないため `~/.claude/skills/` 側(全プロジェクト共通)に移動済み。このリポジトリ内には存在しない。/scan-sandbox-sessions から候補確認後もそちらを呼ぶ。
 
 ### Agent(作業者)
 

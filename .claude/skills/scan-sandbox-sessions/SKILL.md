@@ -1,14 +1,14 @@
 ---
 name: scan-sandbox-sessions
-description: 直近のClaude Codeセッションログを遡って、doc/claude-code-sandbox-limitations.mdにまだ記録されていないサンドボックス/権限エラーの候補がないか棚卸しするときに使う。ユーザーが明示的に依頼したときのみ実行する(定期作業・自動発火しない)。
+description: 直近のClaude Codeセッションログを遡って、~/.claude/sandbox-limitations.mdにまだ記録されていないサンドボックス/権限エラーの候補がないか棚卸しするときに使う。ユーザーが明示的に依頼したときのみ実行する(定期作業・自動発火しない)。
 disable-model-invocation: true
 ---
 
-> ワークフロー上の位置: 定期作業(開発ループ外)。候補が見つかった場合の追記は[record-sandbox-limitation](../record-sandbox-limitation/SKILL.md)の手順に従う
+> ワークフロー上の位置: 定期作業(開発ループ外)。候補が見つかった場合の追記は`record-sandbox-limitation`スキル(全プロジェクト共通、`~/.claude/skills/record-sandbox-limitation/SKILL.md`)の手順に従う
 
 # 直近セッションのサンドボックス制限棚卸し
 
-[record-sandbox-limitation](../record-sandbox-limitation/SKILL.md)は「その場で判明した制限をその都度記録する」スキルだが、記録し忘れたまま流れたセッションを後から拾うためのスキル。会話ログ全体を読み込むと高コストなため、失敗を示す断片だけを安く抜き出す。
+`record-sandbox-limitation`スキルは「その場で判明した制限をその都度記録する」スキルだが、記録し忘れたまま流れたセッションを後から拾うためのスキル。会話ログ全体を読み込むと高コストなため、失敗を示す断片だけを安く抜き出す。
 
 ## Step1 対象セッションを決める
 
@@ -42,17 +42,17 @@ jq -r '
 ' "$file" | sort -u
 ```
 
-- 検索パターン(`operation not permitted` 等)は`doc/claude-code-sandbox-limitations.md`に載っている既知の言い回しをベースにしている。新しい種類の拒否メッセージに気づいたら都度パターンに追加してよい
+- 検索パターン(`operation not permitted` 等)は`~/.claude/sandbox-limitations.md`に載っている既知の言い回しをベースにしている。新しい種類の拒否メッセージに気づいたら都度パターンに追加してよい
 - `sort -u`で同一ファイル内の重複(同じ警告の連投など)を落とす
 - 1ファイルの出力が異常に多い場合は`head -20`等で切ってよい(それでも多い場合はユーザーにセッション数を減らすか確認する)
 
 ## Step3 候補を絞り込む
 
-抽出した断片を`doc/claude-code-sandbox-limitations.md`の「確認済みの制限事項」と突き合わせ、**既に記載済みの内容と実質的に同じものは除外する**(例: `/etc/gitconfig`・`/etc/gitattributes`・GitHubへのCONNECT tunnel 403は既知)。
+抽出した断片を`~/.claude/sandbox-limitations.md`の「確認済みの制限事項」と突き合わせ、**既に記載済みの内容と実質的に同じものは除外する**(例: `/etc/gitconfig`・`/etc/gitattributes`・GitHubへのCONNECT tunnel 403は既知)。
 
 残った断片が「まだ記録されていない新しい制限の可能性があるもの」の候補になる。
 
-**注意(誤検知)**: 断片の中には、実際のコマンド失敗ではなく、`doc/claude-code-sandbox-limitations.md`自身や本Skill自身をcat/Readした結果(ドキュメントの文面をそのまま引用しているだけ)が紛れることがある。断片の前後にコマンド名・パス・exit codeなど「実際に失敗した形跡」があるかを見て判断し、単なる引用は候補から除外する。
+**注意(誤検知)**: 断片の中には、実際のコマンド失敗ではなく、`~/.claude/sandbox-limitations.md`自身や本Skill自身をcat/Readした結果(ドキュメントの文面をそのまま引用しているだけ)が紛れることがある。断片の前後にコマンド名・パス・exit codeなど「実際に失敗した形跡」があるかを見て判断し、単なる引用は候補から除外する。
 
 ## Step4 ユーザーに確認する
 
@@ -62,7 +62,7 @@ jq -r '
 
 ## Step5 確認が取れたものを記録する
 
-ユーザーが確認した候補について、[record-sandbox-limitation](../record-sandbox-limitation/SKILL.md)のStep3〜6(記録内容の確認・追記・検証日更新)に従って`doc/claude-code-sandbox-limitations.md`に追記する。このスキル自身はコミット・pushを行わない。
+ユーザーが確認した候補について、`record-sandbox-limitation`スキルのStep3〜6(記録内容の確認・追記)に従って`~/.claude/sandbox-limitations.md`に追記する。このスキル自身はコミット・pushを行わない。
 
 ## 注意
 

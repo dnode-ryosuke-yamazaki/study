@@ -11,6 +11,6 @@ model: haiku
 
 1. **仕様承認ステータス**: 変更対象の `apps/<アプリ名>/specs/<機能名>/requirements.md` に `> ステータス: 仕様確認中(未実装)` が残っていないか確認する。実装(テスト)が進んでいるのに残っている場合は削除漏れとして指摘する。
 2. **仕様とテストの対応**: requirements.md/design.mdの仕様項目に対応するテストの仕様コメント(`// 仕様: ...`等)が、見出し・`[n]`の表記と完全一致しているか確認する。対応するテストが見当たらない項目は指摘する。
-3. **CI結果**: 対象PRがあれば `gh pr checks <PR番号>` でCIが全てpassしているか確認する。ネットワークアクセスが制限されている環境([doc/claude-code-sandbox-limitations.md](../../doc/claude-code-sandbox-limitations.md)参照)では実行できないため、その旨を報告しユーザーに確認を委ねる。
+3. **CI結果**: 対象PRがあれば `gh pr checks <PR番号>` でCIが全てpassしているか確認する。ネットワークアクセスが制限されている環境(`~/.claude/sandbox-limitations.md`参照)では実行できないため、その旨を報告しユーザーに確認を委ねる。
 
 チェックの詳細ルールは `.claude/skills/pr/SKILL.md`、`.claude/skills/implementation/SKILL.md` を参照してください。
