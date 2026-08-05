@@ -11,14 +11,7 @@ description: バグ修正・既存機能の小規模な改修を行うときに�
 
 # 開始時: JIRAチケットの確認
 
-Step1より前に、対応するJIRAチケットの有無を確認する。ブランチ名にJIRAチケットキーを含める運用(`feature/<チケットキー>-<機能名>`)のため、作業開始時点でキーを確定させておく必要がある(背景は`specs/jira-automation/requirements.md`参照)。
-
-- 対象のJIRAチケットが既にあるかユーザーに確認する。ある場合はチケットキー(例: `NMBM-123`)を教えてもらい、以降のブランチ名に使う
-- ない場合、以下のいずれかをユーザーに選んでもらう
-  - **新規作成する**: `create-jira-ticket`スキル(`~/.claude/skills/create-jira-ticket/SKILL.md`)のフローでチケットを作成し、発行されたキーを使う
-  - **チケット管理なしで進める**: ブランチ名にチケットキーを含めず(`feature/<機能名>`)進める。この場合、JIRA自動更新(コメント追記・ステータス遷移)の対象外になる
-
-> この節は[/requirement](../requirement/SKILL.md)の同名節と内容を揃えている。変更時は両方を更新する。
+Step1より前に、`~/.claude/CLAUDE.md`の「開発フロー開始時のJIRAチケット確認」(グローバル方針)に従い、対応するJIRAチケットの有無を確認する(studyでの詳細な背景は`specs/jira-automation/requirements.md`参照)。[/requirement](../requirement/SKILL.md)でも同様にこの節を維持する。
 
 # Step1 入口の確認
 
