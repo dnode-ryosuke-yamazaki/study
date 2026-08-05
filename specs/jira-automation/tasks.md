@@ -66,5 +66,5 @@
 ## 8. ドキュメント更新
 
 - [ ] `.claude/skills/pr/SKILL.md`のブランチ命名規約を`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`に更新する
-- [x] `.claude/skills/requirement/SKILL.md`のStep0より前に、JIRAチケットの存在確認(存在すればキー確認、なければ新規作成`create-jira-ticket`スキル/チケット管理なしの選択)を追記する(仕様承認前に前倒しで対応済み)
-- [x] `.claude/skills/fix/SKILL.md`のStep1より前に、同内容のJIRAチケット確認フローを追記する(仕様承認前に前倒しで対応済み)
+
+作業開始時のJIRAチケット確認フロー(`requirement/SKILL.md`・`fix/SKILL.md`への追記)は、study固有のタスクではなくこのPC全体のグローバル方針に基づく対応のため、本specのタスクからは除外した(design.md参照)。グローバル版(`~/.claude/skills/requirement/SKILL.md`・`~/.claude/skills/fix/SKILL.md`)・study版(`.claude/skills/requirement/SKILL.md`・`.claude/skills/fix/SKILL.md`)とも対応済み。
