@@ -1,0 +1,40 @@
+name: "JIRA Sync"
+description: "PRイベントに連動してJIRAチケットへコメント追記・ステータス遷移を行う"
+
+inputs:
+  jira-base-url:
+    required: false
+  jira-email:
+    required: false
+  jira-api-token:
+    required: false
+  changed-files:
+    required: false
+    default: ""
+  spec-only-path-pattern:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm install
+
+    - name: Run jira-sync
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        JIRA_BASE_URL: ${{ inputs.jira-base-url }}
+        JIRA_EMAIL: ${{ inputs.jira-email }}
+        JIRA_API_TOKEN: ${{ inputs.jira-api-token }}
+        CHANGED_FILES: ${{ inputs.changed-files }}
+        SPEC_ONLY_PATH_PATTERN: ${{ inputs.spec-only-path-pattern }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: npm run start

@@ -22,7 +22,7 @@
 手順:
 1. PRのブランチ名からJIRAチケットキーを抽出する(複数のキーらしき文字列が含まれる場合は、最初に一致した1件のみを対象とする)。抽出できない場合は以降の処理を行わずに終了する
 2. マージされたPRの変更ファイル一覧を取得する
-3. 変更ファイルがすべて仕様関連ディレクトリ(`specs/`配下、または`apps/*/specs/`配下)内であれば「仕様承認PRのマージ」、1件でもそれ以外のファイルを含む場合は「実装PRのマージ」と判定する
+3. 変更ファイルがすべて仕様のみ判定条件(このリポジトリでは仕様関連ディレクトリ`specs/`配下、または`apps/*/specs/`配下。呼び出し元から指定される条件であり、決め打ちにしない)に一致すれば「仕様承認PRのマージ」、1件でも一致しないファイルを含む場合は「実装PRのマージ」と判定する
 4. 判定結果に応じて遷移先ステータス名を決める(仕様承認PRのマージの場合は「進行中」、実装PRのマージの場合は「完了」)
 5. 対象チケットの現在のステータスに対して有効な遷移一覧を取得し、4で決めた遷移先が含まれる場合のみ実行する。含まれない場合はステータス変更を行わずスキップする
 6. PRタイトル・URL・変更内容概要をまとめて、対象チケットにコメントを追記する
@@ -37,15 +37,19 @@
 
 ## 関連するファイル(抜粋)
 
-- `.github/workflows/jira-sync.yml`(新規) — `pull_request`イベント(`opened`/`synchronize`/`closed`)をトリガーに本処理を実行するワークフロー定義。他ジョブへの依存を持たない単独ジョブとして実行する
-- `.github/scripts/jira-sync/`(新規、Node.js/TypeScript) — 本処理のスクリプト本体
-  - `index.ts` — GitHub Actionsから渡されるイベントペイロード・環境変数を読み取り、各関数を組み合わせて実行するエントリポイント
+- `.github/actions/jira-sync/`(Node.js/TypeScript、他リポジトリからも参照されるcomposite action) — 本処理のスクリプト本体。他リポジトリのワークフローからも呼び出せるよう、`.github/scripts/jira-sync/`から移設・composite action化した
+  - `action.yml` — JIRA認証情報・変更ファイル一覧・仕様のみ判定条件をinputsとして受け取る
+  - `index.ts` — inputsに対応する環境変数・GitHub Actionsから渡されるイベントペイロードを読み取り、各関数を組み合わせて実行するエントリポイント
   - `extractIssueKey.ts` — ブランチ名からJIRAチケットキーを抽出する
-  - `classifyMerge.ts` — 変更ファイル一覧から「仕様承認PRのマージ」か「実装PRのマージ」かを判定する
+  - `classifyMerge.ts` — 変更ファイル一覧と、呼び出し元から渡された仕様のみ判定条件から、「仕様承認PRのマージ」か「実装PRのマージ」かを判定する(判定条件は決め打ちにせず引数で受け取る)
   - `resolveTransition.ts` — 現在有効な遷移一覧から、指定した遷移先ステータス名に一致する遷移を解決する
   - `buildComment.ts` — コメント本文を組み立てる
   - `jiraClient.ts` — JIRA REST API(コメント追加・遷移一覧取得・遷移実行)の呼び出しをラップする
+- `.github/workflows/jira-sync-reusable.yml`(新規) — 他リポジトリのワークフローから呼び出せる`workflow_call`定義。仕様のみ判定条件・JIRA認証情報3種を受け取り、変更ファイル一覧の算出後に上記composite actionを呼び出す
+- `.github/workflows/jira-sync.yml`(既存・変更) — このリポジトリ自身の呼び出し元。`pull_request`イベント(`opened`/`synchronize`/`closed`)をトリガーに、上記Reusable workflowを、このリポジトリの仕様のみ判定条件(`specs/`配下・`apps/*/specs/`配下)を指定して呼び出す
 - `.claude/skills/pr/SKILL.md`(既存・更新) — ブランチ命名規約を`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`に変更する
+
+他リポジトリから利用する際の詳細な設計判断(composite action化の経緯、cross-repo参照に必要なアクセス設定等)は、この機能を最初に他リポジトリ(pj-risk-check)から利用する形で導入したタスクのspec(`pj-risk-check`リポジトリの`.claude/docs/jira-automation/spec/design/design.md`)を参照。
 
 作業開始時のJIRAチケット確認(存在確認→キー取得、または新規作成/チケット管理なしの選択)は、study固有ではなくこのPC全体のグローバル方針であるため、本specの対象外([前提](requirements.md#前提-チケットキーとブランチの紐付け)[3]参照)。`~/.claude/CLAUDE.md`・`~/.claude/skills/requirement/SKILL.md`・`~/.claude/skills/fix/SKILL.md`側で対応済み。
 

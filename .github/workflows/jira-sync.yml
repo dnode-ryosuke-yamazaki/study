@@ -10,36 +10,10 @@ permissions:
 
 jobs:
   jira-sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: List changed files (merge only)
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true
-        id: changed-files
-        run: |
-          FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
-          {
-            echo "files<<JIRA_SYNC_EOF"
-            echo "$FILES"
-            echo "JIRA_SYNC_EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        working-directory: .github/scripts/jira-sync
-        run: npm install
-
-      - name: Run jira-sync
-        working-directory: .github/scripts/jira-sync
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
-        run: npm run start
+    uses: dnode-ryosuke-yamazaki/study/.github/workflows/jira-sync-reusable.yml@main
+    with:
+      spec-only-path-pattern: "^(specs/|apps/[^/]+/specs/)"
+    secrets:
+      jira-base-url: ${{ secrets.JIRA_BASE_URL }}
+      jira-email: ${{ secrets.JIRA_EMAIL }}
+      jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
