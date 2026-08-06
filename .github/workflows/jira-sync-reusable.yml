@@ -22,15 +22,17 @@ jobs:
   jira-sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      # 変更ファイル一覧はGitHub APIから取得する。git diffを使わないのは、
+      # squashマージ+ブランチ削除の後はPRのhead commitがどのrefからも到達できず、
+      # checkout(fetch-depth: 0)でも手元に来ないためgit diffが失敗する(exit code 128)。
+      # PRのfilesエンドポイントはマージ後も参照できる。
       - name: List changed files (merge only)
         if: github.event.action == 'closed' && github.event.pull_request.merged == true
         id: changed-files
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename')
           {
             echo "files<<JIRA_SYNC_EOF"
             echo "$FILES"
