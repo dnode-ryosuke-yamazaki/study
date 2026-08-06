@@ -25,6 +25,8 @@ export type RunEnv = {
   JIRA_EMAIL?: string;
   JIRA_API_TOKEN?: string;
   CHANGED_FILES?: string;
+  SPEC_ONLY_PATH_PATTERN?: string;
+  GITHUB_REPOSITORY?: string;
 };
 
 type JiraClientDeps = {
@@ -104,11 +106,12 @@ async function handleMergeEvent(
   issueKey: string,
   config: JiraConfig,
   changedFiles: string[],
+  specOnlyPathPattern: string,
   jiraClient: JiraClientDeps,
   classifyMergeFn: typeof classifyMerge,
   resolveTransitionFn: typeof resolveTransition,
 ): Promise<void> {
-  const classification = classifyMergeFn(changedFiles);
+  const classification = classifyMergeFn(changedFiles, specOnlyPathPattern);
   const targetStatusName = classification === "spec-only" ? IN_PROGRESS_STATUS_NAME : DONE_STATUS_NAME;
 
   await applyTransition(issueKey, targetStatusName, config, jiraClient, resolveTransitionFn);
@@ -129,6 +132,7 @@ export async function run(event: PullRequestEvent, env: RunEnv, deps: RunDeps = 
 
   const issueKey = extractIssueKeyFn(event.pull_request.head.ref);
   console.log(`[INFO] PR #${event.number} event=${event.action} issueKey=${issueKey ?? "(not found)"}`);
+  console.log(`[INFO] repository=${env.GITHUB_REPOSITORY ?? "(unknown)"} specOnlyPathPattern=${env.SPEC_ONLY_PATH_PATTERN ?? "(not set)"}`);
 
   if (!issueKey) {
     return;
@@ -155,7 +159,16 @@ export async function run(event: PullRequestEvent, env: RunEnv, deps: RunDeps = 
       .split("\n")
       .map((path) => path.trim())
       .filter((path) => path.length > 0);
-    await handleMergeEvent(event, issueKey, config, changedFiles, jiraClient, classifyMergeFn, resolveTransitionFn);
+    await handleMergeEvent(
+      event,
+      issueKey,
+      config,
+      changedFiles,
+      env.SPEC_ONLY_PATH_PATTERN ?? "",
+      jiraClient,
+      classifyMergeFn,
+      resolveTransitionFn,
+    );
     return;
   }
 

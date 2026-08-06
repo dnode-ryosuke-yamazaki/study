@@ -67,4 +67,14 @@
 
 - [x] `.claude/skills/pr/SKILL.md`のブランチ命名規約を`feature/<機能名>` → `feature/<JIRAキー>-<機能名>`に更新する
 
+## 9. Reusable workflow化(他リポジトリからの利用対応)
+
+pj-risk-checkリポジトリからこの機能を利用したいという要望を受けて追加。詳細な作業手順はpj-risk-check側のspec(`.claude/docs/jira-automation/tasks/tasks.md`のT1〜T5)を参照し、ここではチェックボックスのみ管理する(書き写さない)。
+
+- [ ] `classifyMerge`の仕様のみ判定条件を引数化する(ハードコードされた定数を廃止)
+- [ ] `index.ts`が仕様のみ判定条件を環境変数経由で受け取り、`classifyMerge`に渡せるようにする
+- [ ] `.github/scripts/jira-sync/`を`.github/actions/jira-sync/`へ移設し、composite action化する
+- [ ] `.github/workflows/jira-sync-reusable.yml`(`workflow_call`)を新設する
+- [ ] 既存`.github/workflows/jira-sync.yml`を、上記Reusable workflowの呼び出し元に切り替える
+
 作業開始時のJIRAチケット確認フロー(`requirement/SKILL.md`・`fix/SKILL.md`への追記)は、study固有のタスクではなくこのPC全体のグローバル方針に基づく対応のため、本specのタスクからは除外した(design.md参照)。グローバル版(`~/.claude/skills/requirement/SKILL.md`・`~/.claude/skills/fix/SKILL.md`)・study版(`.claude/skills/requirement/SKILL.md`・`.claude/skills/fix/SKILL.md`)とも対応済み。

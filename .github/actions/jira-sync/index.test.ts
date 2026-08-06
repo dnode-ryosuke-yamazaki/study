@@ -124,6 +124,29 @@ describe("PRマージイベントでのステータス遷移先の切り替え",
   });
 });
 
+// 仕様: /Users/ryosyamazaki/repo/study/specs/jira-automation/requirements.md#他リポジトリからの利用-2
+describe("仕様のみ判定条件(SPEC_ONLY_PATH_PATTERN)の呼び出し元からの受け渡し", () => {
+  it("環境変数SPEC_ONLY_PATH_PATTERNで渡された条件を、変更ファイル一覧とともにclassifyMergeへ渡す", async () => {
+    const jiraClient = buildJiraClientMock();
+    const classifyMerge = vi.fn().mockReturnValue("spec-only");
+
+    await run(
+      buildEvent({ action: "closed", pull_request: { ...buildEvent().pull_request, merged: true } }),
+      {
+        ...validEnv,
+        CHANGED_FILES: ".claude/docs/jira-automation/spec/requirements/requirements.md",
+        SPEC_ONLY_PATH_PATTERN: "^\\.claude/docs/[^/]+/(spec|tasks)/",
+      },
+      { classifyMerge, jiraClient },
+    );
+
+    expect(classifyMerge).toHaveBeenCalledWith(
+      [".claude/docs/jira-automation/spec/requirements/requirements.md"],
+      "^\\.claude/docs/[^/]+/(spec|tasks)/",
+    );
+  });
+});
+
 // 仕様: /Users/ryosyamazaki/repo/study/specs/jira-automation/design.md#エラーハンドリング
 describe("JIRA API呼び出しの失敗時にも異常終了しないこと", () => {
   it("コメント追記・遷移取得が失敗を返しても、run()はrejectしない", async () => {
