@@ -11,7 +11,7 @@ description: バグ修正・既存機能の小規模な改修を行うときに�
 
 # 開始時: JIRAチケットの確認
 
-Step1より前に、`~/.claude/CLAUDE.md`の「開発フロー開始時のJIRAチケット確認」(グローバル方針)に従い、対応するJIRAチケットの有無を確認する(studyでの詳細な背景は`specs/jira-automation/requirements.md`参照)。[/requirement](../requirement/SKILL.md)でも同様にこの節を維持する。
+Step1より前に、`~/.claude/jira-ticket-check.md`(グローバル方針)を読み、その手順に従って対応するJIRAチケットの有無を確認する(studyでの詳細な背景は`specs/jira-automation/requirements.md`参照)。[/requirement](../requirement/SKILL.md)でも同様にこの節を維持する。
 
 # Step1 入口の確認
 
