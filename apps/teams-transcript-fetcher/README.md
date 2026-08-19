@@ -44,6 +44,20 @@ TRANSCRIPT_FETCHER_WORK_DIR=/tmp/transcript-test python3 fetch_transcripts.py
 
 lint・buildコマンドは未整備です。
 
+## 監視しているTeamsチーム
+
+**どのフローがどのサイトを見ているかの一覧。** 障害時にどのフローを見ればよいかを切り分けるために使う。チームを追加したら必ず1行足す。
+
+| Power Automateのフロー | 監視しているサイト | 由来(台帳の `source`) |
+|---|---|---|
+| トランスクリプト取得-チーム全体版-台帳版 | `<テナント>.sharepoint.com/sites/Teams115` | `channel` |
+| トランスクリプト取得-Notチャネル会議-台帳版 | 個人OneDrive の `Recordings` | `personal` |
+| トランスクリプトURL発行-フロー2 | (要求置き場。サイトに依存しない) | — |
+
+**チャネル会議は1サイトにつきフローが1本必要**(トリガーが1つのサイトしか監視できないため)。追加の手順は `extend-teams-automation` Skill、または [power-automate/README.md](application/power-automate/README.md) の「別のTeamsチームを追加する」を参照。
+
+**バッチとフロー②は追加のたびに変更する必要はない。** 台帳を集める場所はどのチームでも同じ。
+
 ## セットアップ
 
 ### 0. 証明書について(通常は何もしなくてよい)
