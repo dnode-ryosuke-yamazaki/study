@@ -277,6 +277,60 @@ class 一時的失敗の扱い(実行の土台):
         self.assertEqual(呼び出し.call_count, 2)
 
 
+class 待っても直らない失敗の記録(実行の土台):
+    """ローカルの設定不足が記録ファイルに残ることを検証する。
+
+    通常の一時的失敗は記録しない(次回に自然とリトライされるため)。しかし
+    証明書の設定漏れのような「待っても直らない」失敗を記録しないと、
+    利用者には「何も起きない」ことしか分からず原因に到達できない。
+    実際に証明書の設定漏れで気づけなかったことがある(2026-08-19)。
+    """
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-1
+    def test_設定の問題が記録ファイルに残ること(self):
+        self.台帳を置く()
+        with self.取得を差し替える(
+            downloader.一時的失敗(理由="接続できない: 証明書の検証に失敗", 設定の問題=True)
+        ):
+            with self.assertLogs(level="ERROR"):
+                結果 = self.実行する()
+        self.assertEqual(結果.一時的失敗件数, 1)
+        self.assertIn("[設定の問題]", self.設定.記録ファイル.read_text(encoding="utf-8"))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-3
+    def test_設定の問題でも台帳とurlが残ること(self):
+        """URLを使い潰さない。設定を直せばそのまま取得できるようにする。"""
+        台帳のパス = self.台帳を置く()
+        with self.取得を差し替える(
+            downloader.一時的失敗(理由="証明書の検証に失敗", 設定の問題=True)
+        ):
+            with self.assertLogs(level="ERROR"):
+                self.実行する()
+        self.assertTrue(台帳のパス.exists())
+        読んだ状態 = state.読み込む(self.設定.状態ファイル)
+        self.assertEqual(読んだ状態.録画の状態("01ABCDEF").恒久的失敗の回数, 0)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
+    def test_設定の問題が繰り返し追記されないこと(self):
+        self.台帳を置く()
+        with self.取得を差し替える(
+            downloader.一時的失敗(理由="証明書の検証に失敗", 設定の問題=True)
+        ):
+            with self.assertLogs(level="ERROR"):
+                self.実行する()
+                self.実行する()
+        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
+        self.assertEqual(書かれた内容.count("[設定の問題]"), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
+    def test_通常の一時的失敗は記録されないこと(self):
+        """一時的なネットワーク断で記録が埋まらないようにする。"""
+        self.台帳を置く()
+        with self.取得を差し替える(downloader.一時的失敗(理由="HTTP 503", ステータス=503)):
+            self.実行する()
+        self.assertFalse(self.設定.記録ファイル.exists())
+
+
 class 不正な台帳の退避(実行の土台):
     """壊れた台帳が退避され、他の録画の処理が止まらないことを検証する。"""
 

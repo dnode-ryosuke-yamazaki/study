@@ -9,7 +9,8 @@ Teams会議の録画から生成されるトランスクリプト(WEBVTT)を自�
 
 | 項目 | 内容 |
 |---|---|
-| 実行環境 | macOS。Python 3.11以降(`datetime.fromisoformat` が末尾 `Z` を解釈できるバージョン) |
+| 実行環境 | macOS。**Python 3.11以降**(末尾 `Z` の日時を解釈できるバージョン)。**Apple標準の `/usr/bin/python3`(3.9)では動きません** |
+| TLS証明書 | python.org版のPythonは**macOSのシステム証明書ストアを使わない**ため、初回に付属スクリプトの実行が必要(下記「証明書のセットアップ」) |
 | 追加ライブラリ | **なし。** 実行用・開発用ともに標準ライブラリのみ |
 | 必要な権限 | OneDrive同期クライアントにサインイン済みであること。M365への認証はすべて同期クライアントに委ねるため、このバッチは資格情報を一切持たない |
 | 前提となる稼働 | Power Automateのフロー①(録画の検知と台帳の作成)が動作していること |
@@ -45,6 +46,22 @@ lint・buildコマンドは未整備です。
 
 ## セットアップ
 
+### 0. 証明書のセットアップ(python.org版のPythonを使う場合・1回だけ)
+
+python.org からインストールしたPythonは、macOSのシステム証明書ストアを使いません。この状態でダウンロードURLへアクセスすると次のエラーになります。
+
+```
+[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate
+```
+
+付属のスクリプトを1回実行すれば解決します(バージョン番号は使用中のものに合わせてください)。
+
+```
+"/Applications/Python 3.13/Install Certificates.command"
+```
+
+**このスクリプトは Python 自身の証明書設定を行うもので、このバッチが `certifi` を import するわけではありません。** バッチのコードは標準ライブラリのみで動きます。
+
 ### 1. OneDriveの作業フォルダを用意する
 
 既定の場所は `~/Library/CloudStorage/OneDrive-Deloitte(O365D)/00_root/auto/transcript/` です。この配下に次のフォルダができます(バッチが必要に応じて作ります)。
@@ -69,13 +86,18 @@ transcript/
 
 `launchd/com.example.teams-transcript-fetcher.plist` の `__ホームディレクトリ__` を実際のパスに置き換えてから配置します。
 
+**Pythonの実体を絶対パスで埋め込みます。** `/usr/bin/python3` はApple標準の3.9で、このコードは動きません。
+
 ```
 cd /Users/ryosyamazaki/repo/study/apps/teams-transcript-fetcher/application
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs
-sed "s|__ホームディレクトリ__|$HOME|g" launchd/com.example.teams-transcript-fetcher.plist > ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
+sed -e "s|__ホームディレクトリ__|$HOME|g" -e "s|__PYTHON__|$(which python3)|g" launchd/com.example.teams-transcript-fetcher.plist > ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
+grep -A2 ProgramArguments ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 launchctl list | grep teams-transcript-fetcher
 ```
+
+`grep` の出力で、Pythonのパスが 3.11 以降のものになっていることを確認してください。
 
 ### 4. 動作確認
 
@@ -114,6 +136,8 @@ rm ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 ### `[取得失敗]`
 
 調査が必要です。ダウンロードURLへのアクセスが繰り返し失敗しています。
+
+**まず `fetch.log` に `CERTIFICATE_VERIFY_FAILED` が出ていないか確認してください。** 出ていればバッチの問題ではなく、上記「証明書のセットアップ」が済んでいないだけです(この場合は一時的失敗に分類されるので、`[取得失敗]` にはなりません)。
 
 1. `fetch.log` で該当の録画の `恒久的失敗:` の行を探し、理由を確認します
 2. **`許可していないホストのURLを拒否した: host=...`** が出ている場合は、`config.py` の `既定の許可するホスト接尾辞` にそのホストを追加します(実際のホストは未確認のため、初回はここで判明する想定です)

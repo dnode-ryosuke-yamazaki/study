@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -58,6 +59,10 @@ class 一時的失敗:
 
     理由: str
     ステータス: int | None = None
+    #: ローカルの設定不足が原因で、待っても直らない失敗。
+    #: 分類は一時的失敗のまま(URLを使い潰さない)だが、人が対処しないと
+    #: 永久に進まないため記録ファイルに残す必要がある。
+    設定の問題: bool = False
 
 
 結果 = 成功 | 恒久的失敗 | 一時的失敗
@@ -102,6 +107,21 @@ def _許可されたホストか(ホスト: str, 許可するホスト接尾辞:
     return False
 
 
+def _証明書の検証に失敗したか(例外: BaseException) -> bool:
+    """TLS証明書の検証に失敗したかを判定する。
+
+    macOSでpython.org版のPythonを使うと、システムの証明書ストアを見ないため
+    この失敗が起きる。**待っても直らない**ので、通信エラーと同じ「黙って
+    リトライ」で済ませると、利用者は「何も起きない」ことしか分からない。
+    """
+    if isinstance(例外, ssl.SSLCertVerificationError):
+        return True
+    理由 = getattr(例外, "reason", None)
+    if isinstance(理由, ssl.SSLCertVerificationError):
+        return True
+    return "CERTIFICATE_VERIFY_FAILED" in str(例外)
+
+
 def 取得する(
     url: str, *, タイムアウト秒: int, 許可するホスト接尾辞: tuple[str, ...]
 ) -> 結果:
@@ -127,7 +147,10 @@ def 取得する(
             return 恒久的失敗(理由=f"HTTP {例外.code}(期限切れと判断)", ステータス=例外.code)
         return 一時的失敗(理由=f"HTTP {例外.code}", ステータス=例外.code)
     except urllib.error.URLError as 例外:
-        return 一時的失敗(理由=f"接続できない: {例外.reason}")
+        return 一時的失敗(
+            理由=f"接続できない: {例外.reason}",
+            設定の問題=_証明書の検証に失敗したか(例外),
+        )
     except TimeoutError:
         return 一時的失敗(理由=f"タイムアウト({タイムアウト秒}秒)")
     except OSError as 例外:

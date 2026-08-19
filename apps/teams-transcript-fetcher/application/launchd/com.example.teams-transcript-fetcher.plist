@@ -11,9 +11,14 @@
   <key>Label</key>
   <string>com.example.teams-transcript-fetcher</string>
 
+  <!--
+    Pythonの実体を絶対パスで書く。`/usr/bin/python3` はApple標準の3.9で、
+    このコードが使う3.10以降の書き方を解釈できない。`__PYTHON__` は登録時に
+    `which python3` の結果へ置き換える(README参照)。
+  -->
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
+    <string>__PYTHON__</string>
     <string>__ホームディレクトリ__/repo/study/apps/teams-transcript-fetcher/application/fetch_transcripts.py</string>
   </array>
 
