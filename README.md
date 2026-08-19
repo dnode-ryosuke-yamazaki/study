@@ -22,6 +22,7 @@
 | アプリ | 内容 | 詳細 |
 |---|---|---|
 | notes-api | メモ管理API (AWS Lambda + API Gateway + DynamoDB) | [apps/notes-api/README.md](apps/notes-api/README.md) |
+| teams-transcript-fetcher | Teams会議のトランスクリプト自動収集バッチ (Python + launchd + Power Automate連携) | [apps/teams-transcript-fetcher/specs/architecture.md](apps/teams-transcript-fetcher/specs/architecture.md) |
 
 ## 新しいアプリを追加するときは
 
