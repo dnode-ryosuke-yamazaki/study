@@ -184,5 +184,42 @@ class 応答の分類(unittest.TestCase):
         self.assertNotIn("tempauth", 結果.理由)
 
 
+class 待っても直らない失敗の区別(unittest.TestCase):
+    """TLS証明書の検証エラーを、通常の通信エラーと区別できることを検証する。
+
+    分類は一時的失敗のまま(URLを使い潰さない)。ただし待っても直らないため、
+    記録ファイルに残して人が対処できるようにする必要がある。
+    """
+
+    def 取得する(self, 例外):
+        with mock.patch("urllib.request.urlopen", side_effect=例外):
+            return downloader.取得する(
+                妥当なurl, タイムアウト秒=30, 許可するホスト接尾辞=許可する接尾辞
+            )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4
+    def test_証明書の検証エラーが一時的失敗のまま設定の問題として印が付くこと(self):
+        import ssl
+
+        例外 = urllib.error.URLError(
+            ssl.SSLCertVerificationError("CERTIFICATE_VERIFY_FAILED")
+        )
+        結果 = self.取得する(例外)
+        self.assertIsInstance(結果, downloader.一時的失敗)
+        self.assertTrue(結果.設定の問題)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4
+    def test_通常の接続エラーには設定の問題の印が付かないこと(self):
+        """毎回記録すると、一時的なネットワーク断で記録が埋まる。"""
+        結果 = self.取得する(urllib.error.URLError("接続できない"))
+        self.assertIsInstance(結果, downloader.一時的失敗)
+        self.assertFalse(結果.設定の問題)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4
+    def test_タイムアウトには設定の問題の印が付かないこと(self):
+        結果 = self.取得する(TimeoutError())
+        self.assertFalse(結果.設定の問題)
+
+
 if __name__ == "__main__":
     unittest.main()
