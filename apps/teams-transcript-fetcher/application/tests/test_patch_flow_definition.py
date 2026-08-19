@@ -4,6 +4,7 @@
 最小の定義で行う。
 """
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -175,6 +176,27 @@ class 台帳の内容と保存先の変更(unittest.TestCase):
         self.assertIn("utcNow", 中身["issuedAt"])
         self.assertIn(patch.アクション_url一覧, 中身["urls"])
         self.assertEqual(中身["source"], "channel")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_台帳のsiteurlが録画のあるサイトになること(self):
+        """**台帳の保存先ではない。** フロー②がこの値で録画のあるサイトのAPIを
+        呼ぶため、保存先を入れるとチャネル会議のURL再発行が失敗する。
+        フェーズ1では露見しないので、テストで固定しておく必要がある。
+        """
+        一覧取得のサイト = self.入れ物[patch.アクション_一覧取得]["inputs"]["parameters"][
+            "dataset"
+        ]
+        self.assertEqual(self.入れ物[patch.アクション_台帳]["inputs"]["siteUrl"], 一覧取得のサイト)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_録画のサイトと台帳の保存先が別でも取り違えないこと(self):
+        """チャネル会議は録画がチームサイト、台帳の保存先が個人OneDriveになる。
+        この2つが違う場合に取り違えていた。
+        """
+        録画のサイト = self.入れ物[patch.アクション_一覧取得]["inputs"]["parameters"]["dataset"]
+        保存先 = self.入れ物[patch.アクション_ファイルの作成]["inputs"]["parameters"]["dataset"]
+        self.assertNotEqual(録画のサイト, 保存先, "テストの前提が崩れている")
+        self.assertNotEqual(self.入れ物[patch.アクション_台帳]["inputs"]["siteUrl"], 保存先)
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#台帳の作成power-automate側-4
     def test_保存先が指定した個人onedriveの台帳置き場になること(self):
@@ -465,6 +487,78 @@ class フロー2の生成(unittest.TestCase):
 
     def test_フロー名が指定したものになること(self):
         self.assertEqual(self.フロー2["properties"]["displayName"], "トランスクリプトURL発行")
+
+
+class 別のチームへの拡張(unittest.TestCase):
+    """改造済みのフロー①を別のTeamsチーム向けに作り替えられることを検証する。
+
+    サイト固有の値は3箇所に散っており、手で直すと1箇所忘れて
+    「台帳はできるがURL再発行だけ失敗する」という分かりにくい壊れ方をする。
+    """
+
+    def setUp(self):
+        改造済み, _ = patch.書き換える(
+            元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=False),
+            由来="channel",
+            台帳の保存先サイト=台帳の保存先サイト,
+            台帳フォルダ=台帳フォルダ,
+        )
+        self.新しいサイト = "https://example.sharepoint.com/sites/AnotherTeam"
+        self.差し替え後, self.変更点 = patch.監視先を差し替える(
+            改造済み,
+            サイトurl=self.新しいサイト,
+            ライブラリ="新しいライブラリのID",
+            フロー名="トランスクリプト取得-別チーム",
+        )
+        self.入れ物 = patch._アクションの入れ物を探す(self.差し替え後)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#別のteamsチームを追加する
+    def test_トリガーの監視先が変わること(self):
+        トリガー = next(
+            iter(self.差し替え後["properties"]["definition"]["triggers"].values())
+        )
+        self.assertEqual(トリガー["inputs"]["parameters"]["dataset"], self.新しいサイト)
+        self.assertEqual(トリガー["inputs"]["parameters"]["table"], "新しいライブラリのID")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#別のteamsチームを追加する
+    def test_一覧取得の問い合わせ先も変わること(self):
+        """ここを忘れると、別チームの録画を元のサイトに問い合わせて失敗する。"""
+        self.assertEqual(
+            self.入れ物[patch.アクション_一覧取得]["inputs"]["parameters"]["dataset"],
+            self.新しいサイト,
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#別のteamsチームを追加する
+    def test_台帳のsiteurlも変わること(self):
+        """ここを忘れると、台帳はできるがURL再発行だけ失敗する
+        (フェーズ1では露見しない)。"""
+        self.assertEqual(
+            self.入れ物[patch.アクション_台帳]["inputs"]["siteUrl"], self.新しいサイト
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#別のteamsチームを追加する
+    def test_台帳の保存先は変わらないこと(self):
+        """すべてのチームの台帳を同じ場所に集める。バッチは1つで足りる。"""
+        self.assertEqual(
+            self.入れ物[patch.アクション_ファイルの作成]["inputs"]["parameters"]["dataset"],
+            台帳の保存先サイト,
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#別のteamsチームを追加する
+    def test_サイト固有の値が残らないこと(self):
+        """差し替え漏れの検出。元のサイトを指す値が1つでも残っていたら失敗。"""
+        本文 = json.dumps(self.差し替え後, ensure_ascii=False)
+        self.assertNotIn("example.sharepoint.com/sites/Team\"", 本文)
+
+    def test_改造前の定義を渡したら中断すること(self):
+        """気づかずインポートして動かない原因を探す時間を防ぐ。"""
+        with self.assertRaises(SystemExit):
+            patch.監視先を差し替える(
+                元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=False),
+                サイトurl=self.新しいサイト,
+                ライブラリ="x",
+                フロー名="y",
+            )
 
 
 if __name__ == "__main__":
