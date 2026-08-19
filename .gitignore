@@ -18,6 +18,10 @@ archive.zip
 # Node.js
 node_modules/
 
+# Python キャッシュ（リポジトリ全体。lambda 配下は上のビルド成果物側でも指定済み）
+__pycache__/
+*.py[cod]
+
 # Claude Code 個人用ローカル設定
 .claude/settings.local.json
 .mcp.json
