@@ -1,10 +1,12 @@
 """台帳の読み取りとバリデーション(tasks.md T7)のテスト。"""
 
+import errno
 import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 import ledger
 
@@ -154,6 +156,81 @@ class 不正な台帳の扱い(unittest.TestCase):
         結果 = ledger.台帳を読み込む(self.台帳フォルダ)
         self.assertEqual([台帳.録画の識別子 for 台帳 in 結果.有効], ["01ABCDEF"])
         self.assertEqual(len(結果.不正), 1)
+
+
+class 読めなかった台帳の扱い(unittest.TestCase):
+    """内容を読み取れなかった台帳が「不正」と区別されることを検証する。
+
+    OneDriveの同期フォルダは、Power Automateがクラウド側に作ったファイルを
+    ローカルで実体化していない状態では読み取りに失敗する。実機で
+    `Resource deadlock avoided` が発生し、**中身は完全に正常な台帳が「不正」として
+    退避された**(2026-08-19)。次回読めば取得できるトランスクリプトを捨てるため、
+    分類を分けなければならない。
+    """
+
+    def setUp(self):
+        self.一時ディレクトリ = tempfile.TemporaryDirectory()
+        self.台帳フォルダ = Path(self.一時ディレクトリ.name)
+        self.addCleanup(self.一時ディレクトリ.cleanup)
+
+    def 台帳を置く(self, 名前: str, 中身) -> Path:
+        パス = self.台帳フォルダ / 名前
+        パス.write_text(
+            中身 if isinstance(中身, str) else json.dumps(中身, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return パス
+
+    def 実体化に失敗させる(self, 対象の名前: str) -> None:
+        """指定した名前のファイルだけ読み取りが失敗する状況を作る。
+
+        実機で起きた `[Errno 11] Resource deadlock avoided` を再現する。
+        """
+        本来の読み取り = Path.read_text
+
+        def 読み取り(自身, *引数, **名前付き引数):
+            if 自身.name == 対象の名前:
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return 本来の読み取り(自身, *引数, **名前付き引数)
+
+        パッチ = mock.patch.object(Path, "read_text", 読み取り)
+        パッチ.start()
+        self.addCleanup(パッチ.stop)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-10
+    def test_読み取りに失敗した台帳が不正ではなく読めなかったとして扱われること(self):
+        self.台帳を置く("01ABCDEF.json", 台帳の中身())
+        self.実体化に失敗させる("01ABCDEF.json")
+        結果 = ledger.台帳を読み込む(self.台帳フォルダ)
+        self.assertEqual(結果.有効, [])
+        self.assertEqual(結果.不正, [])
+        self.assertEqual(len(結果.読めなかった), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ログ
+    def test_読めなかった理由が分かること(self):
+        """ログと記録に何が起きたのかを書くため、理由を持ち出す必要がある。"""
+        self.台帳を置く("01ABCDEF.json", 台帳の中身())
+        self.実体化に失敗させる("01ABCDEF.json")
+        (読めなかった,) = ledger.台帳を読み込む(self.台帳フォルダ).読めなかった
+        self.assertEqual(読めなかった.パス.name, "01ABCDEF.json")
+        self.assertIn("Resource deadlock avoided", 読めなかった.理由)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-9
+    def test_1件が読めなくても他の台帳は読めること(self):
+        self.台帳を置く("01UNREADABLE.json", 台帳の中身(recordingId="01UNREADABLE"))
+        self.台帳を置く("01ABCDEF.json", 台帳の中身())
+        self.実体化に失敗させる("01UNREADABLE.json")
+        結果 = ledger.台帳を読み込む(self.台帳フォルダ)
+        self.assertEqual([台帳.録画の識別子 for 台帳 in 結果.有効], ["01ABCDEF"])
+        self.assertEqual(len(結果.読めなかった), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-10
+    def test_解析できない台帳は読めなかった扱いにならないこと(self):
+        """中身を読めた上で不正と判断できたものは、今までどおり不正として退避する。"""
+        self.台帳を置く("01BROKEN.json", "{壊れている")
+        結果 = ledger.台帳を読み込む(self.台帳フォルダ)
+        self.assertEqual(len(結果.不正), 1)
+        self.assertEqual(結果.読めなかった, [])
 
 
 class 台帳置き場の走査(unittest.TestCase):

@@ -1,5 +1,6 @@
 """1回の実行の組み立て(T13〜T15, T17, T19, T20)のテスト。"""
 
+import errno
 import json
 import tempfile
 import unittest
@@ -556,6 +557,101 @@ class 不正な台帳の退避(実行の土台):
         self.assertEqual(結果.退避件数, 1)
         self.assertEqual(結果.成功件数, 1)
         self.assertTrue((self.設定.退避フォルダ / "01BROKEN.json").exists())
+
+
+class 読めなかった台帳の持ち越し(実行の土台):
+    """読み取れなかった台帳が退避されず、次回に処理されることを検証する。
+
+    実機で、中身が完全に正常な台帳がOneDriveの実体化待ちで読み取れず、
+    「台帳が不正」として `invalid/` へ退避された(2026-08-19)。退避されると
+    人手による終端になり、取得できたはずのトランスクリプトを黙って捨てる。
+    """
+
+    def 実体化に失敗させる(self, 対象の名前: str):
+        """指定した名前のファイルだけ読み取りが失敗する状況を作る。"""
+        本来の読み取り = Path.read_text
+
+        def 読み取り(自身, *引数, **名前付き引数):
+            if 自身.name == 対象の名前:
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return 本来の読み取り(自身, *引数, **名前付き引数)
+
+        return mock.patch.object(Path, "read_text", 読み取り)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-10
+    def test_読めなかった台帳が退避されないこと(self):
+        台帳のパス = self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                結果 = self.実行する()
+        self.assertEqual(結果.退避件数, 0)
+        self.assertEqual(結果.読めなかった件数, 1)
+        self.assertTrue(台帳のパス.exists())
+        self.assertFalse((self.設定.退避フォルダ / "01ABCDEF.json").exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-10
+    def test_読めなかった台帳が次回の実行で取得されること(self):
+        """持ち越しの目的は、次サイクルで自動的に取得されること。"""
+        self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+            結果 = self.実行する()
+        self.assertEqual(結果.成功件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-9
+    def test_1件が読めなくても他の録画は処理されること(self):
+        self.台帳を置く("01UNREADABLE")
+        self.台帳を置く("01ABCDEF")
+        with self.実体化に失敗させる("01UNREADABLE.json"):
+            with self.assertLogs(level="WARNING"):
+                with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+                    結果 = self.実行する()
+        self.assertEqual(結果.成功件数, 1)
+        self.assertEqual(結果.読めなかった件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-11
+    def test_読み取り失敗が続いた場合に記録されること(self):
+        """権限異常などで永久に読めない台帳に気づく手段が他にない。"""
+        self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                for 回 in range(self.設定.読み取り失敗を記録するしきい値):
+                    with self.subTest(回=回):
+                        self.実行する()
+        self.assertIn("[読み取り失敗]", self.設定.記録ファイル.read_text(encoding="utf-8"))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-11
+    def test_しきい値に達するまでは記録されないこと(self):
+        """実体化待ちは正常運用で起こりうるため、1回目で記録すると記録が汚れる。"""
+        self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        self.assertFalse(self.設定.記録ファイル.exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
+    def test_読み取り失敗が繰り返し追記されないこと(self):
+        self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                for _ in range(self.設定.読み取り失敗を記録するしきい値 + 3):
+                    self.実行する()
+        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
+        self.assertEqual(書かれた内容.count("[読み取り失敗]"), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-11
+    def test_一度読めれば連続回数が0に戻ること(self):
+        """実体化待ちで1回失敗しただけの台帳が、いつか記録に出ることを防ぐ。"""
+        self.台帳を置く()
+        with self.実体化に失敗させる("01ABCDEF.json"):
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        with self.取得を差し替える(downloader.一時的失敗(理由="HTTP 503", ステータス=503)):
+            self.実行する()
+        読んだ状態 = state.読み込む(self.設定.状態ファイル)
+        self.assertEqual(読んだ状態.録画の状態("01ABCDEF").読み取り失敗の回数, 0)
 
 
 class 全体を中断する条件(実行の土台):

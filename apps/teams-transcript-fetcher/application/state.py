@@ -79,6 +79,8 @@ class 録画の状態:
     恒久的失敗の回数: int = 0
     #: 発行要求を出しても保存が進まなかった実行の連続回数(同 [7])
     進捗なし発行要求の回数: int = 0
+    #: 台帳の内容を読み取れなかった実行の連続回数。**読めた時点で0に戻す**(同 [11])
+    読み取り失敗の回数: int = 0
     #: 恒久的失敗と判定した発行時刻。**集合**で持つ(単一値だと上書きで穴が開く)
     死んだ発行時刻: set[str] = field(default_factory=set)
     #: 観測した既知件数の最大値。件数を単調非減少に保つための下限
@@ -155,6 +157,7 @@ def 読み込む(状態ファイル: Path) -> 状態:
         読んだ状態.録画[録画の識別子] = 録画の状態(
             恒久的失敗の回数=int(録画の中身.get("permanent_failures") or 0),
             進捗なし発行要求の回数=int(録画の中身.get("stalled_requests") or 0),
+            読み取り失敗の回数=int(録画の中身.get("read_failures") or 0),
             死んだ発行時刻=set(録画の中身.get("dead_issued_at") or []),
             既知件数の最大値=int(録画の中身.get("max_known_count") or 0),
             初回観測=_日時を読む(録画の中身.get("first_seen_at")),
@@ -176,6 +179,7 @@ def 保存する(対象: 状態, 状態ファイル: Path) -> None:
             録画の識別子: {
                 "permanent_failures": 状況.恒久的失敗の回数,
                 "stalled_requests": 状況.進捗なし発行要求の回数,
+                "read_failures": 状況.読み取り失敗の回数,
                 "dead_issued_at": sorted(状況.死んだ発行時刻),
                 "max_known_count": 状況.既知件数の最大値,
                 "first_seen_at": 状況.初回観測.isoformat() if 状況.初回観測 else None,
