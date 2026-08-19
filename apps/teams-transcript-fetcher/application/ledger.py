@@ -61,9 +61,24 @@ class 不正な台帳:
 
 
 @dataclass(frozen=True)
+class 読めなかった台帳:
+    """内容を読み取れなかった台帳。
+
+    **不正な台帳とは扱いが違う。** 中身を見られていないので不正と断定できず、
+    退避すると次回読めば取得できるトランスクリプトを捨てることになる。
+    同期フォルダの実体化待ちで起こりうる(実機で `Resource deadlock avoided`)。
+    仕様: requirements.md#エラー時の挙動 [10]
+    """
+
+    パス: Path
+    理由: str
+
+
+@dataclass(frozen=True)
 class 読み込み結果:
     有効: list[台帳] = field(default_factory=list)
     不正: list[不正な台帳] = field(default_factory=list)
+    読めなかった: list[読めなかった台帳] = field(default_factory=list)
 
 
 def 日時を読む(値: object) -> datetime | None:
@@ -92,13 +107,22 @@ def _url一覧を読む(値: object) -> list[str]:
     return [要素 for 要素 in 値 if isinstance(要素, str) and 要素]
 
 
-def _台帳を1件読む(パス: Path) -> 台帳 | 不正な台帳:
+def _台帳を1件読む(パス: Path) -> 台帳 | 不正な台帳 | 読めなかった台帳:
+    """台帳1件を読む。
+
+    **失敗の分類は「中身を見て判断できたか」で分ける。** 解析できない・項目が
+    欠けているは中身を見た結果なので不正、読み取り自体ができなかった場合は
+    判断材料がないので「読めなかった」。仕様: design.md#バリデーション
+    """
     try:
         中身 = json.loads(パス.read_text(encoding="utf-8"))
+        # 更新時刻の取得も同じtryに入れる。ここが外にあると、読めたのに
+        # 属性が取れない場合に例外が実行全体へ抜け、他の録画の処理まで止まる。
+        更新時刻 = datetime.fromtimestamp(パス.stat().st_mtime, tz=timezone.utc)
     except json.JSONDecodeError as 例外:
         return 不正な台帳(パス=パス, 理由=f"JSONとして解析できない: {例外.msg}")
     except OSError as 例外:
-        return 不正な台帳(パス=パス, 理由=f"読み取れない: {例外}")
+        return 読めなかった台帳(パス=パス, 理由=f"読み取れない: {例外}")
 
     if not isinstance(中身, dict):
         return 不正な台帳(パス=パス, 理由="JSONのオブジェクトではない")
@@ -115,7 +139,7 @@ def _台帳を1件読む(パス: Path) -> 台帳 | 不正な台帳:
         サイトurl=中身["siteUrl"],
         ドライブ識別子=中身["driveId"],
         録画の識別子=中身["recordingId"],
-        更新時刻=datetime.fromtimestamp(パス.stat().st_mtime, tz=timezone.utc),
+        更新時刻=更新時刻,
         録画の作成日時=日時を読む(中身.get("recordingCreatedAt")),
         由来=中身.get("source"),
         発行時刻=日時を読む(中身.get("issuedAt")),
@@ -276,20 +300,30 @@ def 台帳を読み込む(台帳フォルダ: Path) -> 読み込み結果:
     1件が不正でも他の台帳は読む(requirements.md#エラー時の挙動 [9])。
     台帳置き場そのものを列挙できない場合だけ例外を投げ、呼び出し側で
     全体を中断させる。
+
+    **結果は3つに分かれる。** 有効・不正・読めなかった。読めなかったものは
+    退避せず次回に持ち越す対象で、呼び出し側で扱いを分ける必要がある
+    (requirements.md#エラー時の挙動 [10])。
     """
     try:
         候補 = sorted(台帳フォルダ.iterdir())
     except OSError as 例外:
         raise 台帳置き場にアクセスできない(f"{台帳フォルダ}: {例外}") from 例外
 
-    結果 = 読み込み結果(有効=[], 不正=[])
+    結果 = 読み込み結果(有効=[], 不正=[], 読めなかった=[])
     for パス in 候補:
         # 台帳の拡張子でないものは、OneDriveの一時ファイル等なので黙って無視する。
-        if not パス.is_file() or パス.suffix != 台帳の拡張子:
+        if パス.suffix != 台帳の拡張子:
+            continue
+        # 除外にはディレクトリ判定だけを使う。`is_file()` は属性の取得に失敗しても
+        # 偽を返すため、除外条件に使うと**読めない台帳が黙って無視される**。
+        if パス.is_dir():
             continue
         読んだもの = _台帳を1件読む(パス)
         if isinstance(読んだもの, 台帳):
             結果.有効.append(読んだもの)
+        elif isinstance(読んだもの, 読めなかった台帳):
+            結果.読めなかった.append(読んだもの)
         else:
             結果.不正.append(読んだもの)
     return 結果
