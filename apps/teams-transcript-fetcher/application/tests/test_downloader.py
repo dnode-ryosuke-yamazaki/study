@@ -1,5 +1,6 @@
 """URLの検証(T10)と応答の分類(T11)のテスト。"""
 
+import builtins
 import unittest
 import urllib.error
 from unittest import mock
@@ -182,6 +183,58 @@ class 応答の分類(unittest.TestCase):
         with mock.patch("urllib.request.urlopen", side_effect=例外):
             結果 = self.取得する()
         self.assertNotIn("tempauth", 結果.理由)
+
+
+class 証明書バンドルの自動解決(unittest.TestCase):
+    """信頼ストアが空でも、バンドルを自分で探して読み込むことを検証する。
+
+    macOSでpython.org版のPythonを使うと既定の信頼ストアが空になる。
+    `SSL_CERT_FILE` を手で設定させる方式だと「ターミナルでは動くのにlaunchdでは
+    動かない」という分かりにくい状態になるため、バッチ自身で探す。
+    """
+
+    def setUp(self):
+        # モジュールに覚えさせた文脈を毎回捨てる(初回のみ組み立てる作りのため)。
+        downloader._ssl文脈 = None
+        self.addCleanup(setattr, downloader, "_ssl文脈", None)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#外部ライブラリの方針
+    def test_この環境で証明書を読み込めること(self):
+        self.assertGreater(
+            downloader.ssl文脈を用意する().cert_store_stats()["x509_ca"], 0
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#パフォーマンス
+    def test_2回目は組み立て直さないこと(self):
+        """実行ごとに証明書を読み直す必要はない。"""
+        self.assertIs(downloader.ssl文脈を用意する(), downloader.ssl文脈を用意する())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#外部ライブラリの方針
+    def test_certifiが無くても候補を探すこと(self):
+        """certifi に依存しない。無ければOS側のバンドルを探す。"""
+        本来のimport = builtins.__import__
+
+        def certifiだけ失敗させる(名前, *引数, **キーワード引数):
+            if 名前 == "certifi":
+                raise ImportError("テストのため無いものとして扱う")
+            return 本来のimport(名前, *引数, **キーワード引数)
+
+        with mock.patch.object(builtins, "__import__", certifiだけ失敗させる):
+            見つかったもの = downloader._証明書バンドルを探す()
+        # この環境で見つかるかはOS依存なので、例外にならないことを固定する。
+        self.assertTrue(見つかったもの is None or isinstance(見つかったもの, str))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4-2
+    def test_バンドルが見つからない場合にエラーログを出すこと(self):
+        """黙って失敗させない。何をすればよいかをログに残す。"""
+        with mock.patch.object(downloader, "_証明書バンドルを探す", return_value=None):
+            with mock.patch.object(
+                downloader.ssl, "create_default_context"
+            ) as 文脈を作る:
+                文脈を作る.return_value.cert_store_stats.return_value = {"x509_ca": 0}
+                with self.assertLogs(level="ERROR") as ログ:
+                    downloader.ssl文脈を用意する()
+        self.assertIn("証明書のセットアップ", "\n".join(ログ.output))
 
 
 class 待っても直らない失敗の区別(unittest.TestCase):

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import ssl
 import urllib.error
 import urllib.parse
@@ -33,6 +34,14 @@ _bom = b"\xef\xbb\xbf"
 
 #: 期限切れと判断するステータス。同じURLでは二度と成功しない。
 恒久的とみなすステータス = (401, 403, 404)
+
+#: 既定の信頼ストアが空だったときに探す証明書バンドルの候補。
+#: macOSでpython.org版のPythonを使うと、既定の信頼ストアが空になる。
+#: `SSL_CERT_FILE` を手で設定させると「ターミナルでは動くのにlaunchdでは
+#: 動かない」という分かりにくい状態を招くため、バッチ自身で探す。
+_証明書バンドルの候補 = ("/etc/ssl/cert.pem", "/usr/local/etc/openssl/cert.pem")
+
+_ssl文脈: ssl.SSLContext | None = None
 
 
 class urlが不正(Exception):
@@ -107,6 +116,53 @@ def _許可されたホストか(ホスト: str, 許可するホスト接尾辞:
     return False
 
 
+def _証明書バンドルを探す() -> str | None:
+    """使える証明書バンドルのパスを返す。見つからなければ None。
+
+    certifi があれば使うが、**依存はしていない**。無くても動くようにするため
+    「あれば使う」だけの扱いにしてある(design.md#外部ライブラリの方針)。
+    """
+    候補: list[str] = []
+    try:
+        import certifi  # noqa: PLC0415 — 無くてもよい任意の候補
+    except ImportError:
+        pass
+    else:
+        候補.append(certifi.where())
+    候補.extend(_証明書バンドルの候補)
+
+    for パス in 候補:
+        if os.path.isfile(パス) and os.access(パス, os.R_OK):
+            return パス
+    return None
+
+
+def ssl文脈を用意する() -> ssl.SSLContext:
+    """TLSの検証に使う文脈を組み立てる(初回のみ)。
+
+    既定の信頼ストアが空の場合(macOSのpython.org版Pythonで起きる)だけ、
+    バンドルを探して読み込む。見つからなければ空のまま返し、実際の失敗は
+    「設定の問題」として記録される。
+    """
+    global _ssl文脈
+    if _ssl文脈 is not None:
+        return _ssl文脈
+
+    文脈 = ssl.create_default_context()
+    if 文脈.cert_store_stats()["x509_ca"] == 0:
+        バンドル = _証明書バンドルを探す()
+        if バンドル:
+            文脈.load_verify_locations(cafile=バンドル)
+            logger.info("既定の信頼ストアが空のため証明書バンドルを読み込んだ: %s", バンドル)
+        else:
+            logger.error(
+                "証明書バンドルが見つからない。TLSの検証に失敗する見込み。"
+                "READMEの「証明書のセットアップ」を確認すること"
+            )
+    _ssl文脈 = 文脈
+    return 文脈
+
+
 def _証明書の検証に失敗したか(例外: BaseException) -> bool:
     """TLS証明書の検証に失敗したかを判定する。
 
@@ -140,7 +196,9 @@ def 取得する(
     要求 = urllib.request.Request(url, method="GET")
 
     try:
-        with urllib.request.urlopen(要求, timeout=タイムアウト秒) as 応答:
+        with urllib.request.urlopen(
+            要求, timeout=タイムアウト秒, context=ssl文脈を用意する()
+        ) as 応答:
             本文 = 応答.read()
     except urllib.error.HTTPError as 例外:
         if 例外.code in 恒久的とみなすステータス:
