@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  トランスクリプト取得バッチを5分間隔で実行する launchd の定義。
+
+  登録手順・解除手順は ../../README.md を参照。
+  `__ホームディレクトリ__` は登録時に実際のパスへ置き換える(README参照)。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.teams-transcript-fetcher</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>__ホームディレクトリ__/repo/study/apps/teams-transcript-fetcher/application/fetch_transcripts.py</string>
+  </array>
+
+  <!-- 仕様: requirements.md#トランスクリプトの取得と保存 [5](既定5分間隔) -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <!-- 起動時にも1回走らせる。スリープ復帰後の取り残しを早めに拾うため。 -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>WorkingDirectory</key>
+  <string>__ホームディレクトリ__/repo/study/apps/teams-transcript-fetcher/application</string>
+
+  <!--
+    標準出力・標準エラーの行き先。通常のログは
+    ~/Library/Application Support/teams-transcript-fetcher/fetch.log に出る。
+    ここに出るのはPythonが起動できなかった場合などの想定外の出力だけ。
+  -->
+  <key>StandardOutPath</key>
+  <string>__ホームディレクトリ__/Library/Logs/teams-transcript-fetcher.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__ホームディレクトリ__/Library/Logs/teams-transcript-fetcher.err.log</string>
+</dict>
+</plist>
