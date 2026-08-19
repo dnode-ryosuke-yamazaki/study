@@ -23,6 +23,12 @@ def 元の定義を作る(*, 条件で囲む: bool, ハードコードした呼�
             "type": "OpenApiConnection",
             "runAfter": {},
             "inputs": {
+                "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                },
+                "authentication": "@parameters('$authentication')",
                 "parameters": {
                     "dataset": "https://example.sharepoint.com/sites/Team",
                     "parameters/method": "GET",
@@ -46,6 +52,12 @@ def 元の定義を作る(*, 条件で囲む: bool, ハードコードした呼�
             "type": "OpenApiConnection",
             "runAfter": {patch.アクション_作成: ["Succeeded"]},
             "inputs": {
+                "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "CreateFile",
+                },
+                "authentication": "@parameters('$authentication')",
                 "parameters": {
                     "dataset": "https://example.sharepoint.com/sites/Team",
                     "folderPath": "/Shared Documents/テストチャネル/temporaryDownloadUrl",
@@ -68,7 +80,31 @@ def 元の定義を作る(*, 条件で囲む: bool, ハードコードした呼�
     else:
         外側.update(アクション)
 
-    return {"properties": {"definition": {"actions": 外側}}}
+    トリガー = {
+        "ファイルが作成されたとき_(プロパティのみ)": {
+            "recurrence": {"frequency": "Minute", "interval": 1},
+            "type": "OpenApiConnection",
+            "inputs": {
+                "parameters": {
+                    "dataset": "https://example.sharepoint.com/sites/Team",
+                    "table": "Documents",
+                    "folderPath": "/Shared Documents",
+                },
+                "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetOnNewFileItems",
+                },
+                "authentication": "@parameters('$authentication')",
+            },
+        }
+    }
+    return {
+        "properties": {
+            "displayName": "トランスクリプト取得",
+            "definition": {"triggers": トリガー, "actions": 外側},
+        }
+    }
 
 
 class 一覧全件を取り出す変更(unittest.TestCase):
@@ -295,6 +331,112 @@ class 想定と違う定義(unittest.TestCase):
             台帳フォルダ=台帳フォルダ,
         )
         self.assertEqual(sorted(patch._アクションの入れ物を探す(定義)), 変更前の入れ物)
+
+
+class フロー2の生成(unittest.TestCase):
+    """フロー①の定義からフロー②(ダウンロードURLの発行)を作れることを検証する。
+
+    新規に書き起こすのではなくフロー①を土台にする。接続・HTTP呼び出し・URL一覧の
+    取り出しがそのまま使えるため間違いが少ない。
+    """
+
+    def setUp(self):
+        self.フロー2, self.変更点 = patch.フロー2を作る(
+            元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=False),
+            作業サイト=台帳の保存先サイト,
+            要求フォルダ="/Documents/00_root/auto/transcript/request",
+            urlフォルダ="/Documents/00_root/auto/transcript/url",
+            フロー名="トランスクリプトURL発行",
+        )
+        self.アクション = self.フロー2["properties"]["definition"]["actions"]
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_トリガーが要求置き場を監視すること(self):
+        トリガー = next(iter(self.フロー2["properties"]["definition"]["triggers"].values()))
+        self.assertEqual(
+            トリガー["inputs"]["parameters"]["folderPath"],
+            "/Documents/00_root/auto/transcript/request",
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_要求の中身を読んで解析すること(self):
+        """トリガー(プロパティのみ)は中身をくれないため、読む処理が必要。"""
+        self.assertIn(patch.アクション_要求の中身, self.アクション)
+        self.assertEqual(self.アクション[patch.アクション_要求の解析]["type"], "ParseJson")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_解析の形が要求の項目名と一致すること(self):
+        形 = self.アクション[patch.アクション_要求の解析]["inputs"]["schema"]["properties"]
+        for 項目 in ("siteUrl", "driveId", "recordingId", "createdAt"):
+            with self.subTest(項目=項目):
+                self.assertIn(項目, 形)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_一覧取得が要求の識別子を使うこと(self):
+        """要求だけで発行できるようにしてあるので、台帳を読む必要がない。"""
+        uri = self.アクション[patch.アクション_一覧取得]["inputs"]["parameters"][
+            "parameters/uri"
+        ]
+        self.assertIn(patch.アクション_要求の解析, uri)
+        self.assertNotIn("triggerOutputs", uri)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-4
+    def test_一覧全件を配列にすること(self):
+        self.assertEqual(self.アクション[patch.アクション_url一覧]["type"], "Select")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_一覧が空のときはurlファイルを作らないこと(self):
+        """台帳が残り、次回また要求される。空のURLファイルを作ると
+        「発行済みだが取得できない」という紛らわしい状態になる。
+        """
+        条件 = self.アクション[patch.アクション_条件]
+        self.assertEqual(条件["type"], "If")
+        self.assertIn(patch.アクション_ファイルの作成, 条件["actions"])
+        self.assertEqual(条件["else"]["actions"], {})
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#識別子とファイル名の規則唯一の定義
+    def test_urlファイルの名前が録画の識別子になること(self):
+        パラメータ = self.アクション[patch.アクション_条件]["actions"][
+            patch.アクション_ファイルの作成
+        ]["inputs"]["parameters"]
+        self.assertIn(patch.アクション_要求の解析, パラメータ["name"])
+        self.assertTrue(パラメータ["name"].endswith(".json"))
+        self.assertEqual(パラメータ["folderPath"], "/Documents/00_root/auto/transcript/url")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_処理後に要求を削除すること(self):
+        削除 = self.アクション[patch.アクション_要求の削除]
+        self.assertEqual(削除["inputs"]["host"]["operationId"], "DeleteFile")
+        self.assertIn(patch.アクション_条件, 削除["runAfter"])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-5
+    def test_条件が失敗したら要求を削除しないこと(self):
+        """削除してしまうと、その録画は要求済み扱いのまま永久に再要求されない。
+        残しておけばバッチが滞留として退避し、対象が解放される。
+        """
+        self.assertEqual(
+            self.アクション[patch.アクション_要求の削除]["runAfter"][patch.アクション_条件],
+            ["Succeeded"],
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_接続の設定がフロー1から引き継がれること(self):
+        """新しい接続を作らせないため、コネクタの指定をそのまま使う。"""
+        ホスト = self.アクション[patch.アクション_一覧取得]["inputs"]["host"]
+        self.assertIn("sharepointonline", ホスト["connectionName"])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_台帳を作るアクションが残っていないこと(self):
+        """フロー②は台帳を作らない。フロー①の残骸が動くと台帳が二重にできる。"""
+        self.assertNotIn(patch.アクション_変数を初期化, self.アクション)
+        条件の中 = self.アクション[patch.アクション_条件]["actions"]
+        # 「台帳を組み立てる」という名前はURLファイルの内容作成に流用している。
+        中身 = 条件の中[patch.アクション_台帳]["inputs"]
+        self.assertNotIn("meetingName", 中身)
+        self.assertIn("urls", 中身)
+
+    def test_フロー名が指定したものになること(self):
+        self.assertEqual(self.フロー2["properties"]["displayName"], "トランスクリプトURL発行")
 
 
 if __name__ == "__main__":

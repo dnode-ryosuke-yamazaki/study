@@ -251,15 +251,174 @@ def 書き換える(
     return 定義, 変更点
 
 
+# --- フロー②(ダウンロードURLの発行)の生成 -----------------------------------
+#
+# フロー①の定義を土台にする。接続・HTTP呼び出し・URL一覧の取り出しがそのまま
+# 使えるため、新規に書き起こすより間違いが少ない。
+#
+# 仕様: design.md#ダウンロードURLの発行(Power Automate フロー②・フェーズ2)
+
+アクション_要求の中身 = "要求の中身を取得する"
+アクション_要求の解析 = "要求を解析する"
+アクション_要求の削除 = "要求を削除する"
+
+#: 解析した要求から値を取り出す参照。
+_要求のサイト = f"@{{body('{アクション_要求の解析}')?['siteUrl']}}"
+_要求のドライブ = f"@{{body('{アクション_要求の解析}')?['driveId']}}"
+_要求の録画 = f"@{{body('{アクション_要求の解析}')?['recordingId']}}"
+
+
+def _要求のスキーマ() -> dict:
+    """要求ファイルの形。項目名は design.md#ファイルの項目名の取り決め に従う。"""
+    return {
+        "type": "object",
+        "properties": {
+            "siteUrl": {"type": "string"},
+            "driveId": {"type": "string"},
+            "recordingId": {"type": "string"},
+            "createdAt": {"type": "string"},
+        },
+    }
+
+
+def フロー2を作る(
+    フロー1の定義: dict,
+    *,
+    作業サイト: str,
+    要求フォルダ: str,
+    urlフォルダ: str,
+    フロー名: str,
+) -> tuple[dict, list[str]]:
+    """フロー①の定義からフロー②を組み立てる。
+
+    フロー②は「要求を読んで、一覧を取得して、URLを書いて、要求を消す」だけ。
+    要求は録画1件につき1ファイルなので繰り返し処理が不要で、この単純さが
+    1ファイル方式を選んだ理由でもある。
+    """
+    定義 = copy.deepcopy(フロー1の定義)
+    変更点: list[str] = []
+
+    プロパティ = 定義["properties"]
+    プロパティ["displayName"] = フロー名
+    中身 = プロパティ["definition"]
+
+    元の入れ物 = _アクションの入れ物を探す(定義)
+    一覧取得 = copy.deepcopy(元の入れ物[アクション_一覧取得])
+    ファイルの作成 = copy.deepcopy(元の入れ物[アクション_ファイルの作成])
+    コネクタ = 一覧取得["inputs"]["host"]
+
+    # トリガーは要求置き場の監視に変える。元のトリガーの host / authentication を
+    # そのまま使うことで、接続の紐付けを崩さない。
+    元のトリガー名, 元のトリガー = next(iter(中身["triggers"].items()))
+    トリガー = copy.deepcopy(元のトリガー)
+    トリガー["inputs"]["parameters"] = {
+        "dataset": 作業サイト,
+        "table": "Documents",
+        "folderPath": 要求フォルダ,
+    }
+    中身["triggers"] = {元のトリガー名: トリガー}
+    変更点.append(f"トリガーの監視先を要求置き場に変更: {要求フォルダ}")
+
+    # 要求の中身を読む。トリガー(プロパティのみ)は中身をくれないため必要。
+    要求の中身 = {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+            "parameters": {
+                "dataset": 作業サイト,
+                "id": "@{triggerOutputs()?['body/{Identifier}']}",
+            },
+            "host": {**コネクタ, "operationId": "GetFileContent"},
+            "authentication": "@parameters('$authentication')",
+        },
+    }
+
+    要求の解析 = {
+        "runAfter": {アクション_要求の中身: ["Succeeded"]},
+        "type": "ParseJson",
+        "inputs": {
+            "content": f"@body('{アクション_要求の中身}')",
+            "schema": _要求のスキーマ(),
+        },
+    }
+
+    # 一覧取得は要求に書かれた識別子を使う。フロー①と違い、どのフローの
+    # 由来でも同じ形で扱える(要求だけで発行に必要な情報が揃っているため)。
+    一覧取得["runAfter"] = {アクション_要求の解析: ["Succeeded"]}
+    一覧取得["inputs"]["parameters"]["dataset"] = _要求のサイト
+    一覧取得["inputs"]["parameters"]["parameters/uri"] = (
+        f"_api/v2.1/drives/{_要求のドライブ}/items/{_要求の録画}/media/transcripts"
+    )
+
+    url一覧 = _url一覧のアクションを作る()
+
+    # URLファイルの中身。項目名は台帳と同じ意味で揃える。
+    url内容 = {
+        "runAfter": {アクション_url一覧: ["Succeeded"]},
+        "type": "Compose",
+        "inputs": {
+            "recordingId": _要求の録画,
+            "issuedAt": "@{utcNow('yyyy-MM-ddTHH:mm:ss.fffZ')}",
+            "urls": f"@body('{アクション_url一覧}')",
+        },
+    }
+
+    # 一覧が空のときはURLファイルを作らない。台帳が残り、次回また要求される。
+    ファイルの作成["runAfter"] = {アクション_台帳: ["Succeeded"]}
+    ファイルの作成["inputs"]["parameters"] = {
+        "dataset": 作業サイト,
+        "folderPath": urlフォルダ,
+        "name": f"{_要求の録画}.json",
+        "body": f"@string(outputs('{アクション_台帳}'))",
+    }
+
+    条件 = {
+        "runAfter": {アクション_url一覧: ["Succeeded"]},
+        "type": "If",
+        "expression": {"not": {"equals": [f"@length(body('{アクション_url一覧}'))", 0]}},
+        "actions": {アクション_台帳: url内容, アクション_ファイルの作成: ファイルの作成},
+        "else": {"actions": {}},
+    }
+
+    # 要求の削除は最後。処理できなかった要求は残り、バッチが滞留として退避する。
+    要求の削除 = {
+        "runAfter": {アクション_条件: ["Succeeded"]},
+        "type": "OpenApiConnection",
+        "inputs": {
+            "parameters": {
+                "dataset": 作業サイト,
+                "id": "@{triggerOutputs()?['body/{Identifier}']}",
+            },
+            "host": {**コネクタ, "operationId": "DeleteFile"},
+            "authentication": "@parameters('$authentication')",
+        },
+    }
+
+    中身["actions"] = {
+        アクション_要求の中身: 要求の中身,
+        アクション_要求の解析: 要求の解析,
+        アクション_一覧取得: 一覧取得,
+        アクション_url一覧: url一覧,
+        アクション_条件: 条件,
+        アクション_要求の削除: 要求の削除,
+    }
+    変更点.append("要求の中身を読んで解析するアクションを追加")
+    変更点.append("一覧取得を要求に書かれた識別子を使う形に変更")
+    変更点.append(f"URLファイルの保存先を設定: {urlフォルダ}")
+    変更点.append("一覧が空のときはURLファイルを作らない(条件で囲む)")
+    変更点.append("処理後に要求を削除するアクションを追加")
+
+    return 定義, 変更点
+
+
 def main() -> int:
     引数の解析 = argparse.ArgumentParser(description=__doc__)
     引数の解析.add_argument("入力", type=Path, help="元の definition.json のパス")
     引数の解析.add_argument("出力", type=Path, help="書き換えた定義の出力先")
     引数の解析.add_argument(
         "--由来",
-        required=True,
         choices=("channel", "personal"),
-        help="台帳の source に入れる値",
+        help="台帳の source に入れる値(フロー①のときは必須)",
     )
     引数の解析.add_argument(
         "--台帳の保存先サイト",
@@ -271,15 +430,33 @@ def main() -> int:
         default="/Documents/00_root/auto/transcript/ledger",
         help="台帳置き場のフォルダパス",
     )
+    引数の解析.add_argument(
+        "--フロー2",
+        action="store_true",
+        help="フロー①の定義からフロー②(ダウンロードURLの発行)を作る",
+    )
+    引数の解析.add_argument("--フロー名", default="トランスクリプトURL発行")
     引数 = 引数の解析.parse_args()
 
     元の定義 = json.loads(引数.入力.read_text(encoding="utf-8"))
-    新しい定義, 変更点 = 書き換える(
-        元の定義,
-        由来=引数.由来,
-        台帳の保存先サイト=引数.台帳の保存先サイト,
-        台帳フォルダ=引数.台帳フォルダ,
-    )
+
+    if 引数.フロー2:
+        作業サイト = 引数.台帳の保存先サイト
+        台帳の親 = 引数.台帳フォルダ.rsplit("/", 1)[0]
+        新しい定義, 変更点 = フロー2を作る(
+            元の定義,
+            作業サイト=作業サイト,
+            要求フォルダ=f"{台帳の親}/request",
+            urlフォルダ=f"{台帳の親}/url",
+            フロー名=引数.フロー名,
+        )
+    else:
+        新しい定義, 変更点 = 書き換える(
+            元の定義,
+            由来=引数.由来,
+            台帳の保存先サイト=引数.台帳の保存先サイト,
+            台帳フォルダ=引数.台帳フォルダ,
+        )
 
     引数.出力.parent.mkdir(parents=True, exist_ok=True)
     引数.出力.write_text(

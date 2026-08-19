@@ -166,21 +166,24 @@ class トランスクリプトが0件の場合(実行の土台):
         呼び出し.assert_not_called()
         self.assertTrue(台帳のパス.exists())
 
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-5
-    def test_トランスクリプト0件のラベルで記録されること(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-1
+    def test_記録に残すのではなく発行を要求すること(self):
+        """フェーズ1は記録が終端だったが、フェーズ2では再発行を依頼する。
+        これによりトランスクリプトの生成が遅れても後から取得できる。
+        """
         self.台帳を置く(urls=[], issuedAt=...)
-        self.実行する()
-        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
-        self.assertIn("[トランスクリプト0件]", 書かれた内容)
+        結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 1)
+        self.assertTrue((self.設定.要求フォルダ / "01ABCDEF.json").exists())
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
-    def test_同じ失敗が繰り返し追記されないこと(self):
-        """5分間隔で実行されるため、抑止しないと1日で数百行が同一内容で埋まる。"""
+    def test_自動で解消しうる状態は記録しないこと(self):
+        """再発行で回復する見込みがあるうちは記録しない。5分ごとに同じ行が
+        積み上がると、記録を見て気づくという目的が損なわれる。
+        """
         self.台帳を置く(urls=[], issuedAt=...)
         self.実行する()
-        self.実行する()
-        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
-        self.assertEqual(書かれた内容.count("[トランスクリプト0件]"), 1)
+        self.assertFalse(self.設定.記録ファイル.exists())
 
 
 class 期限しきい値を超えている場合(実行の土台):
@@ -196,6 +199,12 @@ class 期限しきい値を超えている場合(実行の土台):
             結果 = self.実行する()
         呼び出し.assert_not_called()
         self.assertEqual(結果.要発行件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-1
+    def test_期限切れでも発行を要求すること(self):
+        self.台帳を置く(issuedAt=発行時刻(120))
+        結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 1)
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#台帳と要求のライフサイクル
     def test_古いurlファイルが削除されること(self):
@@ -275,6 +284,210 @@ class 一時的失敗の扱い(実行の土台):
             self.実行する()
             self.実行する()
         self.assertEqual(呼び出し.call_count, 2)
+
+
+class 発行要求の書き出し(実行の土台):
+    """有効なURLがない録画について要求が作られることを検証する(T23・T24)。"""
+
+    def setUp(self):
+        super().setUp()
+        self.台帳を置く(urls=[], issuedAt=...)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-1
+    def test_録画1件につき1つの要求が作られること(self):
+        """ファイル名が録画の識別子なので、台帳・URLと同じ規則で対応が取れる。"""
+        self.実行する()
+        要求たち = sorted(パス.name for パス in self.設定.要求フォルダ.iterdir())
+        self.assertEqual(要求たち, ["01ABCDEF.json"])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-3
+    def test_要求に発行に必要な情報が含まれること(self):
+        """要求だけで発行できるようにする。フロー②が台帳を読まなくて済む。"""
+        self.実行する()
+        中身 = json.loads(
+            (self.設定.要求フォルダ / "01ABCDEF.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(中身["recordingId"], "01ABCDEF")
+        self.assertTrue(中身["siteUrl"])
+        self.assertTrue(中身["driveId"])
+        self.assertTrue(中身["createdAt"])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-3
+    def test_要求にダウンロードurlが含まれないこと(self):
+        """URLは実質ベアラトークンなので必要のない場所に置かない。"""
+        self.実行する()
+        中身 = json.loads(
+            (self.設定.要求フォルダ / "01ABCDEF.json").read_text(encoding="utf-8")
+        )
+        self.assertNotIn("urls", 中身)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-2
+    def test_すでに要求済みなら重複して要求しないこと(self):
+        self.実行する()
+        結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 0)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-7
+    def test_要求を出すたびに進捗なしの回数が増えること(self):
+        self.実行する()
+        読んだ状態 = state.読み込む(self.設定.状態ファイル)
+        self.assertEqual(読んだ状態.録画の状態("01ABCDEF").進捗なし発行要求の回数, 1)
+
+
+class 発行されたurlの消費(実行の土台):
+    """フロー②が書いたURLファイルで取得できることを検証する(T24)。
+
+    これがフェーズ2の主経路。台帳にURLがない状態で発行されたURLを使う。
+    """
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#トランスクリプトの列挙-1
+    def test_要求の次のサイクルで取得できること(self):
+        self.台帳を置く(urls=[], issuedAt=...)
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")) as 呼び出し:
+            self.実行する()
+        呼び出し.assert_not_called()
+
+        self.urlファイルを置く(urls=["https://example.sharepoint.com/dl1"])
+
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+            結果 = self.実行する()
+        self.assertEqual(結果.成功件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-7
+    def test_保存が進んだら進捗なしの回数が0に戻ること(self):
+        """回復した対象が打ち切られないようにする。"""
+        self.台帳を置く(urls=[], issuedAt=...)
+        self.実行する()
+        self.urlファイルを置く(urls=["https://example.sharepoint.com/dl1"])
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+            self.実行する()
+        読んだ状態 = state.読み込む(self.設定.状態ファイル)
+        self.assertEqual(読んだ状態.録画の状態("01ABCDEF").進捗なし発行要求の回数, 0)
+
+
+class 進捗のない発行要求の打ち切り(実行の土台):
+    """要求を繰り返しても保存が進まない録画を打ち切ることを検証する(T27)。
+
+    恒久的失敗にならないまま要求と発行を無限に繰り返す経路があり、上限3回の
+    打ち切りが届かない。実運用で最も多いのは「その会議で文字起こしが有効でなく
+    トランスクリプトが永久に0件」のケース。
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.台帳を置く(urls=[], issuedAt=...)
+
+    def 上限まで要求させる(self):
+        for _ in range(self.設定.進捗なし発行要求の上限):
+            self.実行する()
+            # フロー②が処理したことにして、次の要求を出せる状態に戻す
+            (self.設定.要求フォルダ / "01ABCDEF.json").unlink()
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-7
+    def test_上限に達したら要求を出さなくなること(self):
+        self.上限まで要求させる()
+        with self.assertLogs(level="ERROR"):
+            結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 0)
+        self.assertEqual(結果.要手動確認件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-5
+    def test_トランスクリプト0件のラベルで記録されること(self):
+        """実運用で最も多い原因。日常的に出る想定なので他と区別できるようにする。"""
+        self.上限まで要求させる()
+        with self.assertLogs(level="ERROR"):
+            self.実行する()
+        self.assertIn(
+            "[トランスクリプト0件]", self.設定.記録ファイル.read_text(encoding="utf-8")
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
+    def test_打ち切りの記録が繰り返されないこと(self):
+        self.上限まで要求させる()
+        with self.assertLogs(level="ERROR"):
+            self.実行する()
+        self.実行する()
+        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
+        self.assertEqual(書かれた内容.count("[トランスクリプト0件]"), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#台帳と要求のライフサイクル
+    def test_打ち切っても台帳が残ること(self):
+        """人が対処するまで保持する。削除すると取得できたはずのものを捨てる。"""
+        self.上限まで要求させる()
+        with self.assertLogs(level="ERROR"):
+            self.実行する()
+        self.assertTrue((self.設定.台帳フォルダ / "01ABCDEF.json").exists())
+
+
+class 滞留した要求の退避(実行の土台):
+    """長く未処理の要求を退避して対象を解放することを検証する(T25)。
+
+    フロー②が解析できない要求は削除されない。放置するとその録画は
+    「要求済み」扱いのまま永久に再要求されなくなる。
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.しきい値超え = 基準時刻 + timedelta(minutes=self.設定.要求滞留しきい値分 + 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-5
+    def test_しきい値を超えた要求が退避されること(self):
+        self.台帳を置く(urls=[], issuedAt=...)
+        self.実行する()
+        結果 = self.実行する(現在時刻=self.しきい値超え)
+        self.assertEqual(結果.要求の退避件数, 1)
+        self.assertFalse((self.設定.要求フォルダ / "01ABCDEF.json").exists())
+        self.assertTrue((self.設定.退避フォルダ / "01ABCDEF.json").exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-5
+    def test_しきい値内の要求は退避しないこと(self):
+        """境界値。正常な処理中に退避すると重複要求が増える。"""
+        self.台帳を置く(urls=[], issuedAt=...)
+        self.実行する()
+        結果 = self.実行する(現在時刻=基準時刻 + timedelta(minutes=1))
+        self.assertEqual(結果.要求の退避件数, 0)
+        self.assertTrue((self.設定.要求フォルダ / "01ABCDEF.json").exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-5
+    def test_退避後に再要求できること(self):
+        """退避の目的は対象の解放。これができないと永久に止まる。"""
+        self.台帳を置く(urls=[], issuedAt=...)
+        self.実行する()
+        self.実行する(現在時刻=self.しきい値超え)
+        結果 = self.実行する(現在時刻=self.しきい値超え + timedelta(minutes=1))
+        self.assertEqual(結果.発行要求件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-4
+    def test_退避が記録に残ること(self):
+        """フロー②が動いていない可能性に気づけるようにする。"""
+        self.台帳を置く(urls=[], issuedAt=...)
+        self.実行する()
+        self.実行する(現在時刻=self.しきい値超え)
+        self.assertIn("[長期滞留]", self.設定.記録ファイル.read_text(encoding="utf-8"))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#ダウンロードurlの発行要求-5
+    def test_解析できない要求も退避されること(self):
+        """フロー②が解析できず削除しないため、これが残ると対象が解放されない。"""
+        self.設定.要求フォルダ.mkdir(parents=True, exist_ok=True)
+        (self.設定.要求フォルダ / "01BROKEN.json").write_text(
+            "{壊れている", encoding="utf-8"
+        )
+        結果 = self.実行する(現在時刻=基準時刻 + timedelta(days=1))
+        self.assertEqual(結果.要求の退避件数, 1)
+
+
+class 要手動確認の録画は要求しない(実行の土台):
+    """恒久的失敗の上限に達した録画に要求を出さないことを検証する(T26)。"""
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-5
+    def test_恒久的失敗の上限に達した録画は要求されないこと(self):
+        self.台帳を置く(urls=[], issuedAt=...)
+        読んだ状態 = state.状態()
+        読んだ状態.録画の状態("01ABCDEF").恒久的失敗の回数 = 3
+        state.保存する(読んだ状態, self.設定.状態ファイル)
+        結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 0)
+        self.assertFalse((self.設定.要求フォルダ / "01ABCDEF.json").exists())
 
 
 class 待っても直らない失敗の記録(実行の土台):
