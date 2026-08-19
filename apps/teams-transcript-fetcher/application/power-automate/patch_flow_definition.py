@@ -354,7 +354,11 @@ def フロー2を作る(
 
     # URLファイルの中身。項目名は台帳と同じ意味で揃える。
     url内容 = {
-        "runAfter": {アクション_url一覧: ["Succeeded"]},
+        # **条件の中の最初のアクションなので runAfter は空にする。**
+        # Power Automateでは条件の中のアクションは条件の中のアクションしか
+        # 参照できない。外側の「URL一覧を取り出す」を指定するとインポートで
+        # 「must belong to same level」と拒否される。
+        "runAfter": {},
         "type": "Compose",
         "inputs": {
             "recordingId": _要求の録画,

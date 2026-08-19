@@ -435,6 +435,34 @@ class フロー2の生成(unittest.TestCase):
         self.assertNotIn("meetingName", 中身)
         self.assertIn("urls", 中身)
 
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_条件の中のアクションが条件の外を参照しないこと(self):
+        """Power Automateでは条件の中のアクションは条件の中しか参照できない。
+
+        外を参照するとインポート時に「must belong to same level」で拒否される。
+        実際にこれでインポートが失敗した(2026-08-19)。
+        """
+        条件の中 = self.アクション[patch.アクション_条件]["actions"]
+        for 名前, 中身 in 条件の中.items():
+            with self.subTest(アクション=名前):
+                for 参照先 in (中身.get("runAfter") or {}):
+                    self.assertIn(
+                        参照先,
+                        条件の中,
+                        f"{名前} が条件の外の {参照先} を参照している",
+                    )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ダウンロードurlの発行power-automate-フロー②フェーズ2
+    def test_条件の外のアクションが条件の中を参照しないこと(self):
+        """逆方向も同じ制約。こちらも「same level」で拒否される。"""
+        条件の中 = set(self.アクション[patch.アクション_条件]["actions"])
+        for 名前, 中身 in self.アクション.items():
+            if 名前 == patch.アクション_条件:
+                continue
+            with self.subTest(アクション=名前):
+                for 参照先 in (中身.get("runAfter") or {}):
+                    self.assertNotIn(参照先, 条件の中)
+
     def test_フロー名が指定したものになること(self):
         self.assertEqual(self.フロー2["properties"]["displayName"], "トランスクリプトURL発行")
 
