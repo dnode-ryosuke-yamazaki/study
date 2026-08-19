@@ -162,6 +162,95 @@ def url情報を読む(urlフォルダ: Path, 録画の識別子: str) -> url情
     )
 
 
+@dataclass(frozen=True)
+class 要求:
+    """要求置き場のファイル。
+
+    **録画1件につき1ファイル**で、ファイル名は台帳・URLファイルと同じ
+    「録画の識別子 + 拡張子」。バッチが書き、フロー②が処理後に削除する。
+    仕様: design.md#ファイルの項目名の取り決め
+    """
+
+    パス: Path
+    録画の識別子: str
+    作成時刻: datetime | None
+
+
+def 要求のパス(要求フォルダ: Path, 録画の識別子: str) -> Path:
+    return 要求フォルダ / f"{録画の識別子}{台帳の拡張子}"
+
+
+def 要求済みか(要求フォルダ: Path, 録画の識別子: str) -> bool:
+    """その録画の要求が既にあるか。
+
+    ファイル名が録画の識別子なので存在確認だけで重複要求を防げる。
+    """
+    return 要求のパス(要求フォルダ, 録画の識別子).exists()
+
+
+def 要求を書き出す(要求フォルダ: Path, 対象の台帳: 台帳, 作成時刻: datetime) -> Path:
+    """発行要求を1件書き出す。
+
+    **ダウンロードURLは含めない**(requirements.md#ダウンロードURLの発行要求 [3])。
+    実質ベアラトークンであり、必要のない場所に置かない。
+
+    要求だけで発行に必要な情報が揃うようにしてある。フロー②が台帳を読みに行く
+    必要がなくなり、「読んで呼んで書くだけ」の単純な構造で済む。
+    """
+    中身 = {
+        "siteUrl": 対象の台帳.サイトurl,
+        "driveId": 対象の台帳.ドライブ識別子,
+        "recordingId": 対象の台帳.録画の識別子,
+        "createdAt": 作成時刻.astimezone(timezone.utc).isoformat(timespec="milliseconds"),
+    }
+    要求フォルダ.mkdir(parents=True, exist_ok=True)
+    パス = 要求のパス(要求フォルダ, 対象の台帳.録画の識別子)
+    # 一時ファイル経由で書く。書き込み途中の要求をフロー②が拾わないようにするため。
+    一時ファイル = パス.with_name(パス.name + ".tmp")
+    try:
+        一時ファイル.write_text(
+            json.dumps(中身, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        os.replace(一時ファイル, パス)
+    finally:
+        一時ファイル.unlink(missing_ok=True)
+    logger.info("発行要求を書き出した: %s", パス.name)
+    return パス
+
+
+def 未処理の要求を読む(要求フォルダ: Path) -> list[要求]:
+    """要求置き場に残っている要求を読む。
+
+    残っている＝フロー②がまだ処理していない。滞留の判定に使う。
+    """
+    try:
+        候補 = sorted(要求フォルダ.iterdir())
+    except OSError:
+        # 要求置き場が無いのは初回など通常のこと。台帳置き場と違い中断しない。
+        return []
+
+    要求たち: list[要求] = []
+    for パス in 候補:
+        if not パス.is_file() or パス.suffix != 台帳の拡張子:
+            continue
+        識別子 = パス.stem
+        try:
+            中身 = json.loads(パス.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as 例外:
+            # 解析できない要求もフロー②は削除しないため、滞留として退避される。
+            logger.warning("要求を解析できない: %s: %s", パス.name, 例外)
+            要求たち.append(要求(パス=パス, 録画の識別子=識別子, 作成時刻=None))
+            continue
+        要求たち.append(
+            要求(
+                パス=パス,
+                録画の識別子=識別子,
+                作成時刻=日時を読む(中身.get("createdAt") if isinstance(中身, dict) else None),
+            )
+        )
+    return 要求たち
+
+
 def 退避する(パス: Path, 退避フォルダ: Path) -> Path:
     """不正なファイルを退避先へ移す。
 
