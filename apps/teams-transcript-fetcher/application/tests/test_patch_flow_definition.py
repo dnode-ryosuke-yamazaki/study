@@ -26,7 +26,11 @@ def 元の定義を作る(*, 条件で囲む: bool, ハードコードした呼�
                 "parameters": {
                     "dataset": "https://example.sharepoint.com/sites/Team",
                     "parameters/method": "GET",
-                    "parameters/uri": "_api/v2.1/drives/HARDCODED/items/xxx/media/transcripts",
+                    "parameters/uri": (
+                        "_api/v2.1/drives/b!DUMMYDRIVE/items/"
+                        f"@{{body('{patch.アクション_driveitemid取得}')?['id']}}"
+                        "/media/transcripts"
+                    ),
                 }
             },
         },
@@ -145,8 +149,8 @@ class 台帳の内容と保存先の変更(unittest.TestCase):
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#識別子とファイル名の規則唯一の定義
     def test_ファイル名が録画の識別子とjson拡張子になること(self):
         名前 = self.入れ物[patch.アクション_ファイルの作成]["inputs"]["parameters"]["name"]
-        self.assertIn("DriveItemId", 名前)
         self.assertTrue(名前.endswith(".json"))
+        self.assertNotEqual(名前, ".json", "識別子が空だとファイル名が拡張子だけになる")
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
     def test_保存する本文が台帳の文字列になること(self):
@@ -154,40 +158,91 @@ class 台帳の内容と保存先の変更(unittest.TestCase):
         self.assertIn(patch.アクション_台帳, 本文)
 
 
-class 通常会議用フローの簡素化(unittest.TestCase):
-    """ハードコードした識別子のための呼び出しが消えることを検証する。
+class 識別子の取り方をフローごとに保つ(unittest.TestCase):
+    """元のフローが動いていた識別子の取り方を変えないことを検証する。
 
-    残しておくと、別環境にコピーしたときに他人のドライブを見に行く。
+    個人OneDriveのトリガーは {DriveId} / {DriveItemId} を提供せず、これらを
+    使うと空文字になる(2026-08-19に実機で確認)。元の通常会議用フローが
+    ファイル名から項目を検索していたのはそのためだった。**簡素化して壊した
+    ことがあるので、動いていた方式を保つ。**
     """
 
-    def setUp(self):
-        self.書き換え後, self.変更点 = patch.書き換える(
-            元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=True),
+    def _書き換える(self, *, 項目検索あり: bool, 由来: str):
+        return patch.書き換える(
+            元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=項目検索あり),
+            由来=由来,
+            台帳の保存先サイト=台帳の保存先サイト,
+            台帳フォルダ=台帳フォルダ,
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#既存フローに見つかった制約
+    def test_項目検索の呼び出しがあれば保たれること(self):
+        """通常会議用フロー。この呼び出しの結果が録画の識別子になる。"""
+        書き換え後, _ = self._書き換える(項目検索あり=True, 由来="personal")
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        self.assertIn(patch.アクション_driveitemid取得, 入れ物)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#既存フローに見つかった制約
+    def test_結果を使っていない呼び出しだけが削除されること(self):
+        書き換え後, _ = self._書き換える(項目検索あり=True, 由来="personal")
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        self.assertNotIn(patch.アクション_driveid取得, 入れ物)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_項目検索方式では検索結果が録画の識別子になること(self):
+        書き換え後, _ = self._書き換える(項目検索あり=True, 由来="personal")
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        中身 = 入れ物[patch.アクション_台帳]["inputs"]
+        self.assertIn(patch.アクション_driveitemid取得, 中身["recordingId"])
+        # トリガーの値は参照しない(個人OneDriveのトリガーは提供しないため)。
+        self.assertNotIn("triggerOutputs", 中身["recordingId"])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_項目検索方式ではドライブ識別子が元の定義から読み取られること(self):
+        """値そのものはリポジトリに書かず、元の定義から取り出す。"""
+        書き換え後, _ = self._書き換える(項目検索あり=True, 由来="personal")
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        self.assertEqual(入れ物[patch.アクション_台帳]["inputs"]["driveId"], "b!DUMMYDRIVE")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_項目検索方式では一覧取得のuriを変更しないこと(self):
+        """元のURIが動いていたので触らない。"""
+        元の定義 = 元の定義を作る(条件で囲む=True, ハードコードした呼び出しあり=True)
+        元のuri = patch._アクションの入れ物を探す(元の定義)[patch.アクション_一覧取得][
+            "inputs"
+        ]["parameters"]["parameters/uri"]
+        書き換え後, _ = patch.書き換える(
+            元の定義,
             由来="personal",
             台帳の保存先サイト=台帳の保存先サイト,
             台帳フォルダ=台帳フォルダ,
         )
-        self.入れ物 = patch._アクションの入れ物を探す(self.書き換え後)
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        self.assertEqual(
+            入れ物[patch.アクション_一覧取得]["inputs"]["parameters"]["parameters/uri"],
+            元のuri,
+        )
 
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#既存フローに見つかった制約
-    def test_不要な呼び出しが削除されること(self):
-        self.assertNotIn(patch.アクション_driveid取得, self.入れ物)
-        self.assertNotIn(patch.アクション_driveitemid取得, self.入れ物)
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_トリガー方式では識別子がトリガーの値になること(self):
+        """チャネル会議用フロー。元のフローがこの方式で動いていた。"""
+        書き換え後, _ = self._書き換える(項目検索あり=False, 由来="channel")
+        入れ物 = patch._アクションの入れ物を探す(書き換え後)
+        中身 = 入れ物[patch.アクション_台帳]["inputs"]
+        self.assertIn("DriveId", 中身["driveId"])
+        self.assertIn("DriveItemId", 中身["recordingId"])
 
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#既存フローに見つかった制約
-    def test_一覧取得がトリガーの値を使う形になること(self):
-        uri = self.入れ物[patch.アクション_一覧取得]["inputs"]["parameters"]["parameters/uri"]
-        self.assertIn("DriveId", uri)
-        self.assertIn("DriveItemId", uri)
-        self.assertNotIn("HARDCODED", uri)
-
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#録画の検知と台帳の作成power-automate-フロー①
-    def test_削除した呼び出しへの依存が残らないこと(self):
-        """依存が残るとフローが実行できない。"""
-        self.assertEqual(self.入れ物[patch.アクション_一覧取得]["runAfter"], {})
-
-    def test_変更内容が説明として返ること(self):
-        self.assertTrue(any("削除" in 説明 for 説明 in self.変更点))
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ファイルの項目名の取り決め
+    def test_ファイル名が方式ごとの識別子から作られること(self):
+        for 項目検索あり, 含まれるべき in ((True, patch.アクション_driveitemid取得), (False, "DriveItemId")):
+            with self.subTest(項目検索あり=項目検索あり):
+                書き換え後, _ = self._書き換える(
+                    項目検索あり=項目検索あり, 由来="personal" if 項目検索あり else "channel"
+                )
+                入れ物 = patch._アクションの入れ物を探す(書き換え後)
+                名前 = 入れ物[patch.アクション_ファイルの作成]["inputs"]["parameters"]["name"]
+                self.assertIn(含まれるべき, 名前)
+                self.assertTrue(名前.endswith(".json"))
 
 
 class 条件で囲まれていない定義(unittest.TestCase):
