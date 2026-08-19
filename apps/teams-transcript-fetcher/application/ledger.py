@@ -16,9 +16,13 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 台帳の拡張子 = ".json"
 
@@ -117,6 +121,64 @@ def _台帳を1件読む(パス: Path) -> 台帳 | 不正な台帳:
         発行時刻=日時を読む(中身.get("issuedAt")),
         url一覧=_url一覧を読む(中身.get("urls")),
     )
+
+
+@dataclass(frozen=True)
+class url情報:
+    """URL置き場のファイルの内容。
+
+    台帳と同じ意味の `issuedAt` と `urls` を持つ。添字が並び順。
+    仕様: design.md#ファイルの項目名の取り決め
+    """
+
+    パス: Path
+    発行時刻: datetime | None
+    url一覧: list[str]
+
+
+def url情報を読む(urlフォルダ: Path, 録画の識別子: str) -> url情報 | None:
+    """URL置き場からその録画のURLファイルを読む。無ければ None。
+
+    壊れていても None として扱う。台帳側にURLが残っていればそれを使えるし、
+    無ければ「要発行」になって再発行されるため、ここで止める理由がない。
+    """
+    パス = urlフォルダ / f"{録画の識別子}{台帳の拡張子}"
+    try:
+        中身 = json.loads(パス.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (json.JSONDecodeError, OSError) as 例外:
+        logger.warning("URLファイルを読めないため無いものとして扱う: %s: %s", パス.name, 例外)
+        return None
+
+    if not isinstance(中身, dict):
+        logger.warning("URLファイルの形式が想定と違う: %s", パス.name)
+        return None
+
+    return url情報(
+        パス=パス,
+        発行時刻=日時を読む(中身.get("issuedAt")),
+        url一覧=_url一覧を読む(中身.get("urls")),
+    )
+
+
+def 退避する(パス: Path, 退避フォルダ: Path) -> Path:
+    """不正なファイルを退避先へ移す。
+
+    削除すると原因調査の材料が失われ、放置すると毎サイクル読み直されて記録が
+    埋まる。バッチが所有するフォルダへ移すことで、終端を作りつつ内容を残す。
+    仕様: design.md#台帳と要求のライフサイクル
+    """
+    退避フォルダ.mkdir(parents=True, exist_ok=True)
+    移動先 = 退避フォルダ / パス.name
+    # 同名が既にある場合は上書きせず連番を足す(前回の退避内容を消さないため)。
+    連番 = 1
+    while 移動先.exists():
+        移動先 = 退避フォルダ / f"{パス.stem}_{連番}{パス.suffix}"
+        連番 += 1
+    os.replace(パス, 移動先)
+    logger.warning("不正なファイルを退避した: %s -> %s", パス.name, 移動先.name)
+    return 移動先
 
 
 def 台帳を読み込む(台帳フォルダ: Path) -> 読み込み結果:
