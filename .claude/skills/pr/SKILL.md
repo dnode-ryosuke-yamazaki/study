@@ -37,9 +37,9 @@ description: PRを作成するときに使う。仕様承認PR(3点セット)と
      - 「確認不要です」等、確認不要の意思表示があれば、その場でマージ〜ブランチ掃除のコマンドをまとめて提示する:
        ```bash
        PR_NUMBER=$(gh pr view --json number -q .number)
-       gh pr merge "$PR_NUMBER" --merge --delete-branch
+       gh pr merge "$PR_NUMBER" --squash --delete-branch
        ```
-       (このリポジトリの既存履歴に合わせて`--merge`(マージコミット)を既定にする。`--delete-branch`によりローカル・リモート双方の作業ブランチが自動削除され`main`に切り替わる)
+       (このリポジトリの既存履歴に合わせて`--squash`を既定にする。`--delete-branch`によりローカル・リモート双方の作業ブランチが自動削除され`main`に切り替わる)
      - 「確認します」等の返答であれば一旦待ち、後で「マージしました」等の報告を受けてから、ローカルの同期確認(`git status`・`git log`、必要なら`git pull`)と次のステップの案内に進む
 - ユーザーへの報告にはPR番号だけでなく完全なURLを明記する。URLは装飾なしの単独行に置く(`**`や括弧・日本語をURLに連結するとリンク検出が巻き込んで開けなくなる)
 - mainへのマージはユーザーがGitHub UI上でdiffを確認するか、上記の確認フローを経て行う想定であり、こちらから無条件に直接マージは実行しない

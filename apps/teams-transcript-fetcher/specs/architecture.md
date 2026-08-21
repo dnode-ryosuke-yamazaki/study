@@ -1,5 +1,13 @@
 # teams-transcript-fetcher アーキテクチャ
 
+## サマリ
+
+Teams会議の録画から生成されるトランスクリプトを自動収集してOneDriveへ蓄積するアプリ。M365テナントへのAPI認証を一切必要としない点が最大の特徴で、収集の起点はPower Automateのクラウドフロー、取得はローカルMac上のPythonバッチが担い、両者はOneDrive上のファイルを介して連携する。
+
+主要技術: Python 3 / launchd / Power Automate(クラウドフロー) / OneDrive同期クライアント / SharePoint REST API v2.1。
+
+specは1つ([transcript-auto-fetch](transcript-auto-fetch/requirements.md))で、会議のトランスクリプトを自動収集してOneDriveへ保存する機能を担う。外部との境界は[コンテキスト図](#コンテキスト図)、内部構成は[システム構成図](#システム構成図)を参照。
+
 ## 概要
 
 Teams会議の録画から生成されるトランスクリプト(WEBVTT)を自動収集し、OneDriveへ蓄積するローカル実行バッチ。収集の起点はPower Automateのクラウドフローで、両者はOneDrive上のファイルを介して連携する。
@@ -42,6 +50,29 @@ SharePoint/OneDriveをAPIで読み書きせず、同期されたローカルフ�
 録画が作成された時点でPower Automateが確実に知っているのは録画1件の存在だけで、トランスクリプトの件数は後から増えうる(会議の分割・再開)。台帳をトランスクリプト単位にすると、件数が増えたときに追加の台帳を作る経路が必要になるが、録画の作成をトリガーにするフローではそれを作れない。
 
 録画単位にすることで、**件数と並び順の確定を「URLを発行する時点」に一元化**できる。URLと並び順が同じ応答から同時に得られるため、両者がずれて別のトランスクリプトを保存する事故が原理的に起きない。
+
+## コンテキスト図
+
+本アプリと、その外側にあるものだけを描く(内部構成は[システム構成図](#システム構成図))。
+
+```mermaid
+flowchart LR
+    user["会議の参加者"]
+    app["teams-transcript-fetcher"]
+    teams["Microsoft Teams"]
+    pa["Power Automate"]
+    od["OneDrive for Business"]
+
+    teams --> pa
+    pa --> od
+    od --> app
+    app --> od
+    app --> user
+```
+
+- `Power Automate` は録画の検知・台帳の作成・ダウンロードURLの発行を担う外部の実行環境で、テナント側に存在しこのリポジトリでは管理しない
+- 本アプリと `Power Automate` は直接通信せず、`OneDrive` 上のファイルを介してやり取りする([実行環境](transcript-auto-fetch/requirements.md#実行環境) [3])
+- 利用者は蓄積されたWEBVTTをOneDrive上で参照する
 
 ## システム構成図
 
@@ -106,11 +137,11 @@ flowchart TD
 | OneDrive 同期クライアント | M365への認証代行およびクラウドとローカルのファイル受け渡し |
 | SharePoint REST API v2.1(SharePointコネクタ経由) | トランスクリプト一覧とダウンロードURLの取得。**Microsoft Graphは使用しない** |
 
-## 機能マップ
+## 機能一覧表(機能マップ)
 
-| spec | 役割 | 依存 |
-|---|---|---|
-| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 |
+| spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
+|---|---|---|---|---|
+| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | リリース済み |
 
 ## ディレクトリ構成
 
