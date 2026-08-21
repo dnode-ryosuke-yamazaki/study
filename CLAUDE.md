@@ -4,11 +4,18 @@
 
 ## 開発ワークフロー
 
-このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は `.claude/skills/` 配下のSkillとして手順化されている。作業を始める前に [.claude/skills/README.md](.claude/skills/README.md) の一覧・遷移図を確認すること。
+このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は、**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/` の /consult・/requirement・/design・/spec-review・/pr・/implementation・/implementation-review・/resolve・/fix と、知識Skillの architecture-workflow)で行う。ワークフロー全体の一覧・遷移図は [.claude/skills/README.md](.claude/skills/README.md) を参照。このリポジトリの `.claude/skills/` にはstudy固有のSkill(autopilot・parallel-work・retrospective・scan-sandbox-sessions)だけを置く。
+
+グローバルSkillに対するstudy固有の差分は次の2点(Skill側は「spec配置の例外リポジトリ」としてこの差分を参照する):
+
+- **specの置き場所**: ローカルミラーではなく `apps/<アプリ名>/specs/<機能名>/` に置き、このリポジトリのgitで管理する(下記「specs/ フォルダ規約」)
+- **仕様の承認方式**: チャット承認ではなく**仕様承認PR**(`/pr` の「仕様承認PR」)。**要件定義より前にコードを書かない。** 3点セットの仕様承認PRがマージされるまで実装(テストを含む)には着手しない。例外は仕様に影響しない純粋なバグ修正・軽微な変更のみ(`/fix` の「仕様承認の要否」で判断し、承認ゲートなしで修正してよい)
+
+運用上のルール:
 
 - 入口: 新しい機能・アプリ → `/requirement`、既存機能のバグ・小規模改修 → `/fix`、方針の壁打ち → `/consult`
-- **要件定義より前にコードを書かない。** 3点セット(requirements.md/design.md/tasks.md)の仕様承認PRがマージされるまで実装(テストを含む)には着手しない。例外は仕様に影響しない純粋なバグ修正・軽微な変更のみ(`/fix` の「仕様承認の要否」で判断し、承認ゲートなしで修正してよい)
-- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。基本手順は `~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通、`~/.claude/hooks/enforce-worktree.sh` が強制)、study固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照
+- `gh`コマンドは常に `-R dnode-ryosuke-yamazaki/study` を明示し、既存PRを扱うサブコマンドにはブランチ名/PR番号も添える。マージは `--squash` を既定にする(詳細は `/pr` の共通ルール)
+- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。基本手順は `~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通)、study固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照(`~/.claude/hooks/enforce-worktree.sh` による強制は、組織ポリシーでユーザー定義hookが無効なため現在は効かない。運用ルールとして遵守する)
 
 ## specs/ フォルダ規約
 
@@ -19,7 +26,7 @@ apps/<app-name>/
 ├── infra/                          # 既存(Terraform)
 ├── application/                    # 既存(アプリケーションコード)
 └── specs/
-    ├── architecture.md             # アプリ全体像(機能マップ・採用技術・関連ADR)。任意
+    ├── architecture.md             # アプリ全体像(機能マップ・採用技術・関連ADR)。アプリ立ち上げ時に作成
     ├── adr/                        # このアプリ内で完結する設計判断の記録。アプリごとに0001から採番。任意
     └── <feature-name>/
         ├── requirements.md
@@ -27,9 +34,9 @@ apps/<app-name>/
         └── tasks.md
 ```
 
-- 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `.claude/skills/requirement/SKILL.md` のStep0を参照
-- `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `.claude/skills/architecture-workflow/SKILL.md` を参照
-- **仕様書(requirements.md/design.md/architecture.md)には常に今の正しい仕様だけを現在形で書く。** 変更の経緯・履歴・移設マーカー・内輪の呼称・合意日付は書かず、書き換えるときはあたかも最初からその仕様だったかのように書き直す(詳細は `.claude/skills/requirement/SKILL.md` の「仕様書は『最新仕様のみ』を書く」)
+- 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `~/.claude/skills/requirement/SKILL.md` のStep0を参照
+- `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `~/.claude/skills/architecture-workflow/SKILL.md` を参照
+- **仕様書(requirements.md/design.md/architecture.md)には常に今の正しい仕様だけを現在形で書く。** 変更の経緯・履歴・移設マーカー・内輪の呼称・合意日付は書かず、書き換えるときはあたかも最初からその仕様だったかのように書き直す(詳細は `~/.claude/skills/requirement/SKILL.md` の「仕様書は『最新仕様のみ』を書く」)
 - 経緯・決定理由を残す必要がある場合は仕様書に書かずADRに分離する。**複数アプリにまたがる技術選定・方針**(DB・ホスティング・認証基盤・CI基盤など)は `doc/adr/`(リポジトリ全体で連番)、**1アプリ内で完結する設計判断**は `apps/<app-name>/specs/adr/`(アプリごとに0001から採番)に置く。仕様書からは必要ならリンクだけを張る
 - 特定の`apps/<app-name>/`に属さない、リポジトリ横断のCI/tooling機能(例: JIRA連携などの`.github/workflows/`)の仕様3点セットは、上記構成の例外としてリポジトリ直下`specs/<feature-name>/`に置く(例: `doc/adr/0002-jira-automation-via-github-actions.md`)
 

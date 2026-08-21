@@ -7,7 +7,7 @@ description: 2つ以上の機能開発・修正を並行して進めるときに
 
 # study固有: 他セッションとの重複を避ける
 
-新しいspecフォルダを作る前([/requirement](../requirement/SKILL.md)のStep0、[/fix](../fix/SKILL.md)のStep1)に、以下を確認する:
+新しいspecフォルダを作る前([/requirement](~/.claude/skills/requirement/SKILL.md)のStep0、[/fix](~/.claude/skills/fix/SKILL.md)のStep1)に、以下を確認する:
 
 - **`git worktree list`で他に動いているworktreeを確認し、そのディレクトリの`apps/<アプリ名>/specs/`を直接`ls`・`cat`で覗く。**
 - **`git log --all --oneline -- 'apps/*/specs/**'`で、他のブランチ(未マージ含む)が同じspecパスを触っていないか確認する。**
