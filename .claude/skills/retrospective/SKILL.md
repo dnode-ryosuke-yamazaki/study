@@ -4,7 +4,7 @@ description: 開発ワークフロー(.claude/skills/のSkill群)が実際の進
 disable-model-invocation: true
 ---
 
-> ワークフロー上の位置: 定期作業(開発ループ外)。Skillの更新はfeatureブランチ + [/pr](../pr/SKILL.md)で行う
+> ワークフロー上の位置: 定期作業(開発ループ外)。Skillの更新はfeatureブランチ + [/pr](~/.claude/skills/pr/SKILL.md)で行う
 
 # 実行タイミング
 
@@ -41,7 +41,7 @@ gh pr list --state merged --limit 10 --json number,title,mergedAt,url
 
 # Step4 Skillを更新する
 
-`feature/<変更内容>`ブランチを切り、Skill・CLAUDE.mdを更新して[/pr](../pr/SKILL.md)で実装PRとして出す(仕様承認ゲートの対象外。specs/には触れないため)。
+`feature/<変更内容>`ブランチを切り、Skill・CLAUDE.mdを更新して[/pr](~/.claude/skills/pr/SKILL.md)で実装PRとして出す(仕様承認ゲートの対象外。specs/には触れないため)。
 
 # 完了時の次ステップ案内
 
