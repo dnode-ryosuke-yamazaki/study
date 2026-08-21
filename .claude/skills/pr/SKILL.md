@@ -18,7 +18,7 @@ description: PRを作成するときに使う。仕様承認PR(3点セット)と
 
 - 作業は必ず`feature/<機能名>`(JIRAチケットがある場合は`feature/<JIRAキー>-<機能名>`)ブランチで行い、mainに直接pushしない(マージ後の後続作業も同様に新しいブランチを切る)。複数の機能を並行して進める場合は[parallel-work](../parallel-work/SKILL.md)(worktree)を使い、ブランチの切り替えはしない
 - ブランチの作成・コミットはローカルのgit操作のみで完結するため、ユーザーへの確認なしで進めてよい
-- **push・PR作成・CI確認・マージはサンドボックスから直接実行できないことが多い**(GitHubへの通信がブロックされる環境があるため。詳細は`~/.claude/sandbox-limitations.md`)。ネットワーク制限のない環境ではこちらで直接実行してよいが、失敗する場合は以下の手順でユーザーに引き継ぐ:
+- **push・PR作成・CI確認・マージはこのサンドボックスから実行できない**(GitHubへの通信が遮断されており、`gh`は認証情報も読めない。詳細は`~/.claude/sandbox-limitations.md`)。**試さずに**、以下の手順でユーザーに引き継ぐ:
   1. コミットまで済ませ、`push`→PR作成→CI確認を1つのコピペ可能なコマンドブロックにまとめて提示する(本文テンプレートは下記):
      ```bash
      git push -u origin feature/<機能名>
@@ -95,3 +95,4 @@ requirements.md/design.mdの各仕様項目にテストが紐づいているか�
 
 - 仕様承認PR → 作成されたPRのURLを確認し、ユーザーの承認・マージ後に[/implementation](../implementation/SKILL.md)へ進むことを案内する
 - 実装PR → 作成されたPRのURLを確認し、ユーザーのマージ後に本番反映の確認(該当アプリのデプロイ手順に従う)と、不要になったブランチ・worktreeの掃除(`git worktree remove`・`git branch -d`)を行うことを案内する
+- 本番反映の確認まで済んだら、対象アプリが`apps/<アプリ名>/specs/architecture.md`を持つ場合は機能一覧表の状態列を「リリース済み」に更新し、**更新後の表をこの完了報告にそのまま貼って提示する**([architecture-workflow](../architecture-workflow/SKILL.md)の「更新タイミング」参照)

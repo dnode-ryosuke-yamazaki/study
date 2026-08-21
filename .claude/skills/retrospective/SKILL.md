@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 # Step1 直近の実績を集める
 
-`gh pr list`はGitHubへの通信を要するため、サンドボックスから直接実行できないことが多い(`~/.claude/sandbox-limitations.md`参照)。ネットワーク制限のない環境ではこちらで直接実行し、失敗する場合はユーザーに以下のコマンドを手元のターミナルで実行してもらい、出力を貼ってもらう:
+`gh pr list`はこのサンドボックスからは実行できない(GitHubへの通信が遮断されており、`gh`は認証情報も読めない。`~/.claude/sandbox-limitations.md`参照)。**試さずに**、ユーザーに以下のコマンドを手元のターミナルで実行してもらい、出力を貼ってもらう:
 
 ```bash
 gh pr list --state merged --limit 10 --json number,title,mergedAt,url

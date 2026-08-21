@@ -20,6 +20,7 @@ apps/<app-name>/
 ├── application/                    # 既存(アプリケーションコード)
 └── specs/
     ├── architecture.md             # アプリ全体像(機能マップ・採用技術・関連ADR)。任意
+    ├── adr/                        # このアプリ内で完結する設計判断の記録。アプリごとに0001から採番。任意
     └── <feature-name>/
         ├── requirements.md
         ├── design.md                # 分岐のない単純な機能では省略可
@@ -28,7 +29,8 @@ apps/<app-name>/
 
 - 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `.claude/skills/requirement/SKILL.md` のStep0を参照
 - `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `.claude/skills/architecture-workflow/SKILL.md` を参照
-- 複数アプリにまたがる技術選定(DB・ホスティング・認証基盤など)は `doc/adr/` にADRとして残す。1アプリ内に閉じた設計判断はarchitecture.md/design.mdに書き、ADRにはしない
+- **仕様書(requirements.md/design.md/architecture.md)には常に今の正しい仕様だけを現在形で書く。** 変更の経緯・履歴・移設マーカー・内輪の呼称・合意日付は書かず、書き換えるときはあたかも最初からその仕様だったかのように書き直す(詳細は `.claude/skills/requirement/SKILL.md` の「仕様書は『最新仕様のみ』を書く」)
+- 経緯・決定理由を残す必要がある場合は仕様書に書かずADRに分離する。**複数アプリにまたがる技術選定・方針**(DB・ホスティング・認証基盤・CI基盤など)は `doc/adr/`(リポジトリ全体で連番)、**1アプリ内で完結する設計判断**は `apps/<app-name>/specs/adr/`(アプリごとに0001から採番)に置く。仕様書からは必要ならリンクだけを張る
 - 特定の`apps/<app-name>/`に属さない、リポジトリ横断のCI/tooling機能(例: JIRA連携などの`.github/workflows/`)の仕様3点セットは、上記構成の例外としてリポジトリ直下`specs/<feature-name>/`に置く(例: `doc/adr/0002-jira-automation-via-github-actions.md`)
 
 ## コマンド(テスト・lint・build)
