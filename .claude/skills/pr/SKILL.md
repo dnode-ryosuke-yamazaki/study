@@ -18,28 +18,34 @@ description: PRを作成するときに使う。仕様承認PR(3点セット)と
 
 - 作業は必ず`feature/<機能名>`(JIRAチケットがある場合は`feature/<JIRAキー>-<機能名>`)ブランチで行い、mainに直接pushしない(マージ後の後続作業も同様に新しいブランチを切る)。複数の機能を並行して進める場合は[parallel-work](../parallel-work/SKILL.md)(worktree)を使い、ブランチの切り替えはしない
 - ブランチの作成・コミットはローカルのgit操作のみで完結するため、ユーザーへの確認なしで進めてよい
+- **`gh`コマンドには常に`-R dnode-ryosuke-yamazaki/study`を明示する**(`gh repo set-default`が未設定/環境ごとにリセットされる場合があり、"No default remote repository has been set"で失敗することがあるため)
+- **`-R`を付けた既存PRを扱うサブコマンドには、PRの指定(ブランチ名/PR番号/URL)も必ず添える。** `-R`併用時はローカルのカレントブランチからの自動解決が効かなくなり、`argument required when using the --repo flag`で失敗する。`gh pr merge`・`gh pr checks`・`gh pr view`・`gh pr close`等が該当する(`gh pr create`は`--head`があるため対象外)。PR番号は作成するまで分からないため、`feature/<機能名>`(ブランチ名)をそのまま渡すのが既定の解決策
 - **push・PR作成・CI確認・マージはこのサンドボックスから実行できない**(GitHubへの通信が遮断されており、`gh`は認証情報も読めない。詳細は`~/.claude/sandbox-limitations.md`)。**試さずに**、以下の手順でユーザーに引き継ぐ:
-  1. コミットまで済ませ、`push`→PR作成→CI確認を1つのコピペ可能なコマンドブロックにまとめて提示する(本文テンプレートは下記):
+  1. コミットまで済ませ、`push`→PR作成→CI確認を1つのコピペ可能なコマンドブロックにまとめて提示する(本文テンプレートは下記)。**ユーザーに手渡すコマンドブロックは必ず先頭に`cd /Users/ryosyamazaki/repo/study`を入れる**(ユーザーのターミナルのカレントディレクトリが一致している保証はなく、別リポジトリで実行されると`src refspec ... does not match any`等で失敗するため)。この`cd`はマージ・ブランチ掃除など後続のコマンドブロックにも毎回付ける:
      ```bash
+     cd /Users/ryosyamazaki/repo/study
+
      git push -u origin feature/<機能名>
 
-     gh pr create --title "<タイトル>" --body "$(cat <<'EOF'
+     gh pr create -R dnode-ryosuke-yamazaki/study --title "<タイトル>" --body "$(cat <<'EOF'
      <本文>
      EOF
      )"
 
-     gh pr checks
+     gh pr checks -R dnode-ryosuke-yamazaki/study feature/<機能名>
      ```
+     `gh pr checks`にブランチ名を添えているのは、共通ルールの「`-R`併用時はPRの指定が必須」に従うため。
      `gh`が使えない場合は、pushすると表示されるcompare URL、またはGitHub Web UIからPRを作成してもらう
   2. 実行結果(PRのURL・CI結果)をユーザーから報告してもらう
   3. 報告を受けたら、PRのURLを装飾なしの単独行で明示したうえで「マージ前に確認しますか?」と一言だけ確認する(ネットワーク制限がなくこちらで直接実行した場合も、`gh pr view --json url -q .url`等でURLを取得し同様に確認する)
   4. ユーザーの返答で分岐する:
      - 「確認不要です」等、確認不要の意思表示があれば、その場でマージ〜ブランチ掃除のコマンドをまとめて提示する:
        ```bash
-       PR_NUMBER=$(gh pr view --json number -q .number)
-       gh pr merge "$PR_NUMBER" --squash --delete-branch
+       cd /Users/ryosyamazaki/repo/study
+
+       gh pr merge -R dnode-ryosuke-yamazaki/study feature/<機能名> --squash --delete-branch
        ```
-       (このリポジトリの既存履歴に合わせて`--squash`を既定にする。`--delete-branch`によりローカル・リモート双方の作業ブランチが自動削除され`main`に切り替わる)
+       (このリポジトリの既存履歴に合わせて`--squash`を既定にする。`--delete-branch`によりローカル・リモート双方の作業ブランチが自動削除され`main`に切り替わる。PRの指定にPR番号ではなくブランチ名を使う理由は共通ルールを参照)
      - 「確認します」等の返答であれば一旦待ち、後で「マージしました」等の報告を受けてから、ローカルの同期確認(`git status`・`git log`、必要なら`git pull`)と次のステップの案内に進む
 - ユーザーへの報告にはPR番号だけでなく完全なURLを明記する。URLは装飾なしの単独行に置く(`**`や括弧・日本語をURLに連結するとリンク検出が巻き込んで開けなくなる)
 - mainへのマージはユーザーがGitHub UI上でdiffを確認するか、上記の確認フローを経て行う想定であり、こちらから無条件に直接マージは実行しない
