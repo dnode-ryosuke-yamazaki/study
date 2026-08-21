@@ -7,7 +7,7 @@
 このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は `.claude/skills/` 配下のSkillとして手順化されている。作業を始める前に [.claude/skills/README.md](.claude/skills/README.md) の一覧・遷移図を確認すること。
 
 - 入口: 新しい機能・アプリ → `/requirement`、既存機能のバグ・小規模改修 → `/fix`、方針の壁打ち → `/consult`
-- **要件定義より前にコードを書かない。** 3点セット(requirements.md/design.md/tasks.md)の仕様承認PRがマージされるまで実装(テストを含む)には着手しない
+- **要件定義より前にコードを書かない。** 3点セット(requirements.md/design.md/tasks.md)の仕様承認PRがマージされるまで実装(テストを含む)には着手しない。例外は仕様に影響しない純粋なバグ修正・軽微な変更のみ(`/fix` の「仕様承認の要否」で判断し、承認ゲートなしで修正してよい)
 - 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。基本手順は `~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通、`~/.claude/hooks/enforce-worktree.sh` が強制)、study固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照
 
 ## specs/ フォルダ規約

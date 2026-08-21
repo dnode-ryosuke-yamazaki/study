@@ -3,7 +3,7 @@ name: resolve
 description: /spec-reviewや/implementation-review、またはPR上で受けたレビュー指摘を修正するときに使う。重要度順の対応、対応結果の報告テンプレートを扱う。
 ---
 
-> ワークフロー上の位置: [/spec-review](../spec-review/SKILL.md) / [/implementation-review](../implementation-review/SKILL.md) → **/resolve(本Skill)** → 指摘元のレビューを再実行 → [/pr](../pr/SKILL.md)
+> ワークフロー上の位置: [/spec-review](../spec-review/SKILL.md) / [/implementation-review](../implementation-review/SKILL.md) / PR上のレビューコメント → **/resolve(本Skill)** → 指摘元のレビューを再実行 → [/pr](../pr/SKILL.md)
 
 > **次フェーズのモデル(レビュー再実行):** 基本は **Sonnet**。複数の指摘に関連する修正・ビジネスルール全体の見直しなど、根拠の再構築が必要な場合のみ **Opus** を検討する
 

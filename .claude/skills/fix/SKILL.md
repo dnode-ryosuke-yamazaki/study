@@ -3,7 +3,7 @@ name: fix
 description: バグ修正・既存機能の小規模な改修を行うときに使う(不具合の修正、文言変更、既存specのスコープ外だった項目への対応など)。既存spec更新時の確認範囲と承認要否の判断を扱う。新しい機能・エンドポイントの追加は/requirementを使う。
 ---
 
-> ワークフロー上の位置: **/fix(本Skill)** → [/implementation-review](../implementation-review/SKILL.md) → [/pr](../pr/SKILL.md)(実装PR)
+> ワークフロー上の位置: **/fix(本Skill)** → [/implementation-review](../implementation-review/SKILL.md) → [/pr](../pr/SKILL.md)(実装PR)。仕様変更を伴う場合は実装前に仕様承認PR([/pr](../pr/SKILL.md))を挟む(判断は「仕様承認の要否」)
 
 > **次フェーズのモデル:** 基本は **Sonnet**(トークン消費を抑えるため下流工程は原則Sonnetで運用する)
 > - Step2で仕様変更が必要と判定した場合: 複数のビジネスルール変更・外部仕様への適合など影響範囲の特定が重要な場合のみ **Opus** を検討する
