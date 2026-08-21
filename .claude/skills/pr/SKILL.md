@@ -95,3 +95,4 @@ requirements.md/design.mdの各仕様項目にテストが紐づいているか�
 
 - 仕様承認PR → 作成されたPRのURLを確認し、ユーザーの承認・マージ後に[/implementation](../implementation/SKILL.md)へ進むことを案内する
 - 実装PR → 作成されたPRのURLを確認し、ユーザーのマージ後に本番反映の確認(該当アプリのデプロイ手順に従う)と、不要になったブランチ・worktreeの掃除(`git worktree remove`・`git branch -d`)を行うことを案内する
+- 本番反映の確認まで済んだら、対象アプリが`apps/<アプリ名>/specs/architecture.md`を持つ場合は機能一覧表の状態列を「リリース済み」に更新し、**更新後の表をこの完了報告にそのまま貼って提示する**([architecture-workflow](../architecture-workflow/SKILL.md)の「更新タイミング」参照)

@@ -8,9 +8,15 @@
 
 Skillを明示的に選ばない会話も、次の3層で必ずワークフローに合流する:
 
-1. **入口**: UserPromptSubmitフック(`../hooks/route-to-workflow.sh`)がすべてのユーザー入力に「開発作業なら該当する工程Skillを起動してから作業する」という指示を注入する(工程の判定はモデルが行う。`/`で始まる明示的なSkill起動には注入しない)
+1. **入口**: UserPromptSubmitフック(`../hooks/route-to-workflow.sh`)がユーザー入力に「開発作業なら該当する工程Skillを起動してから作業する」という指示を注入する(工程の判定はモデルが行う。`/`で始まる明示的なSkill起動と、挨拶・単純な質問など明らかに非開発な入力には注入しない)
 2. **途中**: 前工程の成果物を必要とする工程Skillは冒頭の「前提条件」で確認し、満たしていなければ上流の工程Skillへ誘導する(例: requirements.mdなしで/designを始めない)
 3. **出口**: 各Skill末尾の「完了時の次ステップ案内」で次の工程へ誘導する
+
+あわせて、SessionStartフック(`../hooks/check-main-freshness.sh`)がセッション開始時にローカルmainの遅れを警告する。別セッションでマージ済みの作業と重複しないための安全網で、比較対象は「ユーザーが手元ターミナルで最後にfetch/pullした時点のorigin/main」(サンドボックスからは`git fetch`できないため)。
+
+## 自動運転モード
+
+[autopilot](autopilot/SKILL.md) は上記の工程を確認なしで連結する**モードSkill**で、ユーザーが明示的に起動したときだけ働く。小規模・低リスクの変更が対象で、対話は「要件ヒアリング/入口確認」と「仕様承認PRのレビュー」の2箇所に絞られる。push・PR作成・マージはこの環境では自動化できないため、コマンドを提示してユーザーの手元での実行結果を待つ引き継ぎポイントになる。
 
 ## 起動者(誰がSkillを起動できるか)
 
@@ -19,6 +25,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | カテゴリ | ユーザーが`/xxx`で起動 | Claudeが自律起動 | frontmatter |
 |---|---|---|---|
 | 機能開発フロー(工程Skill) | ○ | ○ | (なし) |
+| モードSkill(autopilot) | ○ | ○(明示指示があったときのみ) | (なし) |
 | 定期作業Skill | ○ | **×** | `disable-model-invocation: true` |
 | 知識Skill | ○ | ○ | (なし) |
 
@@ -40,6 +47,12 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | [resolve](resolve/SKILL.md) | レビュー指摘の修正。重要度順に対応し、対応結果を報告する | /spec-review・/implementation-review・PR上で指摘を受けたとき | 指摘元のレビューを再実行 → /pr |
 | [fix](fix/SKILL.md) | バグ修正・既存機能の小規模改修の入口。既存spec更新の影響洗い出しと承認要否の判断 | 不具合修正・文言修正・スコープ外項目への対応など | 仕様変更あり: /pr(仕様承認PR) / 純粋なバグ: 修正後 /implementation-review |
 
+### モードSkill
+
+| Skill | 役割 | 使うタイミング | 完了後の遷移先 |
+|---|---|---|---|
+| [autopilot](autopilot/SKILL.md) | 上の工程Skillを確認なしで連結する自動運転モード。対話は2箇所(要件ヒアリング/入口確認・仕様承認PRレビュー)に絞る。手順は各工程Skillに委譲し、本Skillは止まる箇所だけを定める | 小規模・低リスクの変更を最後まで一気に進めたいとき(ユーザーが明示起動) | 実装PRのマージ後、本番反映確認・ブランチ掃除(手動) |
+
 ### 定期作業Skill(開発ループ外・ユーザーが`/xxx`で明示起動)
 
 | Skill | 役割 | 頻度 | 異常時の遷移先 |
@@ -51,7 +64,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 
 | Skill | 役割 | 参照元 |
 |---|---|---|
-| [architecture-workflow](architecture-workflow/SKILL.md) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新 | /requirement、/design |
+| [architecture-workflow](architecture-workflow/SKILL.md) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新。**設計図(Mermaid)の種類・記載先・作成条件・書き方ルールもここに集約**(requirements.md/design.mdに埋める図の一覧を含む) | /requirement、/design、/fix、/spec-review |
 | [parallel-work](parallel-work/SKILL.md) | git worktreeでの並行開発のうち、study固有の部分(specs/フォルダでの重複検出)。worktreeの基本手順は`~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通)を参照 | /requirement、/fix、/implementation、/pr |
 
 > `record-sandbox-limitation` はプロジェクト固有ではないため `~/.claude/skills/` 側(全プロジェクト共通)に移動済み。このリポジトリ内には存在しない。/scan-sandbox-sessions から候補確認後もそちらを呼ぶ。
@@ -133,3 +146,5 @@ flowchart TD
 ## この文書の保守
 
 Skill・Agentの追加・削除・遷移の変更をしたら、このREADMEの表と遷移図も同じPRで更新する(/retrospective の確認対象)。ワークフローの入口(/requirement・/fix・/consultの使い分け)が変わったら、ルーティングフック(`../hooks/route-to-workflow.sh`)の指示文も同じPRで更新する。
+
+このSkill群のうち、フック(`../hooks/`)と`../settings.json`のhooks登録はセッション開始時に読み込まれる。フックを追加・変更したら、反映にはClaude Codeの再起動(またはVSCodeウィンドウのリロード)が必要な点をユーザーに伝える。
