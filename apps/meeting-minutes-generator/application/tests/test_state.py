@@ -38,6 +38,16 @@ class 初回実行の判定(unittest.TestCase):
         with self.assertRaises(state.状態が壊れている):
             state.読み込む(self.状態ファイル)
 
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#エラーハンドリング
+    def test_一時的な読み取り失敗は破損と区別されること(self):
+        """OneDrive同期の実体化待ちなどの一時的失敗を破損と混同すると、
+        手動復旧(state.jsonの修復・削除)へ誘導してしまう。次回に委ねる側に倒す。
+        """
+        壊れていないがアクセスできないファイル = Path(self.一時ディレクトリ.name) / "dir-as-file"
+        壊れていないがアクセスできないファイル.mkdir()
+        with self.assertRaises(state.状態を読めなかった):
+            state.読み込む(壊れていないがアクセスできないファイル)
+
 
 class 処理状態の記録(unittest.TestCase):
     """VTTごとの状態(処理済み・再試行待ち・対象外)を記録し読み直せることを検証する。"""

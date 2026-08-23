@@ -48,6 +48,11 @@ class プロンプトの組み立て(unittest.TestCase):
     def test_担当者を推定できない場合の担当者未定の指示が含まれること(self):
         self.assertIn("担当者未定", self.指示)
 
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#議事録の記載内容-4
+    def test_参加者一覧を発言者名から書き出す指示が含まれること(self):
+        self.assertIn("参加者一覧", self.指示)
+        self.assertIn("発言者名", self.指示)
+
 
 class 生成結果の検証(unittest.TestCase):
     """claude -p は exit 0 でも失敗していることがあるため、生成物が議事録として

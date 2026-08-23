@@ -206,6 +206,20 @@ class 失敗時の挙動(バッチのテスト基盤):
         self.assertEqual(結果.生成失敗件数, 1)
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#エラーハンドリング
+    def test_状態ファイルの一時的な読み取り失敗は破損と区別され次回に持ち越されること(self):
+        self.vttを置く("会議A.vtt")
+        with mock.patch(
+            "generate_minutes.state.読み込む",
+            side_effect=state.状態を読めなかった("実体化待ち"),
+        ), mock.patch("generate_minutes.claude_runner.生成する") as 生成モック:
+            with self.assertLogs(level="INFO") as ログ:
+                結果 = generate_minutes.実行する(self.設定)
+        self.assertTrue(結果.中断した)
+        生成モック.assert_not_called()
+        # 破損時のERRORではなくINFOで、手動復旧へ誘導しないこと
+        self.assertFalse(any(行.startswith("ERROR") for 行 in ログ.output))
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#エラーハンドリング
     def test_状態ファイルが壊れている場合は初期化せず中断すること(self):
         self.設定.状態ファイル.parent.mkdir(parents=True, exist_ok=True)
         self.設定.状態ファイル.write_text("{壊れている", encoding="utf-8")

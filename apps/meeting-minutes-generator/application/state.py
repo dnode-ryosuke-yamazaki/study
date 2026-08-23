@@ -34,6 +34,11 @@ class 状態が壊れている(Exception):
     """状態ファイルが読めるが内容が不正。初期化せず処理を中断する。"""
 
 
+class 状態を読めなかった(Exception):
+    """一時的な読み取り失敗(アクセス権・I/Oエラー等)。破損と区別し、
+    何も変更せず次回実行に委ねる。"""
+
+
 class 先行実行が動作中(Exception):
     """別の実行がロックを保持している。今回の実行は何もせず終える。"""
 
@@ -100,8 +105,11 @@ def 読み込む(状態ファイル: Path) -> 状態 | None:
         中身 = json.loads(状態ファイル.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
-    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as 例外:
-        raise 状態が壊れている(f"{状態ファイル} を読めない: {例外}") from 例外
+    except OSError as 例外:
+        # アクセス権・I/Oエラー等は内容の破損ではない。次回実行に委ねる。
+        raise 状態を読めなかった(f"{状態ファイル} を読めない: {例外}") from 例外
+    except (json.JSONDecodeError, UnicodeDecodeError) as 例外:
+        raise 状態が壊れている(f"{状態ファイル} の内容が不正: {例外}") from 例外
 
     if not isinstance(中身, dict):
         raise 状態が壊れている(f"{状態ファイル} の形式が想定と違う")
