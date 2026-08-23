@@ -61,6 +61,17 @@ class 入出力フォルダの導出(unittest.TestCase):
         self.assertNotIn("/tmp/auto", str(self.設定.ロックファイル))
         self.assertEqual(self.設定.状態ファイル.parent, self.設定.ロックファイル.parent)
 
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#関連するファイル抜粋
+    def test_環境変数で状態フォルダも差し替えられること(self):
+        """テスト・手元実行が実物の状態ファイルを汚すと、実運用の初回判定
+        (初回=既存VTTを生成しない)が壊れるため、状態側にも差し替え手段を持つ。
+        """
+        with mock.patch.dict(
+            "os.environ", {config.状態フォルダ環境変数: "/tmp/minutes-state"}
+        ):
+            設定 = config.load(作業フォルダ=Path("/tmp/auto"))
+        self.assertEqual(設定.状態ファイル, Path("/tmp/minutes-state/state.json"))
+
 
 class 仕様で決められた既定値(unittest.TestCase):
     """仕様承認PRで確定した数値が設定に反映されていることを検証する。"""
