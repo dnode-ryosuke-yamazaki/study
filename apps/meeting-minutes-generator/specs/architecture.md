@@ -63,7 +63,7 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | 技術 | 用途 |
 |---|---|
-| Python 3(標準ライブラリのみ) | バッチ本体(teams-transcript-fetcherと同じ構成)【推測】 |
+| Python 3(標準ライブラリのみ) | バッチ本体(teams-transcript-fetcherと同じ構成) |
 | launchd | 定期実行(create-automation-batch Skillの検証済み方式) |
 | claude CLI(`claude -p`) | 議事録本文の生成 |
 | Power Automate | OneDriveファイル作成の検知とTeamsチャネルへの投稿 |
@@ -72,7 +72,7 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | 仕様のみ(未実装) |
+| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | 実装中 |
 
 ## 外部サービス
 
