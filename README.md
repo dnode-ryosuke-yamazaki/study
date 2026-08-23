@@ -23,6 +23,7 @@
 |---|---|---|
 | notes-api | メモ管理API (AWS Lambda + API Gateway + DynamoDB) | [apps/notes-api/README.md](apps/notes-api/README.md) |
 | teams-transcript-fetcher | Teams会議のトランスクリプト自動収集バッチ (Python + launchd + Power Automate連携) | [apps/teams-transcript-fetcher/specs/architecture.md](apps/teams-transcript-fetcher/specs/architecture.md) |
+| meeting-minutes-generator | 会議トランスクリプトからの議事録自動生成バッチ (Python + launchd + claude CLI + Power Automate連携) | [apps/meeting-minutes-generator/specs/architecture.md](apps/meeting-minutes-generator/specs/architecture.md) |
 
 ## 新しいアプリを追加するときは
 
