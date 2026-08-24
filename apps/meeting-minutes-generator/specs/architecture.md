@@ -2,7 +2,7 @@
 
 ## サマリ
 
-teams-transcript-fetcherが蓄積するTeams会議のトランスクリプト(WEBVTT)から、議事録Markdownを全自動生成してOneDriveへ書き出し、要約をTeamsチャネルに自動投稿するローカル実行バッチ。Python 3(標準ライブラリのみ)+ launchd + `claude -p`(ヘッドレス)+ Power Automate(Teams投稿)で構成する。specは1つ(minutes-auto-generation)。全体像は[コンテキスト図](#コンテキスト図)・[システム構成図](#システム構成図)を参照。
+teams-transcript-fetcherが蓄積するTeams会議のトランスクリプト(WEBVTT)から、議事録Markdownを全自動生成してOneDriveへ書き出し、要約をTeamsチャネルに自動投稿するローカル実行バッチ。Python 3(標準ライブラリのみ)+ launchd + `claude -p`(ヘッドレス)+ Power Automate(Teams投稿)で構成する。議事録は同期フォルダの外のローカル控えにも書き出し、同期フォルダを読めない下流のツールから使えるようにする。specは1つ(minutes-auto-generation)。全体像は[コンテキスト図](#コンテキスト図)・[システム構成図](#システム構成図)を参照。
 
 ## 概要
 
@@ -17,6 +17,8 @@ flowchart LR
     system["meeting-minutes-generator<br>本システム"]
     claude["claude CLI<br>ヘッドレス実行"]
     onedrive[("OneDrive<br>同期フォルダ")]
+    mirror[("ローカル控え<br>同期フォルダの外")]
+    tool["議事録TODOのJIRA起票<br>下流のツール"]
     pa["Power Automate"]
     teams["Teamsチャネル"]
 
@@ -28,6 +30,8 @@ flowchart LR
     pa -- 要約を投稿する --> teams
     teams --> user
     onedrive -- 議事録全文を読む --> user
+    system -- 議事録の控えを書き出す --> mirror
+    mirror -- 控えから議事録を読む --> tool
 ```
 
 正となる文章は[minutes-auto-generation/requirements.md](minutes-auto-generation/requirements.md)。
@@ -42,6 +46,7 @@ flowchart TB
     vtt[("auto/transcript/vtt/<br>入力")]
     minutes[("auto/minutes/<br>議事録Markdown")]
     notice[("auto/teamsNotice/minutesNotice/<br>Teams投稿用HTML")]
+    mirror[("Application Support/minutes/<br>議事録のローカル控え")]
     claude["claude -p"]
 
     launchd --> batch
@@ -50,7 +55,9 @@ flowchart TB
     batch --> claude
     claude --> batch
     batch --> minutes
+    batch --> mirror
     batch --> notice
+    mirror --> tool["下流のツール<br>議事録TODOのJIRA起票"]
 ```
 
 正となる文章は[minutes-auto-generation/design.md](minutes-auto-generation/design.md)の処理フロー。
@@ -78,18 +85,19 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | サービス | 用途 |
 |---|---|
-| OneDrive(組織アカウントの同期フォルダ) | 入力(vtt/)・成果物(minutes/)・投稿連携(teamsNotice/minutesNotice/)の受け渡し |
+| OneDrive(組織アカウントの同期フォルダ) | 入力(vtt/)・成果物(minutes/)・投稿連携(teamsNotice/minutesNotice/)の受け渡し。読み取りにはアプリへのアクセス許可が必要 |
 | Claude(claude CLI経由) | 議事録本文の生成 |
 | Power Automate + Teams | 投稿用ファイルの検知と固定チャネルへの投稿 |
 
 ## セキュリティ
 
-トランスクリプト・議事録(会議内容を含む)は組織のOneDrive・Teamsの中に閉じ、ログに本文を出さない。詳細は[minutes-auto-generation/design.md](minutes-auto-generation/design.md)のセキュリティを参照。
+トランスクリプト・議事録(会議内容を含む)を置く場所は、組織のOneDrive・Teamsと、このMacのユーザー専用フォルダにある議事録の控えに限る。ログに本文を出さない。詳細は[minutes-auto-generation/design.md](minutes-auto-generation/design.md)のセキュリティを参照。
 
 ## 技術的制約
 
 - `claude -p` はMCPを使えず、exit 0でも失敗しうる(create-automation-batch Skillで確認済み)。生成結果の検証をバッチ側で行う
 - 定期実行の環境はログインシェルのPATHを継承しないため、claudeを名前で起動できない。バッチが既知のインストール先を探索して絶対パスで起動する
 - OneDrive同期フォルダのファイルは実体化待ちで読めないことがある。読み取り失敗は一時的失敗として次回実行に委ねる
+- OneDrive同期フォルダは、macOSが項目ごとに管理するアプリへのアクセス許可が付いた項目しか読めない。許可の無いプロセスからは、ファイルが存在していても一覧・読み取りが拒否される(許可の付与は端末の管理設定により行えない)。このため議事録を入力に使うツールは、同期フォルダではなくローカル控えを読む
 - OneDriveの `auto/` 直下にはファイルを置かない(既存のTeams投稿用フローが検知するため)
 - 共有ストレージ(OneDrive / SharePoint Online)のファイルを直接指すURLはブラウザ内で表示されずダウンロードになる。Teams投稿から議事録を開くリンクはファイルビューアで開く形式のURLを組み立てる
