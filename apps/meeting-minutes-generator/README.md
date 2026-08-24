@@ -86,10 +86,20 @@ tail -f ~/Library/Application\ Support/meeting-minutes-generator/minutes.log
 |---|---|---|
 | `MINUTES_GENERATOR_WORK_DIR` | 作業フォルダ(OneDriveの `00_root/auto`)の差し替え | OneDrive同期フォルダ |
 | `MINUTES_GENERATOR_STATE_DIR` | 状態フォルダの差し替え | `~/Library/Application Support/meeting-minutes-generator` |
+| `MINUTES_GENERATOR_MIRROR_DIR` | 議事録のローカル控えの差し替え | 状態フォルダ配下の `minutes/` |
 | `MINUTES_GENERATOR_CLAUDE` | `claude` の場所を明示指定 | 探索(PATH → 既知のインストール先) |
 | `MINUTES_GENERATOR_DAILY_KEYWORDS` | デイリー系会議の判定語(カンマ区切り) | `デイリー,daily,朝会,スタンドアップ,standup` |
 | `MINUTES_GENERATOR_WEB_VIEWER` | 議事録を開くファイルビューアのURL | 個人OneDriveの `onedrive.aspx` |
 | `MINUTES_GENERATOR_WEB_DIR` | 作業フォルダに対応する共有ストレージのサーバー相対パス | `/personal/.../Documents/00_root/auto` |
+
+### 議事録のローカル控え
+
+議事録は、OneDriveの `00_root/auto/minutes/` と同時に `~/Library/Application Support/meeting-minutes-generator/minutes/` へも同じ名前・同じ内容で書き出します。
+
+OneDriveの同期フォルダは、macOSが項目ごとに管理するアプリへのアクセス許可が付いた項目しか読めません(許可の無いプロセスからは、ファイルがあっても一覧・読み取りが `Operation not permitted` になります。端末の管理設定によりフルディスクアクセスの付与は行えません)。そのため**議事録を入力に使うツールは、OneDrive側ではなくこの控えを読みます**(利用側: `~/.claude/skills/minutes-todo-to-jira/`)。
+
+- 控えが書けなかった場合も議事録の保存とTeams投稿は続きます。書けなかった分は次回実行のバックフィルで写されます
+- 各実行の最初に1回、OneDrive側にあって控えに無い議事録を写します。OneDrive側が読めない場合は何もしません(ログに1行残ります)
 
 **デイリー系会議**(ファイル名に判定語を含む会議)では、議事録に「進捗」の見出しが加わり、担当者ごとに作業実績・作業予定・課題が書かれます。決定事項・TODOには進捗報告以外だけが入ります。
 
@@ -113,6 +123,7 @@ rm ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
 |---|---|---|
 | 実行ログ | `~/Library/Application Support/meeting-minutes-generator/minutes.log` | 既定INFO。5世代でローテーション。**トランスクリプト・議事録の本文は出力しません** |
 | 状態ファイル | `~/Library/Application Support/meeting-minutes-generator/state.json` | 処理済み・再試行回数・対象外の記録 |
+| 議事録のローカル控え | `~/Library/Application Support/meeting-minutes-generator/minutes/` | OneDrive側と同じ名前・同じ内容の写し。**議事録を入力に使うツールはここを読みます**(下記) |
 | ロック | `~/Library/Application Support/meeting-minutes-generator/minutes.lock` | 二重起動の防止。最後に処理が進んでから30分を過ぎた残骸は自動回収。処理中は1件ごとに時刻を更新するため、多数のVTTを順に処理する長い実行でも回収されません(1件の処理は生成タイムアウトの15分で必ず打ち切られるため、更新の間隔が30分に達しません) |
 | 起動失敗の出力 | `~/Library/Logs/meeting-minutes-generator.{out,err}.log` | Pythonが起動できなかった場合など |
 

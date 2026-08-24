@@ -8,6 +8,7 @@ from unittest import mock
 
 import claude_runner
 import config
+import writer
 import generate_minutes
 import meeting_profile
 import state
@@ -106,6 +107,53 @@ class 生成から投稿までの通し(バッチのテスト基盤):
             "generate_minutes.claude_runner.生成する",
             return_value=claude_runner.生成の結果(成功=True, 本文=整った議事録),
         )
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#議事録のローカル控え
+    def test_成功すると同期フォルダの外の控えにも同じ内容が書かれること(self):
+        self.vttを置く("会議A.vtt")
+        with self._成功する生成(), self.assertLogs(level="INFO"):
+            generate_minutes.実行する(self.設定)
+        控え = self.設定.控えフォルダ / "会議A.md"
+        self.assertTrue(控え.is_file())
+        self.assertEqual(
+            控え.read_text(encoding="utf-8"),
+            (self.設定.議事録フォルダ / "会議A.md").read_text(encoding="utf-8"),
+        )
+        self.assertNotIn("CloudStorage", str(self.設定.控えフォルダ))
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#控えのバックフィル
+    def test_控えに無い議事録が実行の最初にバックフィルされること(self):
+        self.設定.議事録フォルダ.mkdir(parents=True, exist_ok=True)
+        (self.設定.議事録フォルダ / "過去の会議__01.md").write_text("過去の本文", encoding="utf-8")
+        with self.assertLogs(level="INFO"):
+            結果 = generate_minutes.実行する(self.設定)
+        self.assertEqual(結果.控えを写した件数, 1)
+        self.assertEqual(
+            (self.設定.控えフォルダ / "過去の会議__01.md").read_text(encoding="utf-8"),
+            "過去の本文",
+        )
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#議事録のローカル控え
+    def test_控えの書き出しに失敗しても議事録は保存され処理済みになること(self):
+        self.vttを置く("会議A.vtt")
+        本来の保存 = writer.議事録を保存する
+
+        def 控えだけ失敗する(本文, vtt名, 議事録フォルダ, 控えフォルダ=None):
+            # 控えを書かずに保存し、控えの失敗として返す(許可が無くて書けない状況)
+            return writer.保存の結果(
+                保存先=本来の保存(本文, vtt名, 議事録フォルダ).保存先,
+                控えの失敗="operation not permitted",
+            )
+
+        with self._成功する生成(), mock.patch(
+            "generate_minutes.writer.議事録を保存する", 控えだけ失敗する
+        ), self.assertLogs(level="WARNING") as ログ:
+            結果 = generate_minutes.実行する(self.設定)
+        self.assertEqual(結果.成功件数, 1)
+        self.assertEqual(結果.控え失敗件数, 1)
+        self.assertIn("控えの書き出し失敗", "".join(ログ.output))
+        self.assertTrue(state.読み込む(self.設定.状態ファイル).処理済みか("会議A.vtt"))
+        self.assertFalse((self.設定.控えフォルダ / "会議A.md").exists())
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の保存
     def test_成功すると議事録が保存され処理済みになり投稿用ファイルが書き出されること(self):

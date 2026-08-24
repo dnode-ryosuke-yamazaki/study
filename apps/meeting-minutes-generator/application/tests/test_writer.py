@@ -18,15 +18,17 @@ class 議事録の保存(unittest.TestCase):
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の保存
     def test_VTTファイル名の拡張子をmdに変えた名前で保存されること(self):
-        保存先 = writer.議事録を保存する("# 議事録", "2026-08-24 定例.vtt", self.議事録フォルダ)
+        保存先 = writer.議事録を保存する(
+            "# 議事録", "2026-08-24 定例.vtt", self.議事録フォルダ
+        ).保存先
         self.assertEqual(保存先.name, "2026-08-24 定例.md")
         self.assertEqual(保存先.read_text(encoding="utf-8"), "# 議事録")
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の保存
     def test_同名ファイルがある場合は上書きせず連番付きで保存されること(self):
         """再生成や同名会議の再録画で、既存の議事録を黙って失わないための挙動。"""
-        一つ目 = writer.議事録を保存する("1回目", "定例.vtt", self.議事録フォルダ)
-        二つ目 = writer.議事録を保存する("2回目", "定例.vtt", self.議事録フォルダ)
+        一つ目 = writer.議事録を保存する("1回目", "定例.vtt", self.議事録フォルダ).保存先
+        二つ目 = writer.議事録を保存する("2回目", "定例.vtt", self.議事録フォルダ).保存先
         self.assertEqual(一つ目.read_text(encoding="utf-8"), "1回目")
         self.assertEqual(二つ目.name, "定例-2.md")
         self.assertEqual(二つ目.read_text(encoding="utf-8"), "2回目")
