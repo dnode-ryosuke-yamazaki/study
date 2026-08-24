@@ -71,7 +71,7 @@ sequenceDiagram
 - **手順**:
   1. 議事録Markdownから要約部分(会議メタ情報・要約・決定事項・TODO)の見出しを抜き出し、Teamsが解釈できるHTMLに変換する(TeamsはプレーンテキストのままではNGでHTMLとして解釈する。daily-report-to-teamsで実機確認済みの方式)
   2. 末尾に「全文はOneDriveの議事録フォルダの該当ファイルを参照」という案内文(議事録ファイル名を含む)を追加する
-  3. Teams投稿用フォルダ `auto/minutesNotice/`へ、一意なファイル名(`minutes-YYYYMMDD-HHMMSS.txt` 形式)で書き出す
+  3. Teams投稿用フォルダ `auto/teamsNotice/minutesNotice/`(Teams投稿系の検知フォルダを `teamsNotice/` 配下に集約する)へ、一意なファイル名(`minutes-YYYYMMDD-HHMMSS.txt` 形式)で書き出す
   4. 書き出しに失敗しても、議事録の保存が済んでいればそのVTTは「処理済み」のままとし、投稿だけを失敗としてログに残す(議事録の二重生成を防ぐことを優先する)
 - **関連するビジネスルール**: [requirements.md#teamsへの共有](requirements.md#teamsへの共有)
 

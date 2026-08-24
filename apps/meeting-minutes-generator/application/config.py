@@ -59,9 +59,10 @@ class 設定:
     @property
     def 投稿フォルダ(self) -> Path:
         """Teams投稿用ファイルの書き出し先。ここへのファイル作成を本機能用に新設する
-        Power Automateフローが検知して投稿する。仕様: requirements.md#Teamsへの共有 [1]
+        Power Automateフローが検知して投稿する。Teams投稿系の検知フォルダを
+        `teamsNotice/` 配下に集約する。仕様: requirements.md#Teamsへの共有 [1]
         """
-        return self.作業フォルダ / "minutesNotice"
+        return self.作業フォルダ / "teamsNotice/minutesNotice"
 
     @property
     def 状態ファイル(self) -> Path:
