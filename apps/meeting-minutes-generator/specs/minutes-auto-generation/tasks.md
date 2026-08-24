@@ -8,7 +8,7 @@
 
 ### 1. 設定モジュール(config.py)
 
-- OneDriveの入力フォルダ(`auto/transcript/vtt/`)・議事録フォルダ(`auto/minutes/`)・投稿用フォルダ(`auto/minutesNotice/`)・状態フォルダ(`~/Library/Application Support/meeting-minutes-generator/`)のパス定義
+- OneDriveの入力フォルダ(`auto/transcript/vtt/`)・議事録フォルダ(`auto/minutes/`)・投稿用フォルダ(`auto/teamsNotice/minutesNotice/`)・状態フォルダ(`~/Library/Application Support/meeting-minutes-generator/`)のパス定義
 - 環境変数で作業フォルダ一式を差し替えられること(テスト用。teams-transcript-fetcherの `TRANSCRIPT_FETCHER_WORK_DIR` と同じ方式)
 - 再試行上限(3回)・`claude -p` タイムアウト(15分)の定義
 
@@ -63,4 +63,4 @@
 ### 8. launchd定義と運用ドキュメント(テスト対象外)
 
 - `application/launchd/com.example.meeting-minutes-generator.plist`(10分間隔。create-automation-batchの検証済みテンプレートに従う)
-- `README.md`: セットアップ手順(plist登録・ログの場所・トラブル対応)、Power Automateフロー(OneDrive `auto/minutesNotice/` 検知 → 固定チャネルへ投稿)の新設手順
+- `README.md`: セットアップ手順(plist登録・ログの場所・トラブル対応)、Power Automateフロー(OneDrive `auto/teamsNotice/minutesNotice/` 検知 → 固定チャネルへ投稿)の新設手順

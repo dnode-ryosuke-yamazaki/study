@@ -52,8 +52,8 @@ class 入出力フォルダの導出(unittest.TestCase):
         self.assertEqual(self.設定.議事録フォルダ, Path("/tmp/auto/minutes"))
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#teamsへの共有-1
-    def test_投稿フォルダがauto配下の専用サブフォルダであること(self):
-        self.assertEqual(self.設定.投稿フォルダ, Path("/tmp/auto/minutesNotice"))
+    def test_投稿フォルダがteamsNotice配下の専用サブフォルダであること(self):
+        self.assertEqual(self.設定.投稿フォルダ, Path("/tmp/auto/teamsNotice/minutesNotice"))
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#状態管理
     def test_状態ファイルとロックが同期フォルダの外に置かれること(self):

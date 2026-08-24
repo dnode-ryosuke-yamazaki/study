@@ -41,7 +41,7 @@ flowchart TB
     state[("state.json<br>処理済み・再試行の記録")]
     vtt[("auto/transcript/vtt/<br>入力")]
     minutes[("auto/minutes/<br>議事録Markdown")]
-    notice[("auto/minutesNotice/<br>Teams投稿用HTML")]
+    notice[("auto/teamsNotice/minutesNotice/<br>Teams投稿用HTML")]
     claude["claude -p"]
 
     launchd --> batch
@@ -78,7 +78,7 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | サービス | 用途 |
 |---|---|
-| OneDrive(組織アカウントの同期フォルダ) | 入力(vtt/)・成果物(minutes/)・投稿連携(minutesNotice/)の受け渡し |
+| OneDrive(組織アカウントの同期フォルダ) | 入力(vtt/)・成果物(minutes/)・投稿連携(teamsNotice/minutesNotice/)の受け渡し |
 | Claude(claude CLI経由) | 議事録本文の生成 |
 | Power Automate + Teams | 投稿用ファイルの検知と固定チャネルへの投稿 |
 

@@ -34,17 +34,18 @@ MINUTES_GENERATOR_WORK_DIR=/tmp/minutes-test MINUTES_GENERATOR_STATE_DIR=/tmp/mi
 
 ```
 auto/
-├── minutes/        # 成果物。議事録Markdownがここに溜まる
-└── minutesNotice/  # Teams投稿用。ここへのファイル作成をPower Automateが検知する
+├── minutes/                    # 成果物。議事録Markdownがここに溜まる
+└── teamsNotice/
+    └── minutesNotice/          # Teams投稿用。ここへのファイル作成をPower Automateが検知する
 ```
 
-**`00_root/auto/` の直下には置かないでください。** 直下のファイル作成は既存のTeams投稿用Power Automateフローが検知するため、意図しない投稿が発生します。
+**投稿用ファイルの置き場は既存のTeams投稿用フローの監視範囲と重ねないでください。** Teams投稿系のフローは `00_root/auto/teamsNotice/` 配下に投稿先ごとのサブフォルダを持つ運用で(例: 既存のdaily-report用は `teamsNotice/general/`)、本機能もその並びの専用サブフォルダ `minutesNotice/` を使います。
 
 ### 3. Teams投稿用のPower Automateフローを新設する
 
 「OneDriveにファイルが作成されたとき」トリガー+Teams「メッセージを投稿する」アクションのフローを作ります(daily-report-to-teamsで実機確認済みの方式)。
 
-1. トリガー: **OneDrive for Business「ファイルが作成されたとき」**、対象フォルダに `00_root/auto/minutesNotice` を指定し、「ファイル コンテンツを含める」をはいにする
+1. トリガー: **OneDrive for Business「ファイルが作成されたとき」**、対象フォルダに `00_root/auto/teamsNotice/minutesNotice` を指定し、「ファイル コンテンツを含める」をはいにする。**`auto/teamsNotice/` またはその親を監視する既存フローがある場合は、その「サブフォルダーを含める」がオフであることを確認する**(オンだと議事録ファイルが既存フローにも検知され二重投稿になる)
 2. アクション: **Teams「チャットまたはチャネルでメッセージを投稿する」**、投稿者=フローボット、投稿先=投稿したいチーム・チャネル(固定の1チャネル)、メッセージ=トリガーの「ファイル コンテンツ」
 3. 保存してオンにする
 
