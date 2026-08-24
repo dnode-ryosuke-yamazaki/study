@@ -72,7 +72,7 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | リリース済み |
+| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | 実装中 |
 
 ## 外部サービス
 
@@ -89,5 +89,6 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 ## 技術的制約
 
 - `claude -p` はMCPを使えず、exit 0でも失敗しうる(create-automation-batch Skillで確認済み)。生成結果の検証をバッチ側で行う
+- 定期実行の環境はログインシェルのPATHを継承しないため、claudeを名前で起動できない。バッチが既知のインストール先を探索して絶対パスで起動する
 - OneDrive同期フォルダのファイルは実体化待ちで読めないことがある。読み取り失敗は一時的失敗として次回実行に委ねる
 - OneDriveの `auto/` 直下にはファイルを置かない(既存のTeams投稿用フローが検知するため)

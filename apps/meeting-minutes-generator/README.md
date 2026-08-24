@@ -98,7 +98,8 @@ rm ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
 
 ログの `分類=` を確認してください。
 
-- `タイムアウト` / `終了コード非0` / `起動失敗`: `claude` CLIの状態を確認してください(ログイン切れ、パスが通っていない等)。launchdの環境はターミナルと異なるため、`~/Library/Logs/meeting-minutes-generator.err.log` も確認してください
+- `起動失敗` で `claudeコマンドが見つからない` と出る場合: バッチは「環境変数 `MINUTES_GENERATOR_CLAUDE` → PATH → 既知のインストール先(`~/.local/bin/claude`・`~/.claude/local/claude`・`/usr/local/bin`・`/opt/homebrew/bin` 等)」の順に探します。**launchdはログインシェルのPATHを継承しないため、ターミナルで `claude` が動いてもここで失敗することがあります。** どの候補にも無い場合は、`which claude` の結果をplistの `EnvironmentVariables` に `MINUTES_GENERATOR_CLAUDE` として追記してから再登録してください
+- `タイムアウト` / `終了コード非0` / その他の `起動失敗`: `claude` CLIの状態を確認してください(ログイン切れなど)。launchdの環境はターミナルと異なるため、`~/Library/Logs/meeting-minutes-generator.err.log` も確認してください
 - `検証NG`: 生成結果に必須見出しが欠けています。同じVTTで3回失敗すると対象外になります
 
 ### 対象外になったVTTをもう一度処理したい
