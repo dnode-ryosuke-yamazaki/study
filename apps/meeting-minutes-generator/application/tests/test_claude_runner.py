@@ -1,7 +1,9 @@
 """claude -p の起動と生成結果の検証(タスク4)のテスト。"""
 
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import claude_runner
@@ -79,7 +81,14 @@ class 生成の実行(unittest.TestCase):
     """claude -p の起動と、3分類(タイムアウト・exit非0・検証NG)の失敗判定を検証する。"""
 
     def _実行(self, **mockの設定):
-        with mock.patch("claude_runner.subprocess.run", **mockの設定) as 実行モック:
+        """コマンドの探索結果を固定して実行する。
+
+        探索を固定するのは、テストを動かす環境にclaudeが入っているかどうかで
+        結果が変わらないようにするため。
+        """
+        with mock.patch(
+            "claude_runner.claudeコマンドを探す", return_value="/usr/local/bin/claude"
+        ), mock.patch("claude_runner.subprocess.run", **mockの設定) as 実行モック:
             結果 = claude_runner.生成する(
                 "WEBVTT\n00:00 --> 00:01\n<v 山田>おはようございます",
                 "会議A.vtt",
@@ -97,6 +106,8 @@ class 生成の実行(unittest.TestCase):
         self.assertEqual(結果.本文, _整った議事録().strip())
         # トランスクリプトは引数ではなく標準入力で渡す(引数長の上限を避けるため)
         self.assertIn("山田", 実行モック.call_args.kwargs["input"])
+        # 探索で決めた絶対パスで起動する(launchdはPATHを継承しないため)
+        self.assertEqual(実行モック.call_args.args[0][0], "/usr/local/bin/claude")
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の生成
     def test_タイムアウト超過が失敗として分類されること(self):
@@ -127,6 +138,57 @@ class 生成の実行(unittest.TestCase):
         結果, _ = self._実行(side_effect=FileNotFoundError("claude"))
         self.assertFalse(結果.成功)
         self.assertEqual(結果.失敗の分類, "起動失敗")
+
+
+class claudeコマンドの探索(unittest.TestCase):
+    """launchd経由の実行ではログインシェルのPATHを継承しないため、バッチが自分で
+    claudeの場所を探せることを検証する。
+
+    ここが効かないと、手元のターミナルでは動くのに定期実行だけが
+    「起動失敗」で全件失敗し続ける(実機で発生した)。
+    """
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の生成
+    def test_環境変数で指定したコマンドが最優先で使われること(self):
+        with mock.patch.dict(
+            "os.environ", {claude_runner.コマンド環境変数: "/opt/custom/claude"}
+        ):
+            self.assertEqual(claude_runner.claudeコマンドを探す(), "/opt/custom/claude")
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の生成
+    def test_PATHにあればその場所が使われること(self):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch(
+            "claude_runner.shutil.which", return_value="/usr/local/bin/claude"
+        ):
+            self.assertEqual(claude_runner.claudeコマンドを探す(), "/usr/local/bin/claude")
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の生成
+    def test_PATHに無くても既知の場所にあれば見つかること(self):
+        """launchdのPATHは最小限のため、実際にはこの経路で見つかる。"""
+        with tempfile.TemporaryDirectory() as 一時ディレクトリ:
+            偽のコマンド = Path(一時ディレクトリ) / "claude"
+            偽のコマンド.write_text("", encoding="utf-8")
+            with mock.patch.dict("os.environ", {}, clear=True), mock.patch(
+                "claude_runner.shutil.which", return_value=None
+            ), mock.patch(
+                "claude_runner.既知の候補", return_value=(偽のコマンド,)
+            ):
+                self.assertEqual(claude_runner.claudeコマンドを探す(), str(偽のコマンド))
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#議事録の生成
+    def test_どこにも無ければ見つからないと分かること(self):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch(
+            "claude_runner.shutil.which", return_value=None
+        ), mock.patch("claude_runner.既知の候補", return_value=()):
+            self.assertIsNone(claude_runner.claudeコマンドを探す())
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#生成手段claude--pの制約への対処-1
+    def test_コマンドが見つからない場合は起動失敗として分類されること(self):
+        with mock.patch("claude_runner.claudeコマンドを探す", return_value=None):
+            結果 = claude_runner.生成する("WEBVTT", "会議A.vtt", タイムアウト秒=900)
+        self.assertFalse(結果.成功)
+        self.assertEqual(結果.失敗の分類, "起動失敗")
+        self.assertIn("claude", 結果.詳細)
 
 
 if __name__ == "__main__":

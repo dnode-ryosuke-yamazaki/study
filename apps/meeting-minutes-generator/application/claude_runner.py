@@ -10,8 +10,11 @@ requirements.md#生成手段(claude -p)の制約への対処
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 #: 議事録の必須見出し。構成指示と検証の両方がこの1つの定義を使うことで、
 #: 「指示した見出し」と「検証する見出し」のずれをなくす。
@@ -25,9 +28,52 @@ from dataclasses import dataclass
     "未決事項・次回議題",
 )
 
-#: 起動するコマンド。トランスクリプトは引数ではなく標準入力で渡す
+#: claudeコマンドの場所を明示指定する環境変数。検証時や、下の候補に無い場所へ
+#: インストールしている場合に使う。
+コマンド環境変数 = "MINUTES_GENERATOR_CLAUDE"
+
+#: ヘッドレス実行を指示する引数。トランスクリプトは引数ではなく標準入力で渡す
 #: (会議が長いと引数長の上限を超えるため)。
-_コマンド = ("claude", "-p")
+_ヘッドレス引数 = "-p"
+
+
+def 既知の候補() -> tuple[Path, ...]:
+    """claudeが置かれる代表的な場所。**launchd経由の実行では効く手段がこれだけ。**
+
+    launchdはログインシェルのPATHを継承しないため、`claude` を名前で起動すると
+    「見つからない」で全件失敗する。ここを探索することで、環境変数やシェルの
+    設定に依存せずに起動できる(証明書バンドルを自分で探すteams-transcript-fetcher
+    と同じ考え方)。
+    """
+    ホーム = Path.home()
+    return (
+        ホーム / ".local/bin/claude",
+        ホーム / ".claude/local/claude",
+        Path("/usr/local/bin/claude"),
+        Path("/opt/homebrew/bin/claude"),
+        ホーム / ".bun/bin/claude",
+        ホーム / ".npm-global/bin/claude",
+    )
+
+
+def claudeコマンドを探す() -> str | None:
+    """起動するclaudeの絶対パスを決める。見つからなければNoneを返す。
+
+    優先順位は「環境変数での明示指定 → PATH → 既知の候補」。
+    """
+    指定された場所 = os.environ.get(コマンド環境変数)
+    if 指定された場所:
+        return 指定された場所
+
+    PATHにある場所 = shutil.which("claude")
+    if PATHにある場所:
+        return PATHにある場所
+
+    for 候補 in 既知の候補():
+        if 候補.exists():
+            return str(候補)
+
+    return None
 
 
 @dataclass(frozen=True)
@@ -85,10 +131,19 @@ def 生成する(トランスクリプト: str, vtt名: str, *, タイムアウ�
     失敗はすべて`生成の結果`の分類として返す(例外にしない)。呼び出し元は分類を
     ログに残して再試行回数を進めるだけでよい。仕様: design.md#議事録の生成
     """
+    コマンド = claudeコマンドを探す()
+    if コマンド is None:
+        return 生成の結果(
+            成功=False,
+            失敗の分類="起動失敗",
+            詳細="claudeコマンドが見つからない(環境変数 "
+            f"{コマンド環境変数} で場所を指定できる)",
+        )
+
     指示 = 構成指示を組み立てる(vtt名)
     try:
         完了 = subprocess.run(
-            [*_コマンド, 指示],
+            [コマンド, _ヘッドレス引数, 指示],
             input=トランスクリプト,
             capture_output=True,
             text=True,
