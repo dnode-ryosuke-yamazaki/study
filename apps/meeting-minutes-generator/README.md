@@ -39,7 +39,7 @@ auto/
     └── minutesNotice/          # Teams投稿用。ここへのファイル作成をPower Automateが検知する
 ```
 
-**`00_root/auto/` の直下には置かないでください。** 直下のファイル作成は既存のTeams投稿用Power Automateフローが検知するため、意図しない投稿が発生します。
+**投稿用ファイルの置き場は既存のTeams投稿用フローの監視範囲と重ねないでください。** 既存フロー(daily-report等)は `00_root/auto/teamsNotice/` を監視しているため、本機能の検知フォルダはその配下の専用サブフォルダ `minutesNotice/` に分け、既存フロー側の「サブフォルダーを含める」はオフにしておきます(下記3を参照)。
 
 ### 3. Teams投稿用のPower Automateフローを新設する
 
