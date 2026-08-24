@@ -2,7 +2,7 @@
 
 ## サマリ
 
-teams-transcript-fetcherが蓄積するTeams会議のトランスクリプト(WEBVTT)から、議事録Markdownを全自動生成してOneDriveへ書き出し、要約をTeamsチャネルに自動投稿するローカル実行バッチ。Python 3(標準ライブラリのみ)+ launchd + `claude -p`(ヘッドレス)+ Power Automate(Teams投稿)で構成する。specは1つ(minutes-auto-generation、仕様のみ・未実装)。全体像は[コンテキスト図](#コンテキスト図)・[システム構成図](#システム構成図)を参照。
+teams-transcript-fetcherが蓄積するTeams会議のトランスクリプト(WEBVTT)から、議事録Markdownを全自動生成してOneDriveへ書き出し、要約をTeamsチャネルに自動投稿するローカル実行バッチ。Python 3(標準ライブラリのみ)+ launchd + `claude -p`(ヘッドレス)+ Power Automate(Teams投稿)で構成する。specは1つ(minutes-auto-generation)。全体像は[コンテキスト図](#コンテキスト図)・[システム構成図](#システム構成図)を参照。
 
 ## 概要
 
@@ -92,3 +92,4 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 - 定期実行の環境はログインシェルのPATHを継承しないため、claudeを名前で起動できない。バッチが既知のインストール先を探索して絶対パスで起動する
 - OneDrive同期フォルダのファイルは実体化待ちで読めないことがある。読み取り失敗は一時的失敗として次回実行に委ねる
 - OneDriveの `auto/` 直下にはファイルを置かない(既存のTeams投稿用フローが検知するため)
+- 共有ストレージ(OneDrive / SharePoint Online)のファイルを直接指すURLはブラウザ内で表示されずダウンロードになる。Teams投稿から議事録を開くリンクはファイルビューアで開く形式のURLを組み立てる
