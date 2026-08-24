@@ -89,7 +89,7 @@ rm ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
 |---|---|---|
 | 実行ログ | `~/Library/Application Support/meeting-minutes-generator/minutes.log` | 既定INFO。5世代でローテーション。**トランスクリプト・議事録の本文は出力しません** |
 | 状態ファイル | `~/Library/Application Support/meeting-minutes-generator/state.json` | 処理済み・再試行回数・対象外の記録 |
-| ロック | `~/Library/Application Support/meeting-minutes-generator/minutes.lock` | 二重起動の防止。30分を過ぎた残骸は自動回収 |
+| ロック | `~/Library/Application Support/meeting-minutes-generator/minutes.lock` | 二重起動の防止。最後に処理が進んでから30分を過ぎた残骸は自動回収。処理中は1件ごとに時刻を更新するため、多数のVTTを順に処理する長い実行でも回収されません(1件の処理は生成タイムアウトの15分で必ず打ち切られるため、更新の間隔が30分に達しません) |
 | 起動失敗の出力 | `~/Library/Logs/meeting-minutes-generator.{out,err}.log` | Pythonが起動できなかった場合など |
 
 ## トラブル対応

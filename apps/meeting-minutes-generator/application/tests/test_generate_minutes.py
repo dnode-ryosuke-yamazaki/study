@@ -113,6 +113,35 @@ class 生成から投稿までの通し(バッチのテスト基盤):
         self.assertEqual(len(投稿ファイル), 1)
         self.assertIn("全文", 投稿ファイル[0].read_text(encoding="utf-8"))
 
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理vttの検知
+    def test_定期実行の入口が取得したロックを処理に渡すこと(self):
+        """`実行する`へのロックの受け渡しが抜けると、時刻が更新されず今回直した
+        バグが黙って戻る。入口を通した配線をここで固定する。
+
+        設定とログの初期化を差し替えるのは、入口が本来は実物のOneDriveフォルダと
+        実物の状態ファイルを見に行くため。差し替えないとテストが実環境を触る。
+        """
+        self.vttを置く("会議A.vtt")
+        with self._成功する生成(), mock.patch(
+            "generate_minutes.config.load", return_value=self.設定
+        ), mock.patch("generate_minutes.ログを設定する"), mock.patch.object(
+            state.ロック, "時刻を更新する"
+        ) as 更新のモック:
+            終了コード = generate_minutes.main()
+        self.assertEqual(終了コード, 0)
+        self.assertEqual(更新のモック.call_count, 1)
+        self.assertTrue((self.設定.議事録フォルダ / "会議A.md").exists())
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理vttの検知
+    def test_1件処理するごとにロックの時刻が更新されること(self):
+        """処理に時間がかかっても、動作中のロックが古いと誤判定されないようにする。"""
+        self.vttを置く("会議A.vtt")
+        self.vttを置く("会議B.vtt")
+        ロックのモック = mock.Mock()
+        with self._成功する生成(), self.assertLogs(level="INFO"):
+            generate_minutes.実行する(self.設定, ロック=ロックのモック)
+        self.assertEqual(ロックのモック.時刻を更新する.call_count, 2)
+
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#生成手段claude--pの制約への対処-2
     def test_ログにトランスクリプトと議事録の本文が出ないこと(self):
         self.vttを置く("会議A.vtt", 中身="WEBVTT\n<v 山田>ひみつの発言です")

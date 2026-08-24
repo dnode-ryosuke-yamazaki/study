@@ -127,6 +127,30 @@ class 二重起動の防止(unittest.TestCase):
             pass
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理vttの検知
+    def test_処理が進むたびに時刻を更新すれば長い実行でも奪われないこと(self):
+        """未処理が溜まって1回の実行が30分を超えると、次の定期実行が
+        「異常終了の残骸」と誤判定してロックを奪い、同じ会議の議事録を二重に
+        作ってTeamsへ二重投稿してしまう。時刻の更新でこれを防ぐ。
+        """
+        import os
+
+        with state.ロック(self.ロックファイル, 無効とみなす秒=1800) as 取得したロック:
+            古い時刻 = time.time() - 3600
+            os.utime(self.ロックファイル, (古い時刻, 古い時刻))
+            取得したロック.時刻を更新する()
+            with self.assertRaises(state.先行実行が動作中):
+                with state.ロック(self.ロックファイル, 無効とみなす秒=1800):
+                    pass
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理vttの検知
+    def test_ロックが消えていても時刻の更新で失敗しないこと(self):
+        """更新は付随的な処理なので、ここで例外を投げてバッチ全体を止めない。"""
+        with state.ロック(self.ロックファイル) as 取得したロック:
+            self.ロックファイル.unlink()
+            with self.assertLogs(level="WARNING"):
+                取得したロック.時刻を更新する()
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理vttの検知
     def test_古いロックは回収して取得し直せること(self):
         """前回の実行が異常終了してロックが残ると、回収がなければ以降ずっと
         起動できなくなるため、経過時間で無効とみなす。
