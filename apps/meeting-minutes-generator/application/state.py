@@ -187,6 +187,21 @@ class ロック:
         self._取得した = True
         return self
 
+    def 時刻を更新する(self) -> None:
+        """ロックが生きていることを示すために更新時刻を今にする。
+
+        処理が1件終わるごとに呼ぶ。これをしないと、未処理が溜まって1回の実行が
+        「無効とみなす秒」を超えたときに、次の定期実行がロックを異常終了の残骸と
+        誤判定して奪い、同じVTTを二重に処理してしまう
+        (design.md#定期実行と未処理VTTの検知)。
+
+        更新は付随的な処理なので、失敗してもバッチを止めない。
+        """
+        try:
+            os.utime(self._ロックファイル, None)
+        except OSError as 例外:
+            logger.warning("ロックの時刻を更新できなかった: %s", 例外)
+
     def __exit__(self, *例外の情報: object) -> None:
         if self._取得した:
             self._ロックファイル.unlink(missing_ok=True)
