@@ -23,6 +23,7 @@ from pathlib import Path
 
 import claude_runner
 import config
+import meeting_profile
 import state
 import summary_html
 import writer
@@ -119,8 +120,13 @@ def _1件を処理する(
         return
 
     開始 = time.monotonic()
+    # 会議の性質は1回だけ決め、構成指示・検証・投稿する見出しの3箇所に同じものを渡す。
+    性質 = meeting_profile.見極める(vttパス.name, トランスクリプト, 設定.デイリー判定語)
     生成の結果 = claude_runner.生成する(
-        トランスクリプト, vttパス.name, タイムアウト秒=設定.生成タイムアウト秒
+        トランスクリプト,
+        vttパス.name,
+        タイムアウト秒=設定.生成タイムアウト秒,
+        性質=性質,
     )
 
     if not 生成の結果.成功:
@@ -145,16 +151,21 @@ def _1件を処理する(
     現在の状態.処理済みにする(vttパス.name, datetime.now(timezone.utc))
     state.保存する(現在の状態, 設定.状態ファイル)
     logger.info(
-        "議事録の保存成功: %s -> %s 生成時間=%.1f秒",
+        "議事録の保存成功: %s -> %s 会議種別=%s 実尺=%s分 生成時間=%.1f秒",
         vttパス.name,
         議事録パス.name,
+        性質.種別の名前,
+        性質.実尺分 if 性質.実尺分 is not None else "不明",
         time.monotonic() - 開始,
     )
     結果.成功件数 += 1
 
     try:
-        抜粋 = summary_html.要約部分を抽出する(生成の結果.本文)
-        html = summary_html.htmlへ変換する(抜粋, 議事録パス.name)
+        抜粋 = summary_html.要約部分を抽出する(生成の結果.本文, 性質.投稿する見出し)
+        リンク = summary_html.議事録へのリンク(
+            設定.ビューアURL, 設定.議事録フォルダのWebパス, 議事録パス.name
+        )
+        html = summary_html.htmlへ変換する(抜粋, 議事録パス.name, 全文リンク=リンク)
         writer.投稿用に書き出す(html, 設定.投稿フォルダ, datetime.now())
     except OSError as 例外:
         # 議事録は保存済みなので処理済みのまま。投稿だけの失敗として残す。

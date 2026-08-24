@@ -9,11 +9,18 @@ from unittest import mock
 import claude_runner
 import config
 import generate_minutes
+import meeting_profile
 import state
 
-整った議事録 = "\n".join(
-    f"## {見出し}\n\n- なし\n" for 見出し in claude_runner.必須見出し
-)
+通常の性質 = meeting_profile.見極める("定例会議.vtt", "WEBVTT", ("デイリー",))
+デイリーの性質 = meeting_profile.見極める("デイリーMTG.vtt", "WEBVTT", ("デイリー",))
+
+
+def _議事録(性質=通常の性質) -> str:
+    return "\n".join(f"## {見出し}\n\n- なし\n" for 見出し in 性質.必須見出し)
+
+
+整った議事録 = _議事録()
 
 
 class バッチのテスト基盤(unittest.TestCase):
@@ -164,6 +171,74 @@ class 生成から投稿までの通し(バッチのテスト基盤):
         self.assertTrue(読んだ状態.処理済みか("会議A.vtt"))
 
 
+class 会議種別ごとの通し(バッチのテスト基盤):
+    """会議の性質の判定結果が、構成指示・検証・投稿する見出しの3箇所へ
+    同じ内容で渡ることを検証する。
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.空の状態を保存する()
+
+    def _生成モック(self, 本文: str):
+        return mock.patch(
+            "generate_minutes.claude_runner.生成する",
+            return_value=claude_runner.生成の結果(成功=True, 本文=本文),
+        )
+
+    def _投稿の中身(self) -> str:
+        投稿ファイル = list(self.設定.投稿フォルダ.glob("minutes-*.txt"))
+        self.assertEqual(len(投稿ファイル), 1)
+        return 投稿ファイル[0].read_text(encoding="utf-8")
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#会議種別による構成の切り替え-1
+    def test_デイリー系のVTTではデイリー系の性質が生成に渡ること(self):
+        self.vttを置く("[AI FaaS] デイリーMTG-20260727.vtt")
+        with self._生成モック(_議事録(デイリーの性質)) as 生成モック, self.assertLogs(
+            level="INFO"
+        ):
+            generate_minutes.実行する(self.設定)
+        性質 = 生成モック.call_args.kwargs["性質"]
+        self.assertTrue(性質.デイリー系)
+        self.assertIn("進捗", 性質.必須見出し)
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#teamsへの共有-1
+    def test_デイリー系では投稿に進捗が含まれること(self):
+        self.vttを置く("デイリーMTG.vtt")
+        with self._生成モック(_議事録(デイリーの性質)), self.assertLogs(level="INFO"):
+            generate_minutes.実行する(self.設定)
+        self.assertIn("<h3>進捗</h3>", self._投稿の中身())
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#会議種別による構成の切り替え-4
+    def test_通常の会議では投稿に進捗が含まれないこと(self):
+        self.vttを置く("定例会議.vtt")
+        with self._生成モック(整った議事録), self.assertLogs(level="INFO"):
+            generate_minutes.実行する(self.設定)
+        self.assertNotIn("進捗", self._投稿の中身())
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#teamsへの共有-2
+    def test_投稿に議事録全文へのリンクが入ること(self):
+        self.vttを置く("定例会議.vtt")
+        with self._生成モック(整った議事録), self.assertLogs(level="INFO"):
+            generate_minutes.実行する(self.設定)
+        中身 = self._投稿の中身()
+        self.assertIn('<a href="', 中身)
+        self.assertIn("onedrive.aspx", 中身)
+        self.assertIn(">定例会議.md</a>", 中身)
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#ログ
+    def test_ログに会議種別と実尺が残ること(self):
+        self.vttを置く(
+            "デイリーMTG.vtt",
+            中身="WEBVTT\n\n00:00:00.000 --> 00:28:13.000\n<v 山田>おはようございます\n",
+        )
+        with self._生成モック(_議事録(デイリーの性質)), self.assertLogs(level="INFO") as ログ:
+            generate_minutes.実行する(self.設定)
+        全ログ = "\n".join(ログ.output)
+        self.assertIn("デイリー系", 全ログ)
+        self.assertIn("28", 全ログ)
+
+
 class 失敗時の挙動(バッチのテスト基盤):
     """生成失敗・読み取り失敗・状態破損のそれぞれで、仕様どおりの側に倒れることを
     検証する。
@@ -222,7 +297,7 @@ class 失敗時の挙動(バッチのテスト基盤):
         self.vttを置く("失敗する.vtt")
         self.vttを置く("成功する.vtt")
 
-        def 生成(トランスクリプト, vtt名, *, タイムアウト秒):
+        def 生成(トランスクリプト, vtt名, *, タイムアウト秒, 性質):
             if vtt名 == "失敗する.vtt":
                 return claude_runner.生成の結果(成功=False, 失敗の分類="検証NG")
             return claude_runner.生成の結果(成功=True, 本文=整った議事録)

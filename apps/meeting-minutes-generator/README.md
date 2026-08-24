@@ -49,7 +49,9 @@ auto/
 2. アクション: **Teams「チャットまたはチャネルでメッセージを投稿する」**、投稿者=フローボット、投稿先=投稿したいチーム・チャネル(固定の1チャネル)、メッセージ=トリガーの「ファイル コンテンツ」
 3. 保存してオンにする
 
-投稿用ファイルの中身はHTML(Teamsはメッセージ本文をHTMLとして解釈するため)。投稿には要約部分(会議メタ情報・要約・決定事項・TODO)だけが含まれ、末尾に全文の議事録ファイルへの案内が付きます。
+投稿用ファイルの中身はHTML(Teamsはメッセージ本文をHTMLとして解釈するため)。投稿には要約部分(会議メタ情報・要約・決定事項・TODO。デイリー系会議ではこれに進捗が加わります)だけが含まれ、末尾に議事録全文を開くリンクが付きます。
+
+**フローのメッセージ欄には「ファイル コンテンツ」だけを入れてください。** 保存先パスなどを添える行(例: `履歴保存: /00_root/auto/teamsNotice/minutesNotice/minutes-20260824-160000.txt`)を入れると、投稿の最下部にその行が出ます。バッチはこの行を出力しないため、投稿に出ている場合はフロー側の設定です。消すには Power Automate でフローを編集 → 「チャットまたはチャネルでメッセージを投稿する」アクションを開く → Message欄から該当の行を削除 → 保存、の順に操作してください。
 
 ### 4. 定期実行に登録する
 
@@ -75,6 +77,28 @@ tail -f ~/Library/Application\ Support/meeting-minutes-generator/minutes.log
 ```
 
 10分以内に `バッチ開始:` と `バッチ終了:` の行が出れば動いています。**初回実行は既存VTTを処理済みとして登録するだけで、議事録は生成しません**(過去分の遡及処理はスコープ外)。以降、新しく届いたVTTだけが対象になります。
+
+## 設定の変更
+
+パス・しきい値などの既定値は [application/config.py](application/config.py) にあります。次の値は環境変数で上書きできます(launchdで動かす場合はplistの `EnvironmentVariables` に書きます)。
+
+| 環境変数 | 用途 | 既定値 |
+|---|---|---|
+| `MINUTES_GENERATOR_WORK_DIR` | 作業フォルダ(OneDriveの `00_root/auto`)の差し替え | OneDrive同期フォルダ |
+| `MINUTES_GENERATOR_STATE_DIR` | 状態フォルダの差し替え | `~/Library/Application Support/meeting-minutes-generator` |
+| `MINUTES_GENERATOR_CLAUDE` | `claude` の場所を明示指定 | 探索(PATH → 既知のインストール先) |
+| `MINUTES_GENERATOR_DAILY_KEYWORDS` | デイリー系会議の判定語(カンマ区切り) | `デイリー,daily,朝会,スタンドアップ,standup` |
+| `MINUTES_GENERATOR_WEB_VIEWER` | 議事録を開くファイルビューアのURL | 個人OneDriveの `onedrive.aspx` |
+| `MINUTES_GENERATOR_WEB_DIR` | 作業フォルダに対応する共有ストレージのサーバー相対パス | `/personal/.../Documents/00_root/auto` |
+
+**デイリー系会議**(ファイル名に判定語を含む会議)では、議事録に「進捗」の見出しが加わり、担当者ごとに作業実績・作業予定・課題が書かれます。決定事項・TODOには進捗報告以外だけが入ります。
+
+**議事録全文へのリンク**は、共有ストレージのファイルビューアで開く形式のURLです(ファイルを直接指すURLはブラウザ内で表示されず必ずダウンロードになるため)。`MINUTES_GENERATOR_WEB_VIEWER` / `MINUTES_GENERATOR_WEB_DIR` の値は、ブラウザで議事録フォルダを開いたときのアドレスバーから取れます:
+
+- ビューア: `?` より前の部分(例: `https://<テナント>-my.sharepoint.com/personal/<ユーザー>/_layouts/15/onedrive.aspx`)
+- サーバー相対パス: `id=` の値をデコードしたもの(例: `/personal/<ユーザー>/Documents/00_root/auto`)。議事録フォルダのパスは末尾に `/minutes` を足したものが自動で使われます
+
+どちらかが空の場合、投稿の末尾はリンクではなくファイル名の案内文になります。
 
 ## 解除
 

@@ -21,6 +21,31 @@ from pathlib import Path
 #: 実運用の初回判定(初回=既存VTTを生成しない)が壊れるため。
 状態フォルダ環境変数 = "MINUTES_GENERATOR_STATE_DIR"
 
+#: デイリー系の判定語を差し替える環境変数(カンマ区切り)。
+判定語環境変数 = "MINUTES_GENERATOR_DAILY_KEYWORDS"
+
+#: 議事録全文へのリンクの組み立て元を差し替える環境変数。
+ビューア環境変数 = "MINUTES_GENERATOR_WEB_VIEWER"
+Webパス環境変数 = "MINUTES_GENERATOR_WEB_DIR"
+
+#: 定期進捗確認の会議を見分ける語。ファイル名に含まれていればデイリー系として扱う
+#: (大文字小文字は区別しない)。仕様: requirements.md#会議種別による構成の切り替え [1]
+既定のデイリー判定語 = ("デイリー", "daily", "朝会", "スタンドアップ", "standup")
+
+#: 議事録をブラウザで開くためのファイルビューアのURL。共有ストレージのファイルを
+#: 直接指すURLはブラウザ内で表示されずダウンロードになるため、ビューアで開く形式の
+#: URLを組み立てる。仕様: requirements.md#議事録全文へのリンク [1]
+既定のビューアURL = (
+    "https://jpdeloitte-my.sharepoint.com/personal/"
+    "ryosuke_yamazaki_tohmatsu_co_jp/_layouts/15/onedrive.aspx"
+)
+
+#: 作業フォルダに対応する、共有ストレージ上のサーバー相対パス。ローカルの同期先
+#: (作業フォルダ)とは別物なので、Web側の1つの起点としてここに持つ。
+既定の作業フォルダのWebパス = (
+    "/personal/ryosuke_yamazaki_tohmatsu_co_jp/Documents/00_root/auto"
+)
+
 #: 既定の作業フォルダ。`00_root/auto/` を指し、直下にはファイルを置かない
 #: (直下のファイル作成は既存のTeams投稿用Power Automateフローが検知するため)。
 #: 仕様: requirements.md#OneDriveフォルダの使い方 [1]
@@ -43,6 +68,10 @@ class 設定:
     ロックを無効とみなす秒: int
     ログレベル: int
 
+    デイリー判定語: tuple[str, ...]
+    ビューアURL: str
+    作業フォルダのWebパス: str
+
     @property
     def 入力フォルダ(self) -> Path:
         """上流のteams-transcript-fetcherがWEBVTTを蓄積するフォルダ。
@@ -63,6 +92,17 @@ class 設定:
         `teamsNotice/` 配下に集約する。仕様: requirements.md#Teamsへの共有 [1]
         """
         return self.作業フォルダ / "teamsNotice/minutesNotice"
+
+    @property
+    def 議事録フォルダのWebパス(self) -> str:
+        """議事録フォルダの、共有ストレージ上のサーバー相対パス。
+
+        ローカルの議事録フォルダと同じく作業フォルダから導き、Web側とローカル側で
+        置き場所がずれないようにする。仕様: requirements.md#議事録全文へのリンク [2]
+        """
+        if not self.作業フォルダのWebパス:
+            return ""
+        return f"/{self.作業フォルダのWebパス.strip('/')}/minutes"
 
     @property
     def 状態ファイル(self) -> Path:
@@ -103,4 +143,20 @@ def load(作業フォルダ: Path | None = None, 状態フォルダ: Path | None
         ロックを無効とみなす秒=1800,
         # 仕様: design.md#ログ(観測すべき項目はすべてINFO以上で出す)
         ログレベル=logging.INFO,
+        # 仕様: requirements.md#会議種別による構成の切り替え [1]
+        デイリー判定語=_判定語を決める(),
+        # 仕様: requirements.md#議事録全文へのリンク [2]
+        ビューアURL=os.environ.get(ビューア環境変数) or 既定のビューアURL,
+        作業フォルダのWebパス=os.environ.get(Webパス環境変数) or 既定の作業フォルダのWebパス,
     )
+
+
+def _判定語を決める() -> tuple[str, ...]:
+    """デイリー系の判定語を「環境変数 → 既定値」の順で決める。
+
+    環境変数はカンマ区切り。空要素は捨て、結果が空になる場合は既定値を使う
+    (設定ミスで判定が静かに無効化されるのを避ける)。
+    """
+    指定 = os.environ.get(判定語環境変数, "")
+    語 = tuple(部分.strip() for 部分 in 指定.split(",") if 部分.strip())
+    return 語 or 既定のデイリー判定語
