@@ -25,6 +25,7 @@ MINUTES_GENERATOR_WORK_DIR=/tmp/minutes-test MINUTES_GENERATOR_STATE_DIR=/tmp/mi
 
 ### 1. 前提を確認する
 
+- **python.org版のPython 3.10以降**が入っていること。plistは `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` を起動するため、このフレームワークを作るpython.org版のインストーラで入れる必要があります(Homebrew版・Xcode Command Line Tools版はこのパスを作りません)。Apple標準の `/usr/bin/python3`(3.9)では動きません
 - 上流の teams-transcript-fetcher が動いており、`00_root/auto/transcript/vtt/` にトランスクリプトが溜まること
 - `claude` CLIがログイン済みで、ターミナルから `claude -p "テスト"` が応答すること(バッチはlaunchd経由で `claude -p` を起動します)
 
@@ -57,18 +58,23 @@ auto/
 
 `launchd/com.example.meeting-minutes-generator.plist` のプレースホルダを実際のパスに置き換えてから配置します。
 
-**Pythonの実体を絶対パスで埋め込みます。** `/usr/bin/python3` はApple標準の3.9で、このコードは動きません。
+Pythonはplistに `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` と書いてあり、置き換えは不要です。`Current` はpython.org版のインストーラが最新版へ張り替えるsymlinkなので、Pythonを上げても指し先が残ります。
 
 ```
 cd /Users/ryosyamazaki/repo/study/apps/meeting-minutes-generator/application
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs
-sed -e "s|__ホームディレクトリ__|$HOME|g" -e "s|__PYTHON__|$(which python3)|g" launchd/com.example.meeting-minutes-generator.plist > ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
-grep -A2 ProgramArguments ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
+launchctl bootout gui/$(id -u)/com.example.meeting-minutes-generator 2>/dev/null || true
+sed -e "s|__ホームディレクトリ__|$HOME|g" launchd/com.example.meeting-minutes-generator.plist > ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
+/Library/Frameworks/Python.framework/Versions/Current/bin/python3 -V
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
 launchctl list | grep meeting-minutes-generator
 ```
 
-`grep` の出力で、Pythonのパスが 3.10 以降のものになっていることを確認してください。
+`python3 -V` が 3.10 以降を表示することを確認してください。表示されずエラーになる場合は前提のPythonが入っていないので、python.org版のインストーラで入れ直してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
+
+先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Bootstrap failed: 5: Input/output error` で失敗します。`bootout` を実行したのにこのエラーが出る場合は、`launchctl bootout gui/$(id -u)/com.example.meeting-minutes-generator` を単体で実行してメッセージを見てください(バッチの実行中は外せず `Operation now in progress` になります)。
+
+**Pythonのパスをバージョン番号込み(`Versions/3.13/...` など)に書き換えないでください。** Pythonを上げた時点で指し先が消え、launchdがプロセスを起動できなくなります。このとき `minutes.log` にも `~/Library/Logs/meeting-minutes-generator.err.log` にも1行も残らず、外からは静かに止まっているようにしか見えません(`launchctl list` の2列目が `78` になるのが唯一の手がかりです)。
 
 ### 5. 動作確認
 

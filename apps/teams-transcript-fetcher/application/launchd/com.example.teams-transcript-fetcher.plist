@@ -12,13 +12,18 @@
   <string>com.example.teams-transcript-fetcher</string>
 
   <!--
-    Pythonの実体を絶対パスで書く。`/usr/bin/python3` はApple標準の3.9で、
-    このコードが使う3.10以降の書き方を解釈できない。`__PYTHON__` は登録時に
-    `which python3` の結果へ置き換える(README参照)。
+    Pythonを絶対パスで書く。launchdはログインシェルのPATHを継承しないため
+    名前では起動できず、`/usr/bin/python3` はApple標準の3.9でこのコードが使う
+    3.11以降の書き方を解釈できない。
+
+    バージョン番号込みのパス(`Versions/3.13/...`)を書いてはいけない。Pythonを
+    上げると指し先が消え、launchdがプロセスを起動できなくなる。このとき
+    fetch.logにも下の StandardErrorPath にも1行も残らないため、静かに止まった
+    ことに気づけない。最新版へのsymlinkである `Versions/Current` を経由する。
   -->
   <key>ProgramArguments</key>
   <array>
-    <string>__PYTHON__</string>
+    <string>/Library/Frameworks/Python.framework/Versions/Current/bin/python3</string>
     <string>__ホームディレクトリ__/repo/study/apps/teams-transcript-fetcher/application/fetch_transcripts.py</string>
   </array>
 
