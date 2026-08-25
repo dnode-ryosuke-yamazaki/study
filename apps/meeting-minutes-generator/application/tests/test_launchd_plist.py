@@ -56,6 +56,6 @@ class 起動に必要な定義が揃っていること(unittest.TestCase):
     def test_10分間隔で実行する定義になっていること(self):
         self.assertEqual(self.定義["StartInterval"], 600)
 
-    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理VTTの検知
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#関連するファイル抜粋
     def test_バッチ本体のスクリプトを起動する定義になっていること(self):
         self.assertTrue(self.定義["ProgramArguments"][1].endswith("generate_minutes.py"))

@@ -56,6 +56,6 @@ class 起動に必要な定義が揃っていること(unittest.TestCase):
     def test_5分間隔で実行する定義になっていること(self):
         self.assertEqual(self.定義["StartInterval"], 300)
 
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#識別子とファイル名の規則唯一の定義
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#関連するファイル抜粋
     def test_バッチ本体のスクリプトを起動する定義になっていること(self):
         self.assertTrue(self.定義["ProgramArguments"][1].endswith("fetch_transcripts.py"))

@@ -9,7 +9,7 @@ Teams会議の録画から生成されるトランスクリプト(WEBVTT)を自�
 
 | 項目 | 内容 |
 |---|---|
-| 実行環境 | macOS。**Python 3.11以降**(末尾 `Z` の日時を解釈できるバージョン)。**Apple標準の `/usr/bin/python3`(3.9)では動きません** |
+| 実行環境 | macOS。**python.org版のPython 3.11以降**(末尾 `Z` の日時を解釈できるバージョン)。plistは `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` を起動するため、このフレームワークを作るpython.org版のインストーラで入れる必要があります(Homebrew版・Xcode Command Line Tools版はこのパスを作りません)。**Apple標準の `/usr/bin/python3`(3.9)では動きません** |
 | TLS証明書 | python.org版のPythonは**macOSのシステム証明書ストアを使わない**が、**バッチが自分で証明書バンドルを探す**ため通常は設定不要。見つからない場合の対処は下記「証明書が見つからない場合」 |
 | 追加ライブラリ | **なし。** 実行用・開発用ともに標準ライブラリのみ |
 | 必要な権限 | OneDrive同期クライアントにサインイン済みであること。M365への認証はすべて同期クライアントに委ねるため、このバッチは資格情報を一切持たない |
@@ -81,10 +81,10 @@ python.org からインストールしたPythonは、macOSのシステム証明�
 この場合は次のいずれかを行ってください。
 
 ```
-sudo /Applications/Python\ 3.*/Install\ Certificates.command
+sudo "/Applications/Python $(/Library/Frameworks/Python.framework/Versions/Current/bin/python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/Install Certificates.command"
 ```
 
-`3.*` は入っているPythonのバージョンに展開されます。
+バージョン番号は、plistが起動するPythonそのものから取り出しています。バージョンを直に書いたり `3.*` のようなワイルドカードにしたりすると、Pythonを上げたときに存在しないパスを指したり、複数バージョンが同居しているときに古い方へ証明書を入れたりします。
 
 管理者権限が使えない場合は、`certifi` をユーザー領域に入れれば自動で拾われます。
 
@@ -123,13 +123,16 @@ Pythonはplistに `/Library/Frameworks/Python.framework/Versions/Current/bin/pyt
 ```
 cd /Users/ryosyamazaki/repo/study/apps/teams-transcript-fetcher/application
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+launchctl bootout gui/$(id -u)/com.example.teams-transcript-fetcher 2>/dev/null || true
 sed -e "s|__ホームディレクトリ__|$HOME|g" launchd/com.example.teams-transcript-fetcher.plist > ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 /Library/Frameworks/Python.framework/Versions/Current/bin/python3 -V
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 launchctl list | grep teams-transcript-fetcher
 ```
 
-`python3 -V` が 3.11 以降を表示することを確認してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
+`python3 -V` が 3.11 以降を表示することを確認してください。表示されずエラーになる場合は前提のPythonが入っていないので、python.org版のインストーラで入れ直してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
+
+先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Load failed: 5: Input/output error` で失敗します。
 
 **Pythonのパスをバージョン番号込み(`Versions/3.13/...` など)に書き換えないでください。** Pythonを上げた時点で指し先が消え、launchdがプロセスを起動できなくなります。このとき `fetch.log` にも `~/Library/Logs/teams-transcript-fetcher.err.log` にも1行も残らず、外からは静かに止まっているようにしか見えません(`launchctl list` の2列目が `78` になるのが唯一の手がかりです)。
 
