@@ -132,7 +132,7 @@ launchctl list | grep teams-transcript-fetcher
 
 `python3 -V` が 3.11 以降を表示することを確認してください。表示されずエラーになる場合は前提のPythonが入っていないので、python.org版のインストーラで入れ直してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
 
-先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Load failed: 5: Input/output error` で失敗します。
+先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Bootstrap failed: 5: Input/output error` で失敗します。`bootout` を実行したのにこのエラーが出る場合は、`launchctl bootout gui/$(id -u)/com.example.teams-transcript-fetcher` を単体で実行してメッセージを見てください(バッチの実行中は外せず `Operation now in progress` になります)。
 
 **Pythonのパスをバージョン番号込み(`Versions/3.13/...` など)に書き換えないでください。** Pythonを上げた時点で指し先が消え、launchdがプロセスを起動できなくなります。このとき `fetch.log` にも `~/Library/Logs/teams-transcript-fetcher.err.log` にも1行も残らず、外からは静かに止まっているようにしか見えません(`launchctl list` の2列目が `78` になるのが唯一の手がかりです)。
 
@@ -174,7 +174,7 @@ rm ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 
 調査が必要です。ダウンロードURLへのアクセスが繰り返し失敗しています。
 
-**まず `fetch.log` に `CERTIFICATE_VERIFY_FAILED` が出ていないか確認してください。** 出ていればバッチの問題ではなく、上記「証明書のセットアップ」が済んでいないだけです(この場合は一時的失敗に分類されるので、`[取得失敗]` にはなりません)。
+**まず `fetch.log` に `CERTIFICATE_VERIFY_FAILED` が出ていないか確認してください。** 出ていればバッチの問題ではなく、上記「証明書が見つからない場合」の対処が済んでいないだけです(この場合は一時的失敗に分類されるので、`[取得失敗]` にはなりません)。
 
 1. `fetch.log` で該当の録画の `恒久的失敗:` の行を探し、理由を確認します
 2. **`許可していないホストのURLを拒否した: host=...`** が出ている場合は、`config.py` の `既定の許可するホスト接尾辞` にそのホストを追加します(実際のホストは未確認のため、初回はここで判明する想定です)

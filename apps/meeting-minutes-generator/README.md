@@ -72,7 +72,7 @@ launchctl list | grep meeting-minutes-generator
 
 `python3 -V` が 3.10 以降を表示することを確認してください。表示されずエラーになる場合は前提のPythonが入っていないので、python.org版のインストーラで入れ直してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
 
-先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Load failed: 5: Input/output error` で失敗します。
+先頭の `launchctl bootout` は、既に登録済みのものを一度外すためのものです(未登録なら何も起きません)。外さずに `bootstrap` すると、古い定義が残ったまま `Bootstrap failed: 5: Input/output error` で失敗します。`bootout` を実行したのにこのエラーが出る場合は、`launchctl bootout gui/$(id -u)/com.example.meeting-minutes-generator` を単体で実行してメッセージを見てください(バッチの実行中は外せず `Operation now in progress` になります)。
 
 **Pythonのパスをバージョン番号込み(`Versions/3.13/...` など)に書き換えないでください。** Pythonを上げた時点で指し先が消え、launchdがプロセスを起動できなくなります。このとき `minutes.log` にも `~/Library/Logs/meeting-minutes-generator.err.log` にも1行も残らず、外からは静かに止まっているようにしか見えません(`launchctl list` の2列目が `78` になるのが唯一の手がかりです)。
 
