@@ -57,18 +57,20 @@ auto/
 
 `launchd/com.example.meeting-minutes-generator.plist` のプレースホルダを実際のパスに置き換えてから配置します。
 
-**Pythonの実体を絶対パスで埋め込みます。** `/usr/bin/python3` はApple標準の3.9で、このコードは動きません。
+Pythonはplistに `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` と書いてあり、置き換えは不要です。`Current` はpython.org版のインストーラが最新版へ張り替えるsymlinkなので、Pythonを上げても指し先が残ります。
 
 ```
 cd /Users/ryosyamazaki/repo/study/apps/meeting-minutes-generator/application
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs
-sed -e "s|__ホームディレクトリ__|$HOME|g" -e "s|__PYTHON__|$(which python3)|g" launchd/com.example.meeting-minutes-generator.plist > ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
-grep -A2 ProgramArguments ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
+sed -e "s|__ホームディレクトリ__|$HOME|g" launchd/com.example.meeting-minutes-generator.plist > ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
+/Library/Frameworks/Python.framework/Versions/Current/bin/python3 -V
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.meeting-minutes-generator.plist
 launchctl list | grep meeting-minutes-generator
 ```
 
-`grep` の出力で、Pythonのパスが 3.10 以降のものになっていることを確認してください。
+`python3 -V` が 3.10 以降を表示することを確認してください。`launchctl list` の2列目は最後の終了コードで、`0` なら正常です。
+
+**Pythonのパスをバージョン番号込み(`Versions/3.13/...` など)に書き換えないでください。** Pythonを上げた時点で指し先が消え、launchdがプロセスを起動できなくなります。このとき `minutes.log` にも `~/Library/Logs/meeting-minutes-generator.err.log` にも1行も残らず、外からは静かに止まっているようにしか見えません(`launchctl list` の2列目が `78` になるのが唯一の手がかりです)。
 
 ### 5. 動作確認
 
