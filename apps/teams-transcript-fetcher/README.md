@@ -158,6 +158,8 @@ rm ~/Library/LaunchAgents/com.example.teams-transcript-fetcher.plist
 | 実行ログ | `~/Library/Application Support/teams-transcript-fetcher/fetch.log` | 既定DEBUG。5世代でローテーション。**URLとトランスクリプト本文は出力しません** |
 | 処理結果の記録 | 作業フォルダの `_status.md` | 失敗した対象。OneDrive上にあるのでPCの前にいなくても見られます |
 | 取得済み記録 | `~/Library/Application Support/teams-transcript-fetcher/state.json` | 同期フォルダの**外**に置きます(同期すると競合ファイルで壊れるため) |
+| 監視記録 | `~/Library/Application Support/teams-transcript-fetcher/monitoring.json` | OneDrive同期停滞の監視の記憶(停滞イベント・再起動履歴・通知済み事象)。停滞中でも読み書きできるよう同期フォルダの**外**に置きます |
+| 監視通知 | 作業フォルダの親の `teamsNotice/monitoring/` | 同期停滞・復旧失敗・失敗の連続の通知。構築済みのフローが本文をTeamsへ投稿します(仕様: [specs/sync-stall-recovery/](specs/sync-stall-recovery/)) |
 | 起動失敗の出力 | `~/Library/Logs/teams-transcript-fetcher.{out,err}.log` | Pythonが起動できなかった場合など |
 
 ## 運用: 記録に何か出たときの対処

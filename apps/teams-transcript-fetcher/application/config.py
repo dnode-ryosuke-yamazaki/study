@@ -56,6 +56,16 @@ class 設定:
     許可するホスト接尾辞: tuple[str, ...]
     ログレベル: int
 
+    # --- 同期停滞の監視(specs/sync-stall-recovery/) ---
+    停滞判定しきい値分: int
+    実行中断とみなす間隔分: int
+    復帰後の猶予分: int
+    復旧確認しきい値分: int
+    再起動の24時間上限: int
+    再通知間隔時間: int
+    疎通タイムアウト秒: int
+    通常終了を待つ秒: int
+
     @property
     def 台帳フォルダ(self) -> Path:
         return self.作業フォルダ / "ledger"
@@ -85,8 +95,33 @@ class 設定:
         return self.作業フォルダ / "_status.md"
 
     @property
+    def ハートビートファイル(self) -> Path:
+        """Power Automateが15分間隔で上書きするハートビート。バッチは読むだけ。
+
+        取得バッチが監視しているのと同じ同期経路にあることが検知の前提。
+        仕様: sync-stall-recovery/requirements.md#ハートビートの書き込み [2]
+        """
+        return self.作業フォルダ / "_heartbeat.txt"
+
+    @property
+    def 監視通知フォルダ(self) -> Path:
+        """監視通知の書き出し先。構築済みのフローが本文をTeamsへ投稿する。
+
+        仕様: sync-stall-recovery/requirements.md#監視通知 [1]
+        """
+        return self.作業フォルダ.parent / "teamsNotice" / "monitoring"
+
+    @property
     def 状態ファイル(self) -> Path:
         return 状態フォルダ / "state.json"
+
+    @property
+    def 監視記録ファイル(self) -> Path:
+        """監視記録。**同期フォルダの外**であることが要件
+        (停滞の最中でも読み書きできる必要がある)。
+        仕様: sync-stall-recovery/requirements.md#記録 [2]
+        """
+        return 状態フォルダ / "monitoring.json"
 
     @property
     def ロックファイル(self) -> Path:
@@ -131,4 +166,24 @@ def load(作業フォルダ: Path | None = None) -> 設定:
         許可するホスト接尾辞=既定の許可するホスト接尾辞,
         # 仕様: design.md#ログ(観測に使う項目がDEBUGで出るため既定をDEBUGにする)
         ログレベル=logging.DEBUG,
+        # 仕様: sync-stall-recovery/requirements.md#停滞判定の閾値 [1]
+        # (ハートビート3回分の欠落に相当)
+        停滞判定しきい値分=45,
+        # 仕様: sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止 [1]
+        # (5分間隔の3サイクル分を超える空白は稼働の連続性が切れた証拠)
+        実行中断とみなす間隔分=15,
+        # 仕様: sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止 [2]
+        # (停滞判定の閾値と揃える。短いと復帰直後の判定が素通りになる)
+        復帰後の猶予分=45,
+        # 仕様: sync-stall-recovery/requirements.md#再起動の回数制限 [4]
+        # (同期再開とハートビート2回分の更新を待つのに十分な時間)
+        復旧確認しきい値分=30,
+        # 仕様: sync-stall-recovery/requirements.md#再起動の回数制限 [3]
+        再起動の24時間上限=2,
+        # 仕様: sync-stall-recovery/requirements.md#通知の抑止と限界 [1]
+        再通知間隔時間=24,
+        # 仕様: sync-stall-recovery/design.md#同期停滞の判定(手順5)
+        疎通タイムアウト秒=5,
+        # 仕様: sync-stall-recovery/design.md#OneDriveの再起動と復旧確認(手順3)
+        通常終了を待つ秒=30,
     )

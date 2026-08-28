@@ -13,6 +13,7 @@ import config
 import downloader
 import fetch_transcripts
 import state
+import sync_monitor
 
 基準時刻 = datetime(2026, 8, 19, 10, 40, tzinfo=timezone.utc)
 
@@ -905,6 +906,91 @@ class 観測用のログ(実行の土台):
             with self.assertLogs(level="DEBUG") as ログ:
                 self.実行する()
         self.assertNotIn("://", "\n".join(ログ.output))
+
+
+class 監視と取得の組み込み(実行の土台):
+    """同期停滞の監視がバッチの1サイクルに組み込まれ、取得と相互に道連れに
+    ならないことを検証する。
+
+    監視の失敗で取得が止まると本来の仕事(トランスクリプト収集)が失われ、
+    取得の失敗で監視が止まると異常に気づく手段が失われる。
+    """
+
+    def _1サイクル(self, 現在時刻=None) -> int:
+        return fetch_transcripts.監視と取得の1サイクル(
+            self.設定, 現在時刻=現在時刻 or 基準時刻
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
+    def test_停滞判定が例外でも取得サイクルが実行されること(self):
+        self.台帳を置く()
+        with mock.patch.object(
+            sync_monitor, "停滞を判定する", side_effect=RuntimeError("監視の故障")
+        ):
+            with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+                終了コード = self._1サイクル()
+        self.assertEqual(終了コード, 0)
+        self.assertEqual(len(list(self.設定.出力フォルダ.iterdir())), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
+    def test_取得サイクルが例外でも通知の評価まで到達すること(self):
+        with mock.patch.object(
+            fetch_transcripts, "実行する", side_effect=RuntimeError("取得の故障")
+        ):
+            with mock.patch.object(sync_monitor, "通知を評価する") as 評価:
+                終了コード = self._1サイクル()
+        self.assertEqual(終了コード, 1)
+        評価.assert_called_once()
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#失敗警告の連続の検知バッチ取得サイクルの後
+    def test_取得サイクルの想定外の例外で異常終了の連続回数が増えること(self):
+        with mock.patch.object(
+            fetch_transcripts, "実行する", side_effect=RuntimeError("取得の故障")
+        ):
+            self._1サイクル()
+        記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
+        self.assertEqual(記録.異常終了の連続回数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#失敗警告の連続の検知バッチ取得サイクルの後
+    def test_台帳置き場にアクセスできない中断でも異常終了の連続回数が増えること(self):
+        import shutil
+
+        shutil.rmtree(self.作業フォルダ)
+        self._1サイクル()
+        記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
+        self.assertEqual(記録.異常終了の連続回数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#失敗警告の連続の検知バッチ取得サイクルの後
+    def test_正常に終えると異常終了の連続回数が0に戻ること(self):
+        sync_monitor.保存する(
+            sync_monitor.監視記録(異常終了の連続回数=2),
+            self.設定.監視記録ファイル,
+            基準時刻,
+        )
+        self._1サイクル()
+        記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
+        self.assertEqual(記録.異常終了の連続回数, 0)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#同期停滞の判定バッチ毎サイクルの冒頭
+    def test_サイクルの最後に前回実行時刻が監視記録へ保存されること(self):
+        self._1サイクル()
+        記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
+        self.assertEqual(記録.前回実行時刻, 基準時刻)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#失敗警告の連続の通知-1
+    def test_要手動確認の録画が監視通知として書き出されること(self):
+        """既存カウンタ(恒久的失敗)の検知から通知ファイルの書き出しまで通しで確認する。"""
+        self.台帳を置く()
+        # 恒久的失敗が上限に達した状態を事前に作っておく。
+        読んだ状態 = state.状態()
+        読んだ状態.録画の状態("01ABCDEF").恒久的失敗の回数 = 3
+        state.保存する(読んだ状態, self.設定.状態ファイル)
+        self._1サイクル()
+        通知たち = list(self.設定.監視通知フォルダ.glob("*.md"))
+        self.assertEqual(len(通知たち), 1)
+        本文 = 通知たち[0].read_text(encoding="utf-8")
+        self.assertIn("ダウンロード失敗の連続", 本文)
+        self.assertIn("定例会議", 本文)
 
 
 if __name__ == "__main__":

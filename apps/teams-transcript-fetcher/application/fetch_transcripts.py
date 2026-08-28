@@ -29,6 +29,7 @@ import materialize
 import naming
 import state
 import status_log
+import sync_monitor
 import writer
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,11 @@ class 実行結果:
     中断した: bool = False
     中断の理由: str = ""
     記録した行: list[status_log.記録する行] = field(default_factory=list)
+    #: 監視側が既存カウンタ(恒久的失敗・読み取り失敗)を参照するための、
+    #: この実行で読んだ状態(sync-stall-recovery/design.md#失敗・警告の連続の検知)。
+    読んだ状態: state.状態 | None = None
+    #: 録画の識別子 → 会議名。監視通知の本文に会議名を書くための索引。
+    会議名の索引: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -358,6 +364,7 @@ def 実行する(設定: config.設定, *, 現在時刻: datetime | None = None)
     結果 = 実行結果()
 
     読んだ状態 = state.読み込む(設定.状態ファイル)
+    結果.読んだ状態 = 読んだ状態
 
     try:
         読み込み = ledger.台帳を読み込む(設定.台帳フォルダ)
@@ -395,6 +402,9 @@ def 実行する(設定: config.設定, *, 現在時刻: datetime | None = None)
         _使用するurlの一覧を決める(台帳, 設定, 読んだ状態, 今)
         for 台帳 in 読み込み.有効
     ]
+
+    for 対象 in 対象たち:
+        結果.会議名の索引[対象.台帳.録画の識別子] = 対象.台帳.会議名
 
     # 発行時刻の新しい順。URLの寿命が短いため、古いものから処理すると
     # 新しいものが上限件数に阻まれて寿命内に消費できなくなる。
@@ -744,6 +754,58 @@ def _長期滞留を記録する(
             )
 
 
+def 監視と取得の1サイクル(設定: config.設定, *, 現在時刻: datetime | None = None) -> int:
+    """「停滞判定と復旧 → 取得サイクル → 失敗・警告の検知 → 通知と監視記録の保存」
+    の順で1サイクルを実行する。
+
+    **監視と取得を相互に道連れにしない。** 監視側の各処理は例外から保護して
+    取得サイクルを必ず実行し、取得サイクルの失敗も監視側(異常終了の計数と通知)を
+    止めない(sync-stall-recovery/design.md#エラーハンドリング)。
+    """
+    今 = 現在時刻 or datetime.now(timezone.utc)
+    監視記録 = sync_monitor.読み込む(設定.監視記録ファイル)
+
+    停滞の事象: list[sync_monitor.通知事象] = []
+    try:
+        停滞の事象 = sync_monitor.停滞を判定する(監視記録, 設定, 今)
+    except Exception:
+        logger.exception("停滞判定・復旧に失敗したが取得サイクルは続行する")
+
+    結果: 実行結果 | None = None
+    try:
+        結果 = 実行する(設定, 現在時刻=今)
+    except Exception:
+        logger.exception("取得サイクルが想定外の例外で失敗した")
+
+    # 異常終了(想定外の例外・台帳置き場にアクセスできない中断)の連続を数える。
+    # 正常に終えた場合は0に戻す(sync-stall-recovery/design.md#失敗・警告の連続の検知)。
+    if 結果 is None or 結果.中断した:
+        監視記録.異常終了の連続回数 += 1
+    else:
+        監視記録.異常終了の連続回数 = 0
+
+    try:
+        継続中の事象 = [事象 for 事象 in 停滞の事象 if not 事象.即時]
+        継続中の事象 += sync_monitor.継続中の事象を集める(
+            結果.読んだ状態 if 結果 else None,
+            結果.会議名の索引 if 結果 else {},
+            監視記録,
+            設定,
+            今,
+        )
+        即時の事象 = [事象 for 事象 in 停滞の事象 if 事象.即時]
+        sync_monitor.通知を評価する(継続中の事象, 即時の事象, 監視記録, 設定, 今)
+    except Exception:
+        logger.exception("監視通知の評価・書き出しに失敗した")
+
+    try:
+        sync_monitor.保存する(監視記録, 設定.監視記録ファイル, 今)
+    except Exception:
+        logger.exception("監視記録の保存に失敗した")
+
+    return 1 if (結果 is None or 結果.中断した) else 0
+
+
 def main() -> int:
     設定 = config.load()
     ログを設定する(設定)
@@ -751,12 +813,12 @@ def main() -> int:
     # ファイルの読み取りが即失敗する(requirements.md#実行環境 [4])。
     materialize.実体化を許可する()
     try:
+        # 監視を含む全処理を既存のロックの中で行う(sync-stall-recovery/tasks.md T11)。
         with state.ロック(設定.ロックファイル):
-            結果 = 実行する(設定)
+            return 監視と取得の1サイクル(設定)
     except state.先行実行が動作中 as 例外:
         logger.info("先行実行が動作中のため終了する: %s", 例外)
         return 0
-    return 1 if 結果.中断した else 0
 
 
 if __name__ == "__main__":
