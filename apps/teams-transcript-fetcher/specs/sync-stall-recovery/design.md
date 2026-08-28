@@ -78,7 +78,7 @@ sequenceDiagram
 
 正となる文章は上記の手順と[OneDriveの再起動と復旧確認](#onedriveの再起動と復旧確認バッチ)。
 
-- **関連するビジネスルール**: [requirements.md#停滞判定の閾値](requirements.md#停滞判定の閾値)、[requirements.md#スリープ復帰直後の誤検知防止](requirements.md#スリープ復帰直後の誤検知防止)
+- **関連するビジネスルール**: [requirements.md#停滞判定の閾値](requirements.md#停滞判定の閾値)、[requirements.md#スリープ復帰直後の誤検知防止](requirements.md#スリープ復帰直後の誤検知防止)、[requirements.md#ハートビートの異常値の扱い](requirements.md#ハートビートの異常値の扱い)
 
 ### OneDriveの再起動と復旧確認(バッチ)
 
@@ -185,4 +185,4 @@ stateDiagram-v2
 | ハートビートが存在しない・読めない | パスと理由 | WARNING |
 | 監視記録の読み書き失敗 | パスと理由 | WARNING |
 
-停滞判定の結果と根拠を毎サイクルINFOで残すのは、[requirements.md#同期停滞の検知](requirements.md#同期停滞の検知) [5](後から確認できること)のため。
+停滞判定の結果と根拠を毎サイクルINFOで残すのは、[requirements.md#同期停滞の検知](requirements.md#同期停滞の検知) [6](後から確認できること)のため。
