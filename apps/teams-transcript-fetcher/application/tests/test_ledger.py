@@ -233,6 +233,59 @@ class 読めなかった台帳の扱い(unittest.TestCase):
         self.assertEqual(結果.読めなかった, [])
 
 
+class 読めなかったurlファイルの扱い(unittest.TestCase):
+    """URLファイルの読み取り失敗が「無い」と区別されることを検証する。
+
+    「無い」と扱うと要発行に回り、フロー②が書き直したファイルが未実体化のまま
+    届いて再び読めない、という収束しないループになる(実機で2026-08-27に発生)。
+    """
+
+    def setUp(self):
+        self.一時ディレクトリ = tempfile.TemporaryDirectory()
+        self.urlフォルダ = Path(self.一時ディレクトリ.name)
+        self.addCleanup(self.一時ディレクトリ.cleanup)
+
+    def urlファイルを置く(self, 中身) -> Path:
+        パス = self.urlフォルダ / "01ABCDEF.json"
+        パス.write_text(
+            中身 if isinstance(中身, str) else json.dumps(中身, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return パス
+
+    def 実体化に失敗させる(self) -> None:
+        本来の読み取り = Path.read_text
+
+        def 読み取り(自身, *引数, **名前付き引数):
+            if 自身.name == "01ABCDEF.json":
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return 本来の読み取り(自身, *引数, **名前付き引数)
+
+        パッチ = mock.patch.object(Path, "read_text", 読み取り)
+        パッチ.start()
+        self.addCleanup(パッチ.stop)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-12
+    def test_読み取りに失敗したurlファイルが無い扱いではなく読めなかったとして返ること(self):
+        self.urlファイルを置く({"issuedAt": "2026-08-27T14:20:00.000Z", "urls": ["https://example.sharepoint.com/dl1"]})
+        self.実体化に失敗させる()
+        結果 = ledger.url情報を読む(self.urlフォルダ, "01ABCDEF")
+        self.assertIsInstance(結果, ledger.読めなかったurlファイル)
+        self.assertIn("Resource deadlock avoided", 結果.理由)
+        self.assertEqual(結果.パス.name, "01ABCDEF.json")
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-12
+    def test_存在しないurlファイルは従来どおり無いこと(self):
+        self.assertIsNone(ledger.url情報を読む(self.urlフォルダ, "01ABCDEF"))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-12
+    def test_解析できないurlファイルは従来どおり無い扱いであること(self):
+        """中身を読めた上での不正は、フロー②の書き直しで直る見込みがあるため要発行に回す。"""
+        self.urlファイルを置く("{壊れている")
+        with self.assertLogs(level="WARNING"):
+            self.assertIsNone(ledger.url情報を読む(self.urlフォルダ, "01ABCDEF"))
+
+
 class 台帳置き場の走査(unittest.TestCase):
     """台帳置き場の列挙が、無関係なファイルや存在しないフォルダに耐えることを検証する。
 

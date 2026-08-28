@@ -2,6 +2,7 @@
 
 import errno
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -470,9 +471,11 @@ class 滞留した要求の退避(実行の土台):
     def test_解析できない要求も退避されること(self):
         """フロー②が解析できず削除しないため、これが残ると対象が解放されない。"""
         self.設定.要求フォルダ.mkdir(parents=True, exist_ok=True)
-        (self.設定.要求フォルダ / "01BROKEN.json").write_text(
-            "{壊れている", encoding="utf-8"
-        )
+        パス = self.設定.要求フォルダ / "01BROKEN.json"
+        パス.write_text("{壊れている", encoding="utf-8")
+        # 解析できない要求の滞留はファイルのmtimeで判定される。実際の書き込み時刻の
+        # ままではテストを実行する日によって結果が変わるため、基準時刻に固定する。
+        os.utime(パス, (基準時刻.timestamp(), 基準時刻.timestamp()))
         結果 = self.実行する(現在時刻=基準時刻 + timedelta(days=1))
         self.assertEqual(結果.要求の退避件数, 1)
 
@@ -652,6 +655,130 @@ class 読めなかった台帳の持ち越し(実行の土台):
             self.実行する()
         読んだ状態 = state.読み込む(self.設定.状態ファイル)
         self.assertEqual(読んだ状態.録画の状態("01ABCDEF").読み取り失敗の回数, 0)
+
+
+class 読めないurlファイルの持ち越し(実行の土台):
+    """URLファイルが「存在するのに読めない」とき、要発行にせず持ち越すことを検証する。
+
+    「無い」と扱って再発行を要求すると、フロー②がファイルを書き直し、同期直後の
+    未実体化状態に戻って再び読めない、という収束しないループになる。実機で
+    2026-08-27に発生し、約16時間停止した。
+    """
+
+    def url読み取りに失敗させる(self, 録画の識別子="01ABCDEF"):
+        """URL置き場のファイルだけ読み取りが失敗する状況を作る。
+
+        台帳とURLファイルは同名(録画の識別子.json)のため、親フォルダで区別する。
+        """
+        本来の読み取り = Path.read_text
+        urlフォルダ = self.設定.urlフォルダ
+
+        def 読み取り(自身, *引数, **名前付き引数):
+            if 自身.parent == urlフォルダ and 自身.name == f"{録画の識別子}.json":
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return 本来の読み取り(自身, *引数, **名前付き引数)
+
+        return mock.patch.object(Path, "read_text", 読み取り)
+
+    def 読めないurlファイルの状況を作る(self) -> Path:
+        """台帳はURLを持たず、URL置き場に読めないファイルがある状況(実機と同じ)。"""
+        self.台帳を置く(urls=..., issuedAt=...)
+        return self.urlファイルを置く()
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-12
+    def test_発行要求が出ないこと(self):
+        urlファイルのパス = self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                結果 = self.実行する()
+        self.assertEqual(結果.発行要求件数, 0)
+        self.assertEqual(list(self.設定.要求フォルダ.glob("*.json")), [])
+        self.assertTrue(urlファイルのパス.exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-12
+    def test_次回の実行で読めれば消費されること(self):
+        """持ち越しの目的は、実体化された次サイクルで自動的に取得されること。"""
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+            結果 = self.実行する()
+        self.assertEqual(結果.成功件数, 2)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-9
+    def test_1件が読めなくても他の録画は処理されること(self):
+        self.読めないurlファイルの状況を作る()
+        self.台帳を置く("01OTHER")
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+                    結果 = self.実行する()
+        self.assertEqual(結果.成功件数, 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-13
+    def test_読み取り失敗が続いた場合に記録されること(self):
+        """発行要求を止めるため、記録しなければ気づく手段がなくなる。"""
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                for 回 in range(self.設定.読み取り失敗を記録するしきい値):
+                    with self.subTest(回=回):
+                        self.実行する()
+        self.assertIn(
+            "[URL読み取り失敗]", self.設定.記録ファイル.read_text(encoding="utf-8")
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-13
+    def test_しきい値に達するまでは記録されないこと(self):
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        self.assertFalse(self.設定.記録ファイル.exists())
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#処理結果の記録-3
+    def test_読み取り失敗が繰り返し追記されないこと(self):
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                for _ in range(self.設定.読み取り失敗を記録するしきい値 + 3):
+                    self.実行する()
+        書かれた内容 = self.設定.記録ファイル.read_text(encoding="utf-8")
+        self.assertEqual(書かれた内容.count("[URL読み取り失敗]"), 1)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-13
+    def test_一度読めれば連続回数が0に戻ること(self):
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING"):
+                self.実行する()
+        with self.取得を差し替える(downloader.成功(本文=b"WEBVTT\n")):
+            self.実行する()
+        読んだ状態 = state.読み込む(self.設定.状態ファイル)
+        self.assertEqual(読んだ状態.録画の状態("01ABCDEF").url読み取り失敗の回数, 0)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#ログ
+    def test_未実体化かどうかがログに含まれること(self):
+        """原因の切り分け(実体化待ちか、権限異常などか)をログ1行で終えるため。"""
+        self.読めないurlファイルの状況を作る()
+        with self.url読み取りに失敗させる():
+            with self.assertLogs(level="WARNING") as ログ:
+                self.実行する()
+        self.assertTrue(any("未実体化=" in 行 for 行 in ログ.output))
+
+
+class 起動時の実体化許可(実行の土台):
+    """main()が処理に入る前に実体化の許可を設定することを検証する。"""
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#実行環境-4
+    def test_mainが実体化の許可を設定してから実行すること(self):
+        with mock.patch.object(config, "load", return_value=self.設定):
+            with mock.patch.object(
+                fetch_transcripts.materialize, "実体化を許可する"
+            ) as 許可:
+                fetch_transcripts.main()
+        許可.assert_called_once()
 
 
 class 全体を中断する条件(実行の土台):
