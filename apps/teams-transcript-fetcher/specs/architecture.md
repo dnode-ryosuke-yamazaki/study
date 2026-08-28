@@ -149,7 +149,7 @@ flowchart TD
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
 | [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | リリース済み |
-| [sync-stall-recovery](sync-stall-recovery/requirements.md) | OneDrive同期が止まっても自動で復旧し、異常が通知される | ハートビートの鮮度で同期停滞を検知し、OneDriveの自動再起動と監視通知を行う | ハートビート用Power Automateフローの新設、teamsNotice/monitoring監視フロー(構築済み) | 仕様のみ(未実装) |
+| [sync-stall-recovery](sync-stall-recovery/requirements.md) | OneDrive同期が止まっても自動で復旧し、異常が通知される | ハートビートの鮮度で同期停滞を検知し、OneDriveの自動再起動と監視通知を行う | ハートビート用Power Automateフローの新設、teamsNotice/monitoring監視フロー(構築済み) | 実装中 |
 
 ## ディレクトリ構成
 
