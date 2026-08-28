@@ -141,7 +141,7 @@ flowchart TD
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | リリース済み |
+| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | 実装中 |
 
 ## ディレクトリ構成
 

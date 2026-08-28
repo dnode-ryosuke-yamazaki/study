@@ -139,6 +139,26 @@ class 録画ごとに持つ状態(unittest.TestCase):
             self.保存して読み直す(対象).録画の状態("01ABCDEF").読み取り失敗の回数, 0
         )
 
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-13
+    def test_urlファイルの読み取り失敗の連続回数を加算して読み直せること(self):
+        対象 = state.状態()
+        対象.録画の状態("01ABCDEF").url読み取り失敗の回数 += 1
+        対象.録画の状態("01ABCDEF").url読み取り失敗の回数 += 1
+        self.assertEqual(
+            self.保存して読み直す(対象).録画の状態("01ABCDEF").url読み取り失敗の回数, 2
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-13
+    def test_urlファイルの読み取り失敗の連続回数を0に戻して読み直せること(self):
+        """一度読めれば連続は途切れる。ここが戻らないと実体化待ちの累積で記録が出る。"""
+        対象 = state.状態()
+        対象.録画の状態("01ABCDEF").url読み取り失敗の回数 = 3
+        対象 = self.保存して読み直す(対象)
+        対象.録画の状態("01ABCDEF").url読み取り失敗の回数 = 0
+        self.assertEqual(
+            self.保存して読み直す(対象).録画の状態("01ABCDEF").url読み取り失敗の回数, 0
+        )
+
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#エラーハンドリング
     def test_恒久的失敗と判定した発行時刻を追加して読み直せること(self):
         対象 = state.状態()

@@ -160,20 +160,42 @@ class url情報:
     url一覧: list[str]
 
 
-def url情報を読む(urlフォルダ: Path, 録画の識別子: str) -> url情報 | None:
+@dataclass(frozen=True)
+class 読めなかったurlファイル:
+    """存在するのに内容を読み取れなかったURLファイル。
+
+    **「無い(None)」と区別しなければならない。** 「無い」と扱うと要発行に回り、
+    フロー②が書き直したファイルが未実体化のまま届いて再び読めない、という
+    収束しないループになる(requirements.md#エラー時の挙動 [12]。実機で
+    2026-08-27に発生し、約16時間停止した)。
+    """
+
+    パス: Path
+    理由: str
+
+
+def url情報を読む(
+    urlフォルダ: Path, 録画の識別子: str
+) -> url情報 | 読めなかったurlファイル | None:
     """URL置き場からその録画のURLファイルを読む。無ければ None。
 
-    壊れていても None として扱う。台帳側にURLが残っていればそれを使えるし、
-    無ければ「要発行」になって再発行されるため、ここで止める理由がない。
+    内容を読んだ上で不正と判断できたもの(JSON解析不可・形式違い)は None として
+    扱う。台帳側にURLが残っていればそれを使えるし、無ければ「要発行」になって
+    フロー②の書き直しで直る見込みがあるため、ここで止める理由がない。
+    **読み取り自体ができなかった場合だけは区別して返す**(上記 読めなかったurlファイル)。
     """
     パス = urlフォルダ / f"{録画の識別子}{台帳の拡張子}"
     try:
         中身 = json.loads(パス.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
-    except (json.JSONDecodeError, OSError) as 例外:
+    except json.JSONDecodeError as 例外:
         logger.warning("URLファイルを読めないため無いものとして扱う: %s: %s", パス.name, 例外)
         return None
+    except OSError as 例外:
+        # ここでは警告を出さない。連続回数と未実体化かどうかを添えた警告を
+        # 呼び出し元が出す(design.md#ログ)。
+        return 読めなかったurlファイル(パス=パス, 理由=str(例外))
 
     if not isinstance(中身, dict):
         logger.warning("URLファイルの形式が想定と違う: %s", パス.name)
