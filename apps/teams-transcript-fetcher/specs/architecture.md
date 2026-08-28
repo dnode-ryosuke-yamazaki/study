@@ -6,7 +6,7 @@ Teams会議の録画から生成されるトランスクリプトを自動収集
 
 主要技術: Python 3 / launchd / Power Automate(クラウドフロー) / OneDrive同期クライアント / SharePoint REST API v2.1。
 
-specは1つ([transcript-auto-fetch](transcript-auto-fetch/requirements.md))で、会議のトランスクリプトを自動収集してOneDriveへ保存する機能を担う。外部との境界は[コンテキスト図](#コンテキスト図)、内部構成は[システム構成図](#システム構成図)を参照。
+specは2つ。[transcript-auto-fetch](transcript-auto-fetch/requirements.md)が会議のトランスクリプトを自動収集してOneDriveへ保存する機能を、[sync-stall-recovery](sync-stall-recovery/requirements.md)がOneDrive同期の停滞を検知して自動復旧・通知する機能を担う。外部との境界は[コンテキスト図](#コンテキスト図)、内部構成は[システム構成図](#システム構成図)を参照。
 
 ## 概要
 
@@ -73,6 +73,7 @@ flowchart LR
 - `Power Automate` は録画の検知・台帳の作成・ダウンロードURLの発行を担う外部の実行環境で、テナント側に存在しこのリポジトリでは管理しない
 - 本アプリと `Power Automate` は直接通信せず、`OneDrive` 上のファイルを介してやり取りする([実行環境](transcript-auto-fetch/requirements.md#実行環境) [3])
 - 利用者は蓄積されたWEBVTTをOneDrive上で参照する
+- 異常時の監視通知は、バッチがOneDriveへ書き出したファイルをPower AutomateがTeamsへ投稿する形で利用者(運用者)へ届く
 
 ## システム構成図
 
@@ -82,14 +83,17 @@ flowchart TD
         TEAMS["Teams 会議 / 録画"]
         PA1["PAフロー① 台帳作成<br/>チャネル会議用・通常会議用の2本"]
         PA2["PAフロー② URL発行<br/>要求の作成をトリガーに実行"]
-        ODC["OneDrive(クラウド側)<br/>ledger / request / url / vtt<br/>invalid / _status.md"]
+        PA3["PAフロー③ ハートビート<br/>15分間隔で現在時刻を上書き"]
+        PA4["監視通知フロー(構築済み)<br/>teamsNotice/monitoring の新規ファイルをTeamsへ投稿"]
+        ODC["OneDrive(クラウド側)<br/>ledger / request / url / vtt<br/>invalid / _status.md / _heartbeat.txt<br/>teamsNotice/monitoring"]
     end
 
     subgraph mac["ローカル Mac"]
         LAUNCHD["launchd<br/>5分間隔"]
         BATCH["取得バッチ(Python)"]
-        STATE["取得済み記録<br/>同期フォルダの外"]
+        STATE["取得済み記録・監視記録<br/>同期フォルダの外"]
         ODL["OneDrive 同期フォルダ"]
+        ODPROC["OneDrive 同期クライアント"]
     end
 
     EXT["Teams のストリーミング エンドポイント"]
@@ -102,6 +106,9 @@ flowchart TD
     BATCH -- ダウンロードURLへアクセス --> EXT
     EXT -- WEBVTT --> BATCH
     ODC --> PA2 --> ODC
+    PA3 --> ODC
+    ODC --> PA4
+    BATCH -- 同期停滞時に再起動 --> ODPROC
 ```
 
 ## アーキテクチャ概要
@@ -142,6 +149,7 @@ flowchart TD
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
 | [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | リリース済み |
+| [sync-stall-recovery](sync-stall-recovery/requirements.md) | OneDrive同期が止まっても自動で復旧し、異常が通知される | ハートビートの鮮度で同期停滞を検知し、OneDriveの自動再起動と監視通知を行う | ハートビート用Power Automateフローの新設、teamsNotice/monitoring監視フロー(構築済み) | 仕様のみ(未実装) |
 
 ## ディレクトリ構成
 
@@ -181,7 +189,7 @@ apps/teams-transcript-fetcher/
 - **フェーズ2の成立条件はダウンロードURLの寿命が「要求→発行→消費」のレイテンシ(約10分)を上回ることである。** 下回る場合は実行間隔の短縮などの再設計が必要
 - **OneDrive同期には数秒〜数分のラグがある。** 即時性を前提とした設計はできない
 - **Files On-Demandの未実体化(dataless)ファイルは、読み取り時のダウンロードが常に走るとは限らない。** launchdから起動されたプロセスは既定では実体化を引き起こせず、読み取りが即座に失敗する。このためバッチは起動時に実体化を自プロセスへ許可する([transcript-auto-fetch/requirements.md#実行環境](transcript-auto-fetch/requirements.md#実行環境) [4])。「常にこのデバイス上に保持」は遅延を減らす推奨設定にとどめ、正しさの前提にしない
-- Power AutomateとバッチはOneDrive上の異なるフォルダにのみ書き込む。同一ファイルを双方が書くと同期の競合ファイルが生まれる
+- Power AutomateとバッチはOneDrive上の同一ファイルに双方から書き込まない(一方が書くファイルを他方は読み取りにのみ使う)。同一ファイルを双方が書くと同期の競合ファイルが生まれる
 
 ## 用語集
 
@@ -192,3 +200,5 @@ apps/teams-transcript-fetcher/
 | 要求 | バッチがPower Automateに「この録画のダウンロードURLを発行してほしい」と依頼するファイル |
 | ダウンロードURL | Transcript APIが返す短命な事前認証済みURL。認証ヘッダを付けずにアクセスするとWEBVTTが得られる(付けると失敗する) |
 | WEBVTT | トランスクリプトの標準的なテキスト形式。字幕ファイルと同じ形式 |
+| ハートビート | Power Automateが15分間隔で現在時刻を上書きするファイル。バッチがその鮮度でOneDrive同期の生死を判定する |
+| 停滞イベント | 同期停滞と判定してからハートビートの鮮度が閾値内へ戻るまでの期間。再起動の回数制限の単位 |
