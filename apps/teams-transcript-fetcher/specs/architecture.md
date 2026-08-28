@@ -73,6 +73,7 @@ flowchart LR
 - `Power Automate` は録画の検知・台帳の作成・ダウンロードURLの発行を担う外部の実行環境で、テナント側に存在しこのリポジトリでは管理しない
 - 本アプリと `Power Automate` は直接通信せず、`OneDrive` 上のファイルを介してやり取りする([実行環境](transcript-auto-fetch/requirements.md#実行環境) [3])
 - 利用者は蓄積されたWEBVTTをOneDrive上で参照する
+- 異常時の監視通知は、バッチがOneDriveへ書き出したファイルをPower AutomateがTeamsへ投稿する形で利用者(運用者)へ届く
 
 ## システム構成図
 
@@ -82,14 +83,17 @@ flowchart TD
         TEAMS["Teams 会議 / 録画"]
         PA1["PAフロー① 台帳作成<br/>チャネル会議用・通常会議用の2本"]
         PA2["PAフロー② URL発行<br/>要求の作成をトリガーに実行"]
-        ODC["OneDrive(クラウド側)<br/>ledger / request / url / vtt<br/>invalid / _status.md"]
+        PA3["PAフロー③ ハートビート<br/>15分間隔で現在時刻を上書き"]
+        PA4["監視通知フロー(構築済み)<br/>teamsNotice/monitoring の新規ファイルをTeamsへ投稿"]
+        ODC["OneDrive(クラウド側)<br/>ledger / request / url / vtt<br/>invalid / _status.md / _heartbeat.txt<br/>teamsNotice/monitoring"]
     end
 
     subgraph mac["ローカル Mac"]
         LAUNCHD["launchd<br/>5分間隔"]
         BATCH["取得バッチ(Python)"]
-        STATE["取得済み記録<br/>同期フォルダの外"]
+        STATE["取得済み記録・監視記録<br/>同期フォルダの外"]
         ODL["OneDrive 同期フォルダ"]
+        ODPROC["OneDrive 同期クライアント"]
     end
 
     EXT["Teams のストリーミング エンドポイント"]
@@ -102,6 +106,9 @@ flowchart TD
     BATCH -- ダウンロードURLへアクセス --> EXT
     EXT -- WEBVTT --> BATCH
     ODC --> PA2 --> ODC
+    PA3 --> ODC
+    ODC --> PA4
+    BATCH -- 同期停滞時に再起動 --> ODPROC
 ```
 
 ## アーキテクチャ概要
@@ -193,3 +200,5 @@ apps/teams-transcript-fetcher/
 | 要求 | バッチがPower Automateに「この録画のダウンロードURLを発行してほしい」と依頼するファイル |
 | ダウンロードURL | Transcript APIが返す短命な事前認証済みURL。認証ヘッダを付けずにアクセスするとWEBVTTが得られる(付けると失敗する) |
 | WEBVTT | トランスクリプトの標準的なテキスト形式。字幕ファイルと同じ形式 |
+| ハートビート | Power Automateが15分間隔で現在時刻を上書きするファイル。バッチがその鮮度でOneDrive同期の生死を判定する |
+| 停滞イベント | 同期停滞と判定してからハートビートの鮮度が閾値内へ戻るまでの期間。再起動の回数制限の単位 |
