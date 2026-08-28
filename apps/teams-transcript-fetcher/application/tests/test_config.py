@@ -170,5 +170,90 @@ class 作業フォルダの上書き(unittest.TestCase):
         self.assertEqual(既定.parent.name, "auto")
 
 
+class 監視のしきい値(unittest.TestCase):
+    """同期停滞の検知・復旧・通知を決める設定値が、仕様どおりの既定値であることを検証する。
+
+    どの値も仕様で根拠付きに決められている。ずれると誤検知(不要な再起動)や
+    検知漏れ(停滞の放置)に直結する。
+    """
+
+    def setUp(self):
+        self.設定 = config.load()
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
+    def test_停滞判定のしきい値が45分であること(self):
+        self.assertEqual(self.設定.停滞判定しきい値分, 45)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-1
+    def test_実行の中断とみなす間隔が15分であること(self):
+        self.assertEqual(self.設定.実行中断とみなす間隔分, 15)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
+    def test_復帰後の猶予が45分であること(self):
+        self.assertEqual(self.設定.復帰後の猶予分, 45)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
+    def test_復帰後の猶予が停滞判定のしきい値と揃っていること(self):
+        """猶予が閾値より短いと、復帰直後の判定が実質的に素通りになる。
+        要件は値を「停滞判定の閾値と揃える」ことで定めているため、関係として検証する。
+        """
+        self.assertEqual(self.設定.復帰後の猶予分, self.設定.停滞判定しきい値分)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
+    def test_復旧確認のしきい値が30分であること(self):
+        self.assertEqual(self.設定.復旧確認しきい値分, 30)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
+    def test_再起動が直近24時間で2回までであること(self):
+        self.assertEqual(self.設定.再起動の24時間上限, 2)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#通知の抑止と限界-1
+    def test_再通知の間隔が24時間であること(self):
+        self.assertEqual(self.設定.再通知間隔時間, 24)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#同期停滞の判定バッチ毎サイクルの冒頭
+    def test_疎通確認のタイムアウトが5秒であること(self):
+        self.assertEqual(self.設定.疎通タイムアウト秒, 5)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#onedriveの再起動と復旧確認バッチ
+    def test_onedriveの通常終了を待つ時間が30秒であること(self):
+        self.assertEqual(self.設定.通常終了を待つ秒, 30)
+
+
+class 監視で使うパスの導出(unittest.TestCase):
+    """監視で使うファイルの置き場が、仕様どおりの場所に導かれることを検証する。
+
+    ハートビートは「取得バッチが監視しているのと同じ同期経路」にあることが
+    検知の前提であり、監視記録は「停滞中でも読み書きできる」ことが要件のため、
+    それぞれ置き場所そのものが仕様になっている。
+    """
+
+    def setUp(self):
+        self.作業フォルダ = Path("/tmp/dummy-root/auto/transcript")
+        self.設定 = config.load(作業フォルダ=self.作業フォルダ)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#ハートビートの書き込み-2
+    def test_ハートビートファイルが作業フォルダ直下に導出されること(self):
+        self.assertEqual(
+            self.設定.ハートビートファイル, self.作業フォルダ / "_heartbeat.txt"
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#監視通知-1
+    def test_監視通知フォルダが作業フォルダの親のteamsnotice配下に導出されること(self):
+        self.assertEqual(
+            self.設定.監視通知フォルダ,
+            self.作業フォルダ.parent / "teamsNotice" / "monitoring",
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#記録-2
+    def test_監視記録ファイルが作業フォルダの外に置かれること(self):
+        """同期停滞の最中でも読み書きできる必要があるため、同期フォルダの外が要件。"""
+        self.assertFalse(
+            self.設定.監視記録ファイル.is_relative_to(self.作業フォルダ),
+            f"{self.設定.監視記録ファイル} が作業フォルダ配下にある(停滞中に読み書きできない)",
+        )
+        self.assertEqual(self.設定.監視記録ファイル.name, "monitoring.json")
+
+
 if __name__ == "__main__":
     unittest.main()
