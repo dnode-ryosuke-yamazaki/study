@@ -59,12 +59,16 @@ class 監視記録の読み書き(unittest.TestCase):
                 開始時刻=基準時刻 - timedelta(hours=1),
                 再起動時刻=基準時刻 - timedelta(minutes=50),
                 復旧失敗判定済み=True,
-                再起動要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
-                再起動通知済み=False,
             ),
             再起動履歴=[基準時刻 - timedelta(hours=2)],
             通知済み事象={"復旧失敗": 基準時刻 - timedelta(hours=1)},
             異常終了の連続回数=2,
+            保留中の再起動通知=sync_monitor.通知事象(
+                種別=sync_monitor.事象_同期停滞, キー=sync_monitor.事象_同期停滞,
+                検知時刻=基準時刻 - timedelta(minutes=50),
+                要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
+                即時=True,
+            ),
         )
         sync_monitor.保存する(記録, self.パス, 基準時刻)
         読んだ = sync_monitor.読み込む(self.パス)
@@ -73,25 +77,22 @@ class 監視記録の読み書き(unittest.TestCase):
         self.assertEqual(読んだ.停滞イベント.開始時刻, 記録.停滞イベント.開始時刻)
         self.assertEqual(読んだ.停滞イベント.再起動時刻, 記録.停滞イベント.再起動時刻)
         self.assertTrue(読んだ.停滞イベント.復旧失敗判定済み)
-        self.assertEqual(読んだ.停滞イベント.再起動要点, 記録.停滞イベント.再起動要点)
-        self.assertFalse(読んだ.停滞イベント.再起動通知済み)
         self.assertEqual(読んだ.再起動履歴, 記録.再起動履歴)
         self.assertEqual(読んだ.通知済み事象, 記録.通知済み事象)
         self.assertEqual(読んだ.異常終了の連続回数, 2)
+        self.assertEqual(読んだ.保留中の再起動通知, 記録.保留中の再起動通知)
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_再起動通知済みがtrueの場合も保たれること(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_保留中の再起動通知が無い場合はnoneのまま保たれること(self):
         記録 = sync_monitor.監視記録(
-            停滞イベント=sync_monitor.停滞イベント(
-                開始時刻=基準時刻, 再起動時刻=基準時刻, 再起動通知済み=True,
-            )
+            停滞イベント=sync_monitor.停滞イベント(開始時刻=基準時刻, 再起動時刻=基準時刻)
         )
         sync_monitor.保存する(記録, self.パス, 基準時刻)
         読んだ = sync_monitor.読み込む(self.パス)
-        self.assertTrue(読んだ.停滞イベント.再起動通知済み)
+        self.assertIsNone(読んだ.保留中の再起動通知)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#状態管理
-    def test_旧形式のstall_eventにrestart_notifiedが無くても読めること(self):
+    def test_旧形式のjsonにpending_restart_noticeが無くても読めること(self):
         """フィールド追加前に保存された記録を読んだ場合の後方互換性。"""
         中身 = {
             "stall_event": {
@@ -102,8 +103,7 @@ class 監視記録の読み書き(unittest.TestCase):
         }
         self.パス.write_text(json.dumps(中身), encoding="utf-8")
         読んだ = sync_monitor.読み込む(self.パス)
-        self.assertIsNone(読んだ.停滞イベント.再起動要点)
-        self.assertFalse(読んだ.停滞イベント.再起動通知済み)
+        self.assertIsNone(読んだ.保留中の再起動通知)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#状態管理
     def test_保存時に24時間より古い再起動履歴が捨てられること(self):
@@ -519,63 +519,103 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self._判定する(記録)
         self.assertEqual(記録.前回実行時刻, 基準時刻)
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_未書き出しの再起動通知は次サイクルでも積まれ続けること(self):
-        """前回の書き出しが失敗して再起動通知済みが立っていない場合、
+    def _保留中の通知(self, 検知時刻: datetime = 基準時刻) -> sync_monitor.通知事象:
+        return sync_monitor.通知事象(
+            種別=sync_monitor.事象_同期停滞, キー=sync_monitor.事象_同期停滞,
+            検知時刻=検知時刻,
+            要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
+            即時=True,
+        )
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_未書き出しの再起動通知は回復待ち中も積まれ続けること(self):
+        """前回の書き出しが失敗して保留中のままの場合、
         再起動を繰り返さずに同じ通知だけを積み直す(実機で発生を確認したバグの回帰)。"""
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(minutes=15))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
                 開始時刻=基準時刻 - timedelta(minutes=20),
                 再起動時刻=基準時刻 - timedelta(minutes=15),
-                再起動要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
-            )
+            ),
+            保留中の再起動通知=保留中,
         )
         事象たち = self._判定する(記録)
         self.assertEqual(self.再起動の呼び出し, 0)
-        self.assertEqual(len(事象たち), 1)
-        self.assertEqual(事象たち[0].種別, sync_monitor.事象_同期停滞)
-        self.assertTrue(事象たち[0].即時)
-        self.assertEqual(事象たち[0].検知時刻, 基準時刻 - timedelta(minutes=15))
+        self.assertEqual(事象たち, [保留中])
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_書き出し済みの再起動通知は再度積まれないこと(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_未書き出しの再起動通知は復旧失敗が継続中でも積まれ続けること(self):
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(hours=3),
+                再起動時刻=基準時刻 - timedelta(hours=2),
+                復旧失敗判定済み=True,
+            ),
+            保留中の再起動通知=保留中,
+        )
+        事象たち = self._判定する(記録)
+        種別たち = [事象.種別 for 事象 in 事象たち]
+        self.assertIn(sync_monitor.事象_同期停滞, 種別たち)
+        self.assertIn(sync_monitor.事象_復旧失敗, 種別たち)
+        self.assertIn(保留中, 事象たち)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_未書き出しの再起動通知は復旧失敗への遷移時も積まれること(self):
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(minutes=31))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(minutes=40),
+                再起動時刻=基準時刻 - timedelta(minutes=31),
+            ),
+            保留中の再起動通知=保留中,
+        )
+        事象たち = self._判定する(記録)
+        種別たち = [事象.種別 for 事象 in 事象たち]
+        self.assertIn(sync_monitor.事象_同期停滞, 種別たち)
+        self.assertIn(sync_monitor.事象_復旧失敗, 種別たち)
+        self.assertTrue(記録.停滞イベント.復旧失敗判定済み)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_書き出し済み扱いの再起動通知は再度積まれないこと(self):
+        """保留中の再起動通知がNone(書き出し済み、またはそもそも無い)なら積まれない。"""
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
                 開始時刻=基準時刻 - timedelta(minutes=20),
                 再起動時刻=基準時刻 - timedelta(minutes=15),
-                再起動要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
-                再起動通知済み=True,
             )
         )
         事象たち = self._判定する(記録)
         self.assertEqual(事象たち, [])
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
     def test_解消する前に未書き出しの再起動通知を最後に積むこと(self):
         self._ハートビートを書く(基準時刻 - timedelta(minutes=10))
+        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(minutes=20))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
                 開始時刻=基準時刻 - timedelta(hours=1),
                 再起動時刻=基準時刻 - timedelta(minutes=20),
-                再起動要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
-            )
+            ),
+            保留中の再起動通知=保留中,
         )
         事象たち = self._判定する(記録)
-        self.assertEqual(len(事象たち), 1)
-        self.assertEqual(事象たち[0].種別, sync_monitor.事象_同期停滞)
+        self.assertEqual(事象たち, [保留中])
         self.assertIsNone(記録.停滞イベント)
+        # 解消してもNoneに戻すのは通知を評価するが成功させたときだけ。
+        self.assertIsNotNone(記録.保留中の再起動通知)
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_書き出し済みの再起動通知は解消時に再度積まれないこと(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_書き出し済み扱いの再起動通知は解消時に再度積まれないこと(self):
         self._ハートビートを書く(基準時刻 - timedelta(minutes=10))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
                 開始時刻=基準時刻 - timedelta(hours=1),
                 再起動時刻=基準時刻 - timedelta(minutes=20),
-                再起動要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
-                再起動通知済み=True,
             )
         )
         事象たち = self._判定する(記録)
@@ -698,7 +738,8 @@ class 通知の抑止と再通知(unittest.TestCase):
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
     def test_即時の事象は抑止せず常に書き出されること(self):
-        """再起動の通知は同一イベントで1回しか発生しないため、抑止の対象にしない。"""
+        """即時の事象は24時間ごとの再通知抑止の対象にしない
+        (書き出しに成功するまでの再試行は保留中の再起動通知側で管理する)。"""
         即時 = sync_monitor.通知事象(
             種別=sync_monitor.事象_同期停滞, キー="同期停滞", 検知時刻=基準時刻,
             要点="-", 即時=True,
@@ -709,34 +750,28 @@ class 通知の抑止と再通知(unittest.TestCase):
         # 即時の事象は通知済み記録に入れない(継続の管理対象ではない)
         self.assertEqual(記録.通知済み事象, {})
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_同期停滞の即時通知が成功すると停滞イベントに再起動通知済みが記録されること(self):
-        イベント = sync_monitor.停滞イベント(
-            開始時刻=基準時刻, 再起動時刻=基準時刻, 再起動要点="-"
-        )
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_同期停滞の即時通知が成功すると保留中の再起動通知がnoneに戻ること(self):
         即時 = sync_monitor.通知事象(
             種別=sync_monitor.事象_同期停滞, キー="同期停滞", 検知時刻=基準時刻,
             要点="-", 即時=True,
         )
-        記録 = sync_monitor.監視記録(停滞イベント=イベント)
+        記録 = sync_monitor.監視記録(保留中の再起動通知=即時)
         self._評価する([], [即時], 記録)
-        self.assertTrue(記録.停滞イベント.再起動通知済み)
+        self.assertIsNone(記録.保留中の再起動通知)
 
-    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
-    def test_同期停滞の即時通知が失敗すると再起動通知済みが立たないこと(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_同期停滞の即時通知が失敗すると保留中のままになること(self):
         """実機でOneDrive再起動直後の書き込みタイムアウトにより発生を確認したケース。
-        次サイクルでも同じ通知を再試行できるよう、失敗時は立てない。"""
-        イベント = sync_monitor.停滞イベント(
-            開始時刻=基準時刻, 再起動時刻=基準時刻, 再起動要点="-"
-        )
+        次サイクルでも同じ通知を再試行できるよう、Noneに戻さない。"""
         即時 = sync_monitor.通知事象(
             種別=sync_monitor.事象_同期停滞, キー="同期停滞", 検知時刻=基準時刻,
             要点="-", 即時=True,
         )
-        記録 = sync_monitor.監視記録(停滞イベント=イベント)
+        記録 = sync_monitor.監視記録(保留中の再起動通知=即時)
         self.書き出しが成功する = False
         self._評価する([], [即時], 記録)
-        self.assertFalse(記録.停滞イベント.再起動通知済み)
+        self.assertEqual(記録.保留中の再起動通知, 即時)
 
 
 class 失敗と警告の連続の検知(unittest.TestCase):

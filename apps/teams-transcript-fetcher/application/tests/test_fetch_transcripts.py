@@ -977,6 +977,37 @@ class 監視と取得の組み込み(実行の土台):
         記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
         self.assertEqual(記録.前回実行時刻, 基準時刻)
 
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_保留中の再起動通知が書き出しに成功すると監視記録から消えること(self):
+        """通知を評価する→保存するの順序が入れ替わると、書き出しに成功しても
+        保留中のまま保存され続けてしまう(実機で発生した不具合の回帰)。"""
+        保留中 = sync_monitor.通知事象(
+            種別=sync_monitor.事象_同期停滞, キー=sync_monitor.事象_同期停滞,
+            検知時刻=基準時刻 - timedelta(minutes=10),
+            要点="ハートビートの鮮度=47分 / OneDriveを再起動(通常終了・直近24時間で1回目)",
+            即時=True,
+        )
+        sync_monitor.保存する(
+            sync_monitor.監視記録(
+                前回実行時刻=基準時刻 - timedelta(minutes=5),
+                停滞イベント=sync_monitor.停滞イベント(
+                    開始時刻=基準時刻 - timedelta(minutes=20),
+                    再起動時刻=基準時刻 - timedelta(minutes=10),
+                ),
+                保留中の再起動通知=保留中,
+            ),
+            self.設定.監視記録ファイル,
+            基準時刻 - timedelta(minutes=5),
+        )
+        with mock.patch.object(
+            sync_monitor, "停滞を判定する", return_value=[保留中]
+        ):
+            self._1サイクル()
+        通知たち = list(self.設定.監視通知フォルダ.glob("*同期停滞*.md"))
+        self.assertEqual(len(通知たち), 1)
+        記録 = sync_monitor.読み込む(self.設定.監視記録ファイル)
+        self.assertIsNone(記録.保留中の再起動通知)
+
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#失敗警告の連続の通知-1
     def test_要手動確認の録画が監視通知として書き出されること(self):
         """既存カウンタ(恒久的失敗)の検知から通知ファイルの書き出しまで通しで確認する。"""
