@@ -447,6 +447,21 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self.assertEqual(記録.停滞イベント.再起動時刻, 基準時刻)
         self.assertEqual(記録.再起動履歴, [基準時刻])
 
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
+    def test_未書き出しの再起動通知が残る間に新しい停滞が再起動すると上書きされ警告が残ること(self):
+        """前の停滞イベントの通知がまだ書き出せていないまま、別の停滞が再起動に
+        至ると1件しか保持できないため前回分は失われる(design.mdで許容する制約)。
+        少なくとも調査できるようWARNINGを残す。"""
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        古い保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(hours=3))
+        記録 = self._稼働中の記録(保留中の再起動通知=古い保留中)
+        with self.assertLogs(level="WARNING") as ログ:
+            事象たち = self._判定する(記録)
+        self.assertEqual(self.再起動の呼び出し, 1)
+        self.assertNotEqual(記録.保留中の再起動通知, 古い保留中)
+        self.assertIn(記録.保留中の再起動通知, 事象たち)
+        self.assertTrue(any("置き換える" in 行 for 行 in ログ.output))
+
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-1
     def test_同一イベントでは2回目の再起動を行わないこと(self):
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
@@ -647,8 +662,7 @@ class 停滞判定とイベント管理(unittest.TestCase):
     def test_未書き出しの再起動通知は復帰猶予中も積まれ続けること(self):
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
         保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(hours=1))
-        記録 = sync_monitor.監視記録(
-            前回実行時刻=基準時刻 - timedelta(minutes=5),
+        記録 = self._稼働中の記録(
             復帰時刻=基準時刻 - timedelta(minutes=10),
             停滞イベント=sync_monitor.停滞イベント(
                 開始時刻=基準時刻 - timedelta(hours=2),
