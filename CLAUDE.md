@@ -4,7 +4,7 @@
 
 ## 開発ワークフロー
 
-このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は、**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/` の /consult・/requirement・/design・/spec-review・/pr・/implementation・/implementation-review・/resolve・/fix と、知識Skillの architecture-workflow)で行う。ワークフロー全体の一覧・遷移図は [.claude/skills/README.md](.claude/skills/README.md) を参照。このリポジトリの `.claude/skills/` にはstudy固有のSkill(autopilot・parallel-work・retrospective・scan-sandbox-sessions)だけを置く。
+このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は、**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/` の /consult・/requirement・/design・/spec-review・/pr・/implementation・/implementation-review・/resolve・/fix・/autopilot・/retrospective・/scan-sandbox-sessions と、知識Skillの architecture-workflow)で行う。ワークフロー全体の一覧・遷移図は [.claude/skills/README.md](.claude/skills/README.md) を参照。このリポジトリの `.claude/skills/` にはstudy固有の差分Skill(parallel-work。グローバル版に対するstudy固有の補足のみを書く)だけを置く。
 
 グローバルSkillに対するstudy固有の差分は次の2点(Skill側は「spec配置の例外リポジトリ」としてこの差分を参照する):
 

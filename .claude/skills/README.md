@@ -1,6 +1,6 @@
 # Skill一覧と遷移図
 
-このプロジェクトの開発工程は**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/`)で行い、このリポジトリの `.claude/skills/` には**study固有のSkillだけ**を置く([autopilot](autopilot/SKILL.md)・[parallel-work](parallel-work/SKILL.md)・[retrospective](retrospective/SKILL.md)・[scan-sandbox-sessions](scan-sandbox-sessions/SKILL.md))。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、グローバルSkillが「spec配置の例外リポジトリ」として参照する。
+このプロジェクトの開発工程は**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/`。/autopilot・/retrospective・/scan-sandbox-sessionsを含む)で行い、このリポジトリの `.claude/skills/` には**study固有の差分Skillだけ**を置く([parallel-work](parallel-work/SKILL.md)。git worktreeの基本手順は全プロジェクト共通の`~/.claude/skills/parallel-work/SKILL.md`を参照し、このファイルにはstudy固有の重複検出手順のみを書く)。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、グローバルSkillが「spec配置の例外リポジトリ」として参照する。
 
 各工程Skillは冒頭に「ワークフロー上の位置」(前工程の成果物が必要なものは「前提条件」も)を持ち、完了時に次のステップを案内する。
 
@@ -15,7 +15,7 @@ Skillを明示的に選ばない会話も、次の2層でワークフローに�
 
 ## 自動運転モード
 
-[autopilot](autopilot/SKILL.md) は工程を確認なしで連結する**モードSkill**で、ユーザーが明示的に起動したときだけ働く。小規模・低リスクの変更が対象で、対話は「要件ヒアリング/入口確認」と「仕様承認PRのレビュー」の2箇所に絞られる。push・PR作成・マージはこの環境では自動化できないため、コマンドを提示してユーザーの手元での実行結果を待つ引き継ぎポイントになる。
+`/autopilot`(全プロジェクト共通のグローバルSkill)は工程を確認なしで連結する**モードSkill**で、ユーザーが明示的に起動したときだけ働く。小規模・低リスクの変更が対象で、対話は「要件ヒアリング/入口確認」と「仕様承認PRのレビュー」の2箇所に絞られる。push・PR作成・マージはこの環境では自動化できないため、コマンドを提示してユーザーの手元での実行結果を待つ引き継ぎポイントになる。
 
 ## 起動者(誰がSkillを起動できるか)
 
@@ -46,18 +46,18 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | `/resolve` | レビュー指摘の修正。重要度順に対応し、対応結果を報告する | /spec-review・/implementation-review・PR上で指摘を受けたとき | 指摘元のレビューを再実行 → 元の工程の次ステップへ |
 | `/fix` | バグ修正・既存機能の小規模改修の入口。既存spec更新の影響洗い出しと承認要否の判断 | 不具合修正・文言修正・スコープ外項目への対応など | 仕様変更あり: /pr(仕様承認PR) / 純粋なバグ: 修正後 /implementation-review |
 
-### モードSkill(このリポジトリ固有)
+### モードSkill(`~/.claude/skills/` のグローバルSkill)
 
 | Skill | 役割 | 使うタイミング | 完了後の遷移先 |
 |---|---|---|---|
-| [autopilot](autopilot/SKILL.md) | 上の工程Skillを確認なしで連結する自動運転モード。対話は2箇所(要件ヒアリング/入口確認・仕様承認PRレビュー)に絞る。手順は各工程Skillに委譲し、本Skillは止まる箇所だけを定める | 小規模・低リスクの変更を最後まで一気に進めたいとき(ユーザーが明示起動) | 実装PRのマージ後、本番反映確認・ブランチ掃除(手動) |
+| `/autopilot` | 上の工程Skillを確認なしで連結する自動運転モード。対話は2箇所(要件ヒアリング/入口確認・仕様承認PRレビュー)に絞る。手順は各工程Skillに委譲し、本Skillは止まる箇所だけを定める | 小規模・低リスクの変更を最後まで一気に進めたいとき(ユーザーが明示起動) | 実装PRのマージ後、本番反映確認・ブランチ掃除(手動) |
 
-### 定期作業Skill(開発ループ外・ユーザーが`/xxx`で明示起動・このリポジトリ固有)
+### 定期作業Skill(開発ループ外・ユーザーが`/xxx`で明示起動・`~/.claude/skills/` のグローバルSkill)
 
 | Skill | 役割 | 頻度 | 異常時の遷移先 |
 |---|---|---|---|
-| [retrospective](retrospective/SKILL.md) | ワークフローと実際の進め方のずれを振り返り、Skill側を更新する | 月1回〜四半期に1回 | /pr(Skill更新PR) |
-| [scan-sandbox-sessions](scan-sandbox-sessions/SKILL.md) | 直近セッションのログから記録し忘れたサンドボックス制限の候補を棚卸しする | 任意(気づいたとき) | 候補あり: /record-sandbox-limitation の手順で追記 |
+| `/retrospective` | ワークフローと実際の進め方のずれを振り返り、Skill側を更新する | 月1回〜四半期に1回 | /pr(Skill更新PR) |
+| `/scan-sandbox-sessions` | 直近セッションのログから記録し忘れたサンドボックス制限の候補を棚卸しする | 任意(気づいたとき) | 候補あり: /record-sandbox-limitation の手順で追記 |
 
 ### 知識Skill(工程から参照される)
 
@@ -140,7 +140,7 @@ flowchart TD
 
 ## 定期作業の遷移
 
-定期作業は独立して実行し、問題が見つかったときだけ上の2つの流れに合流する(合流先は[まとめ表](#定期作業skill開発ループ外ユーザーがxxxで明示起動このリポジトリ固有)の「異常時の遷移先」列を参照)。問題がなければユーザーへの報告のみで完了する。
+定期作業は独立して実行し、問題が見つかったときだけ上の2つの流れに合流する(合流先は[まとめ表](#定期作業skill開発ループ外ユーザーがxxxで明示起動claudeskills-のグローバルskill)の「異常時の遷移先」列を参照)。問題がなければユーザーへの報告のみで完了する。
 
 ## この文書の保守
 
