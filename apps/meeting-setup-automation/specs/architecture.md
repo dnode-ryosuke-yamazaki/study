@@ -122,7 +122,7 @@ Skillは作成結果の到着を待ち、会議の日時・参加者・参加URL
 
 | 技術 | 用途 |
 |---|---|
-| Claude Code Skill | 依頼の組み立て、名前解決、候補選択画面の生成、待ち合わせ、通知内容の作成 |
+| Claude Code Skill | 依頼の組み立て、名前解決、候補の絞り込み、候補選択画面の生成、待ち合わせ、通知内容の作成。手順は`~/.claude/skills/meeting-setup/`、処理は`application/`のPythonスクリプト |
 | Power Automate(クラウドフロー) | 参加者の空き時間の探索、Teams会議の作成と招待 |
 | Office 365 Outlookコネクタ | 予定表への到達手段。**プレミアムコネクタ・カスタムコネクタは利用できない** |
 | OneDrive 同期クライアント | M365への認証代行およびクラウドとローカルのファイル受け渡し |
@@ -133,7 +133,7 @@ Skillは作成結果の到着を待ち、会議の日時・参加者・参加URL
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [meeting-scheduling](meeting-scheduling/requirements.md) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー2本の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | 仕様のみ(未実装) |
+| [meeting-scheduling](meeting-scheduling/requirements.md)([設計](meeting-scheduling/design.md)) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー2本の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | 仕様のみ(未実装) |
 
 ## ディレクトリ構成
 
@@ -141,13 +141,14 @@ CLAUDE.mdの一般規約(`infra/` + `application/`)からの逸脱がある。
 
 ```
 apps/meeting-setup-automation/
-├── application/     # Skill本体と候補選択画面のテンプレート
+├── application/     # 処理スクリプト・候補選択画面のテンプレート・テスト
 └── specs/           # 仕様3点セット
 ```
 
 - **`infra/` を持たない。** クラウドリソースを作らないため、Terraformの管理対象がない
 - Power Automateのフロー定義はテナント側に存在し、このリポジトリでは管理しない。構築に使ったフローの設定内容と手順は `application/` 配下に記録する
-- メンバー名簿は個人情報を含むためGit管理下に置かない
+- **チャット向けの手順(SKILL.md)はこのリポジトリに置かない。** `~/.claude/skills/meeting-setup/` に置き、処理はここの `application/` を絶対パスで呼ぶ(`night-batch`・`extend-teams-automation`と同じ形)
+- メンバー名簿は個人情報を含むためGit管理下に置かず、`~/Library/Application Support/meeting-setup-automation/roster.json` に置く(リポジトリには記入例だけを置く)
 
 ## 外部サービス
 
@@ -164,7 +165,7 @@ apps/meeting-setup-automation/
 
 ## セキュリティ
 
-- **参加者の氏名とメールアドレスの対応表(メンバー名簿)は個人情報である。** Git管理下に置かず、ローカルの設定ファイルとして扱う
+- **参加者の氏名とメールアドレスの対応表(メンバー名簿)は個人情報である。** Git管理下に置かず、`~/Library/Application Support/meeting-setup-automation/roster.json` に置く。リポジトリ内に置いて`.gitignore`で守る形にすると、書き忘れ1つで個人情報がコミットされるため
 - **参加URLを知れば会議に参加できる。** 参加URLを含む作成結果ファイルと通知は、共有せず個人利用の範囲に留める
 - **資格情報を一切保持しない構成である。** クライアントシークレット・証明書・アクセストークンをこのアプリはどこにも保存しない。認証はOneDrive同期クライアントとPower Automateのコネクタに委ねている
 - **参加者の空き時間は他人の予定情報である。** 候補選択画面には空いているかどうかだけを表示し、予定の件名や内容は持ち込まない
