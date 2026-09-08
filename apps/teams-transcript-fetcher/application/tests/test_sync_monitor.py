@@ -221,6 +221,12 @@ class 実行の中断検知と復帰猶予(unittest.TestCase):
         self.assertTrue(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
+    def test_復帰から20分ちょうどは猶予中であること(self):
+        """境界を含めて猶予側に倒す。復帰直後の判定が素通りになるのを防ぐため。"""
+        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=20))
+        self.assertTrue(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
     def test_復帰から21分は猶予が明けていること(self):
         記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=21))
         self.assertFalse(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
@@ -494,6 +500,21 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self.assertEqual(self.再起動の呼び出し, 0)
         # 再起動から45分以内は回復を待つ(通知もまだ出さない)
         self.assertEqual(事象たち, [])
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
+    def test_再起動から44分なら復旧失敗とせず回復を待つこと(self):
+        """境界の待ち側。復旧しつつある状態を復旧失敗として通知しないことを固定する。"""
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(minutes=53),
+                再起動時刻=基準時刻 - timedelta(minutes=44),
+            )
+        )
+        事象たち = self._判定する(記録)
+        self.assertEqual(self.再起動の呼び出し, 0)
+        self.assertEqual(事象たち, [])
+        self.assertFalse(記録.停滞イベント.復旧失敗判定済み)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
     def test_再起動から45分を超えて回復しない場合は復旧失敗になること(self):
