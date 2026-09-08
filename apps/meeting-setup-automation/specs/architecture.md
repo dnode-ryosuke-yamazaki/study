@@ -133,7 +133,7 @@ Skillは作成結果の到着を待ち、会議の日時・参加者・参加URL
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [meeting-scheduling](meeting-scheduling/requirements.md)([設計](meeting-scheduling/design.md)) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー3本(候補探索・会議作成・会議設定通知)の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | 仕様のみ(未実装) |
+| [meeting-scheduling](meeting-scheduling/requirements.md)([設計](meeting-scheduling/design.md)) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー3本(探索フロー・作成フロー・会議設定通知フロー)の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | 仕様のみ(未実装) |
 
 ## ディレクトリ構成
 
@@ -192,3 +192,6 @@ apps/meeting-setup-automation/
 | 作成結果 | 作成フローが書き出す、作成した会議の情報を表すファイル。参加URLと会議本文を含む |
 | 会議オプション画面の直リンク | 会議本文に含まれる、その会議の会議オプション画面を開くURL。録画とファシリテーターの手動有効化に使う |
 | メンバー名簿 | 参加者の名前とメールアドレスの対応表。Git管理外のローカル設定ファイル |
+| 探索フロー | 依頼の作成をトリガーに、参加者全員の空き時間を探して候補を書き出すPower Automateフロー |
+| 作成フロー | 選択結果の作成をトリガーに、Teams会議を作成して作成結果を書き出すPower Automateフロー |
+| 会議設定通知フロー | 通知フォルダの新しいファイルをTeamsの自分専用チャネルへ投稿するPower Automateフロー |
