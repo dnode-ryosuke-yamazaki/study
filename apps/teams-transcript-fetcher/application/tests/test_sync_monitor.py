@@ -517,6 +517,20 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self.assertFalse(記録.停滞イベント.復旧失敗判定済み)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
+    def test_再起動から45分ちょうどは復旧失敗としないこと(self):
+        """要件は「45分以内に戻らない場合」に復旧失敗とするため、境界は待ち側。"""
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(minutes=54),
+                再起動時刻=基準時刻 - timedelta(minutes=45),
+            )
+        )
+        事象たち = self._判定する(記録)
+        self.assertEqual(事象たち, [])
+        self.assertFalse(記録.停滞イベント.復旧失敗判定済み)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
     def test_再起動から45分を超えて回復しない場合は復旧失敗になること(self):
         """再起動から鮮度が閾値内へ戻るまでに35分を要した実測があるため、
         これより短いと復旧しつつある状態を復旧失敗として通知してしまう。
