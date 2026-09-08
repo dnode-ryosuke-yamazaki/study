@@ -130,6 +130,19 @@ Power Automateとバッチが受け渡しに使う場所。OneDriveの同期フ�
 4. 一覧が空でも、また一覧の取得に失敗しても台帳を作るようにする
 5. **通常会議用フローの、格納先の識別子をハードコードしている呼び出し2件を削除し、トリガーが提供する値を使う。** チャネル会議用フローは既にこの方式であり、揃えることで環境固有の値がフロー定義から消える
 
+### バッチの起動(launchd)
+
+**対象**: 取得バッチのプロセス
+
+**手順**:
+
+1. 台帳置き場(`ledger/`)とURL置き場(`url/`)の内容が変化した時点で、launchdがバッチを即時に起動する。フロー①が台帳を、フロー②がURLファイルを同期経路へ置いた時点が契機になる。
+2. あわせて5分間隔の定期起動を併用する。イベントの取りこぼし、スリープ中に届いたファイル、持ち越し中の対象の回収はこちらが担う。
+3. バッチ自身も処理を終えた台帳・URLファイルを削除するため、その削除が次の即時起動を1回引き起こす。起動したバッチは対象0件で終わり、削除を伴わないため連鎖しない。
+4. 先行実行が動作中の間に起動の契機が生じた場合は、[二重起動の防止](#エラーハンドリング)により後続が何もせず終わる。取りこぼしは手順2の定期起動で回収する。
+
+**関連するビジネスルール**: [requirements.md#実行環境](requirements.md#実行環境) [7]
+
 ### 台帳の読み取りと使用するURLの一覧の決定(バッチ)
 
 **対象**: 台帳置き場のすべての台帳
@@ -409,7 +422,7 @@ apps/teams-transcript-fetcher/application/state.py                 (新規・取
 apps/teams-transcript-fetcher/application/materialize.py           (新規・未実体化ファイルの実体化許可と判別)
 apps/teams-transcript-fetcher/application/downloader.py            (新規・URLへのアクセスと応答の分類)
 apps/teams-transcript-fetcher/application/status_log.py            (新規・処理結果の記録)
-apps/teams-transcript-fetcher/application/launchd/*.plist          (新規・定期実行の定義)
+apps/teams-transcript-fetcher/application/launchd/*.plist          (新規・起動の定義。即時起動と定期起動)
 apps/teams-transcript-fetcher/application/power-automate/           (新規・改造したフロー定義と適用手順)
 apps/teams-transcript-fetcher/application/tests/                   (新規・テスト)
 apps/teams-transcript-fetcher/README.md                            (新規・セットアップ手順とコマンド)

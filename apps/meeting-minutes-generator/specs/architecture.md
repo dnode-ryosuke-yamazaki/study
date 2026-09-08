@@ -40,7 +40,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    launchd["launchd<br>10分間隔で起動"]
+    launchd["launchd<br>vtt/ の変化で即時<br>+ 10分間隔で起動"]
     batch["generate_minutes.py<br>バッチ本体"]
     state[("state.json<br>処理済み・再試行の記録")]
     vtt[("auto/transcript/vtt/<br>入力")]
@@ -64,14 +64,14 @@ flowchart TB
 
 ## アーキテクチャ概要
 
-launchdが定期起動するPythonバッチが唯一の実行主体。未処理VTTの検知は状態ファイルとの突き合わせで行い、議事録の生成だけを `claude -p` に委ね、検証・保存・投稿用ファイルの書き出しはバッチが決定的に行う。Teamsへの投稿はバッチ自身は行わず、OneDriveへのファイル書き出しを既存方式(OneDrive検知のPower Automateフロー)に検知させる。
+launchdが起動するPythonバッチが唯一の実行主体(`vtt/` の変化による即時起動と10分間隔の定期起動を併用する)。未処理VTTの検知は状態ファイルとの突き合わせで行い、議事録の生成だけを `claude -p` に委ね、検証・保存・投稿用ファイルの書き出しはバッチが決定的に行う。Teamsへの投稿はバッチ自身は行わず、OneDriveへのファイル書き出しを既存方式(OneDrive検知のPower Automateフロー)に検知させる。
 
 ## 採用技術
 
 | 技術 | 用途 |
 |---|---|
 | Python 3(標準ライブラリのみ) | バッチ本体(teams-transcript-fetcherと同じ構成) |
-| launchd | 定期実行(create-automation-batch Skillの検証済み方式) |
+| launchd | 即時起動(WatchPaths)と定期実行(create-automation-batch Skillの検証済み方式) |
 | claude CLI(`claude -p`) | 議事録本文の生成 |
 | Power Automate | OneDriveファイル作成の検知とTeamsチャネルへの投稿 |
 
@@ -79,7 +79,7 @@ launchdが定期起動するPythonバッチが唯一の実行主体。未処理V
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・ローカル控え書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | リリース済み |
+| minutes-auto-generation | 会議後に議事録が自動で作られ共有される | VTT検知・議事録生成・OneDrive書き出し・ローカル控え書き出し・投稿用ファイル書き出し | teams-transcript-fetcher/transcript-auto-fetch の成果物(vtt/)を参照 | 実装中 |
 
 ## 外部サービス
 
