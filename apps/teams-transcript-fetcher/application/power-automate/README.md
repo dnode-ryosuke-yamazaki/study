@@ -286,10 +286,18 @@ cat ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/transcript/_h
 
 **鮮度が急に跳ねた / 同期は健全なのに停滞と判定される**
 
-OneDriveの競合コピーを疑ってください。`transcript/` に `_heartbeat-<マシン名>.txt` が出ていると、以降の書き込みがそちらへ流れて `_heartbeat.txt` が更新されなくなり、同期が健全でも鮮度が伸び続けます。
+**最初に `_heartbeat.txt` の中身の時刻が進んでいるかを見てください。** ここが止まっていれば書き込み側(フロー③)の問題で、進んでいれば読み取り側かOneDriveの同期の問題です。
 
 ```
-ls ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/transcript/_heartbeat*
+ls -l ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/transcript/_heartbeat*
+cat ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/transcript/_heartbeat.txt
 ```
 
-競合コピーがあれば、中身の新しい方を `_heartbeat.txt` に残して他を削除してください。**5分間隔にすると書き込み回数が3倍になるため、競合に当たる確率も上がります。**
+`_heartbeat-<マシン名>.txt` のような**競合コピー**が並んでいることがあります。この場合、どちらが最新かはファイル名では判断できないので、**必ず中身の時刻で判断し、古い側を削除**してください。
+
+- `_heartbeat.txt` が最新で競合コピーが古い場合は、競合コピーを削除するだけで足ります
+- **`_heartbeat.txt` の方が古い場合は、ローカルを差し替える前にフロー③の書き込み先を確認してください。** Power Automateがサーバー側の `_heartbeat.txt` を上書きし続けている状態でローカルだけ差し替えると、新しい競合を作ります
+
+> **競合コピーが鮮度の伸びを引き起こすかは未検証です。** 2026-09-08時点の実データでは `_heartbeat.txt` が最新で、競合コピーの方が3日前で停止していました。この向きなら競合コピーの存在自体は鮮度に影響しません。逆向き(競合コピー側が更新され本体が取り残される)が起こるかは確認できていないため、上の手順は原因を決めつけずに現物の時刻から切り分ける形にしてあります。
+
+**5分間隔にすると書き込み回数が3倍になるため、競合に当たる確率も上がります。**
