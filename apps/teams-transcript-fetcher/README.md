@@ -118,6 +118,8 @@ transcript/
 
 `launchd/com.example.teams-transcript-fetcher.plist` の `__ホームディレクトリ__` を実際のパスに置き換えてから配置します。
 
+**登録の前に `ledger/` と `url/` が存在していることを確認してください。** このplistは両フォルダを `WatchPaths` で監視し、台帳・URLが届いた時点でバッチを起動します。存在しないパスを監視してもイベントは飛ばないため、フォルダを作る前に登録すると即時起動だけが無言で効かなくなります(5分間隔の定期起動は動くので、遅くなるだけで気づきにくい壊れ方です)。手順1でフォルダを用意していれば問題ありません。
+
 Pythonはplistに `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` と書いてあり、置き換えは不要です。`Current` はpython.org版のインストーラが最新版へ張り替えるsymlinkなので、Pythonを上げても指し先が残ります。
 
 ```
