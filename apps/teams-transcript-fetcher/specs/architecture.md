@@ -83,13 +83,13 @@ flowchart TD
         TEAMS["Teams 会議 / 録画"]
         PA1["PAフロー① 台帳作成<br/>チャネル会議用・通常会議用の2本"]
         PA2["PAフロー② URL発行<br/>要求の作成をトリガーに実行"]
-        PA3["PAフロー③ ハートビート<br/>15分間隔で現在時刻を上書き"]
+        PA3["PAフロー③ ハートビート<br/>5分間隔で現在時刻を上書き"]
         PA4["監視通知フロー(構築済み)<br/>teamsNotice/monitoring の新規ファイルをTeamsへ投稿"]
         ODC["OneDrive(クラウド側)<br/>ledger / request / url / vtt<br/>invalid / _status.md / _heartbeat.txt<br/>teamsNotice/monitoring"]
     end
 
     subgraph mac["ローカル Mac"]
-        LAUNCHD["launchd<br/>5分間隔"]
+        LAUNCHD["launchd<br/>ledger/・url/ の変化で即時<br/>+ 5分間隔"]
         BATCH["取得バッチ(Python)"]
         STATE["取得済み記録・監視記録<br/>同期フォルダの外"]
         ODL["OneDrive 同期フォルダ"]
@@ -148,8 +148,8 @@ flowchart TD
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | リリース済み |
-| [sync-stall-recovery](sync-stall-recovery/requirements.md) | OneDrive同期が止まっても自動で復旧し、異常が通知される | ハートビートの鮮度で同期停滞を検知し、OneDriveの自動再起動と監視通知を行う | ハートビート用Power Automateフローの新設、teamsNotice/monitoring監視フロー(構築済み) | リリース済み |
+| [transcript-auto-fetch](transcript-auto-fetch/requirements.md) | 会議のトランスクリプトが自動でOneDriveに溜まる | 会議のトランスクリプトを自動収集してOneDriveへ保存する | Power Automateの既存フロー2本の改造、OneDrive同期クライアントの稼働 | 実装中 |
+| [sync-stall-recovery](sync-stall-recovery/requirements.md) | OneDrive同期が止まっても自動で復旧し、異常が通知される | ハートビートの鮮度で同期停滞を検知し、OneDriveの自動再起動と監視通知を行う | ハートビート用Power Automateフロー(5分間隔)、teamsNotice/monitoring監視フロー | 実装中 |
 
 ## ディレクトリ構成
 
@@ -200,5 +200,5 @@ apps/teams-transcript-fetcher/
 | 要求 | バッチがPower Automateに「この録画のダウンロードURLを発行してほしい」と依頼するファイル |
 | ダウンロードURL | Transcript APIが返す短命な事前認証済みURL。認証ヘッダを付けずにアクセスするとWEBVTTが得られる(付けると失敗する) |
 | WEBVTT | トランスクリプトの標準的なテキスト形式。字幕ファイルと同じ形式 |
-| ハートビート | Power Automateが15分間隔で現在時刻を上書きするファイル。バッチがその鮮度でOneDrive同期の生死を判定する |
+| ハートビート | Power Automateが5分間隔で現在時刻を上書きするファイル。バッチがその鮮度でOneDrive同期の生死を判定する |
 | 停滞イベント | 同期停滞と判定してからハートビートの鮮度が閾値内へ戻るまでの期間。再起動の回数制限の単位 |
