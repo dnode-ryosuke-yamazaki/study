@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  トランスクリプト取得バッチを5分間隔で実行する launchd の定義。
+  トランスクリプト取得バッチを起動する launchd の定義。台帳・URLの到着による
+  即時起動と、5分間隔の定期起動を併用する。
 
   登録手順・解除手順は ../../README.md を参照。
   `__ホームディレクトリ__` は登録時に実際のパスへ置き換える(README参照)。
@@ -30,6 +31,24 @@
   <!-- 仕様: requirements.md#トランスクリプトの取得と保存 [5](既定5分間隔) -->
   <key>StartInterval</key>
   <integer>300</integer>
+
+  <!--
+    仕様: requirements.md#実行環境 [7](台帳・URLの到着による即時起動)
+
+    台帳とURLが届いた時点で起動する。上の StartInterval は、イベントの取りこぼしと
+    スリープ中に届いたファイルの回収用に残してある。
+
+    `request/`・`invalid/`・`vtt/` は入れない。バッチ自身の書き込みで起動が増える
+    だけで、取得を進める契機にならない。
+
+    登録する前に監視先のフォルダが存在している必要がある(存在しないパスを監視して
+    もイベントが飛ばない)。
+  -->
+  <key>WatchPaths</key>
+  <array>
+    <string>__ホームディレクトリ__/Library/CloudStorage/OneDrive-Deloitte(O365D)/00_root/auto/transcript/ledger</string>
+    <string>__ホームディレクトリ__/Library/CloudStorage/OneDrive-Deloitte(O365D)/00_root/auto/transcript/url</string>
+  </array>
 
   <!-- 起動時にも1回走らせる。スリープ復帰後の取り残しを早めに拾うため。 -->
   <key>RunAtLoad</key>

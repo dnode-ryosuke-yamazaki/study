@@ -52,9 +52,32 @@ class 起動に必要な定義が揃っていること(unittest.TestCase):
     def setUp(self):
         self.定義 = plistlib.loads(_plistのパス.read_bytes())
 
-    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理VTTの検知
-    def test_10分間隔で実行する定義になっていること(self):
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#新規トランスクリプトの検知 [1]
+    def test_10分間隔の定期起動が取りこぼし回収用に残っていること(self):
+        """即時起動だけに寄せると、スリープ中に届いたVTTやイベントの
+        取りこぼしが回収されない。
+        """
         self.assertEqual(self.定義["StartInterval"], 600)
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/requirements.md#新規トランスクリプトの検知 [1]
+    def test_vttの到着で即時起動する定義になっていること(self):
+        監視先 = self.定義["WatchPaths"]
+        self.assertEqual(len(監視先), 1)
+        self.assertTrue(監視先[0].endswith("/transcript/vtt"), 監視先)
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理VTTの検知
+    def test_バッチ自身が書くフォルダを監視していないこと(self):
+        """議事録の出力先・控え・投稿用フォルダを監視すると、バッチ自身の
+        書き込みで起動が増えるだけになる。
+        """
+        監視先 = self.定義["WatchPaths"]
+        for 除外 in ("/minutes", "/teamsNotice", "/minutesNotice"):
+            self.assertFalse(any(p.endswith(除外) for p in 監視先), 監視先)
+
+    # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#定期実行と未処理VTTの検知
+    def test_監視先のパスが登録時のホームディレクトリ置換を通ること(self):
+        for パス in self.定義["WatchPaths"]:
+            self.assertTrue(パス.startswith("__ホームディレクトリ__/"), パス)
 
     # 仕様: apps/meeting-minutes-generator/specs/minutes-auto-generation/design.md#関連するファイル抜粋
     def test_バッチ本体のスクリプトを起動する定義になっていること(self):

@@ -52,9 +52,36 @@ class 起動に必要な定義が揃っていること(unittest.TestCase):
     def setUp(self):
         self.定義 = plistlib.loads(_plistのパス.read_bytes())
 
-    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#トランスクリプトの取得と保存 [5]
-    def test_5分間隔で実行する定義になっていること(self):
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#実行環境 [7]
+    def test_5分間隔の定期起動が取りこぼし回収用に残っていること(self):
+        """即時起動だけに寄せると、スリープ中に届いたファイルやイベントの
+        取りこぼしが回収されない。
+        """
         self.assertEqual(self.定義["StartInterval"], 300)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#実行環境 [7]
+    def test_台帳とurlの到着で即時起動する定義になっていること(self):
+        監視先 = self.定義["WatchPaths"]
+        self.assertEqual(len(監視先), 2)
+        self.assertTrue(any(p.endswith("/transcript/ledger") for p in 監視先), 監視先)
+        self.assertTrue(any(p.endswith("/transcript/url") for p in 監視先), 監視先)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#バッチの起動launchd
+    def test_バッチ自身が書くフォルダを監視していないこと(self):
+        """`request/`・`invalid/`・`vtt/` はバッチ自身の書き込みで起動が増えるだけで、
+        取得を進める契機にならない。
+        """
+        監視先 = self.定義["WatchPaths"]
+        for 除外 in ("/request", "/invalid", "/vtt"):
+            self.assertFalse(any(p.endswith(除外) for p in 監視先), 監視先)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#バッチの起動launchd
+    def test_監視先のパスが登録時のホームディレクトリ置換を通ること(self):
+        """置換前のテンプレートに実パスを焼き込むと、他の環境で存在しない
+        フォルダを監視してイベントが飛ばなくなる。
+        """
+        for パス in self.定義["WatchPaths"]:
+            self.assertTrue(パス.startswith("__ホームディレクトリ__/"), パス)
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#関連するファイル抜粋
     def test_バッチ本体のスクリプトを起動する定義になっていること(self):

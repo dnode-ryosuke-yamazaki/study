@@ -216,13 +216,19 @@ class 実行の中断検知と復帰猶予(unittest.TestCase):
         self.assertEqual(記録.復帰時刻, 基準時刻)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
-    def test_復帰から44分は猶予中であること(self):
-        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=44))
+    def test_復帰から19分は猶予中であること(self):
+        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=19))
         self.assertTrue(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
-    def test_復帰から46分は猶予が明けていること(self):
-        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=46))
+    def test_復帰から20分ちょうどは猶予中であること(self):
+        """境界を含めて猶予側に倒す。復帰直後の判定が素通りになるのを防ぐため。"""
+        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=20))
+        self.assertTrue(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
+    def test_復帰から21分は猶予が明けていること(self):
+        記録 = sync_monitor.監視記録(復帰時刻=基準時刻 - timedelta(minutes=21))
         self.assertFalse(sync_monitor.復帰猶予中か(記録, 基準時刻, self.設定))
 
 
@@ -396,11 +402,30 @@ class 停滞判定とイベント管理(unittest.TestCase):
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
     def test_鮮度が閾値内なら何も起きないこと(self):
-        self._ハートビートを書く(基準時刻 - timedelta(minutes=30))
+        self._ハートビートを書く(基準時刻 - timedelta(minutes=15))
         記録 = self._稼働中の記録()
         self.assertEqual(self._判定する(記録), [])
         self.assertEqual(self.再起動の呼び出し, 0)
         self.assertIsNone(記録.停滞イベント)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
+    def test_鮮度が閾値ちょうどなら停滞と判定しないこと(self):
+        """正常時の鮮度はハートビート間隔5分に同期の通常ラグ(数分)が乗る範囲に
+        収まる。境界を含めて正常側に倒すことで、その範囲での誤検知を防ぐ。
+        """
+        self._ハートビートを書く(基準時刻 - timedelta(minutes=20))
+        記録 = self._稼働中の記録()
+        self.assertEqual(self._判定する(記録), [])
+        self.assertEqual(self.再起動の呼び出し, 0)
+        self.assertIsNone(記録.停滞イベント)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
+    def test_鮮度が閾値を1分超えると停滞と判定すること(self):
+        self._ハートビートを書く(基準時刻 - timedelta(minutes=21))
+        記録 = self._稼働中の記録()
+        self._判定する(記録)
+        self.assertEqual(self.再起動の呼び出し, 1)
+        self.assertIsNotNone(記録.停滞イベント)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#同期停滞の判定バッチ毎サイクルの冒頭
     def test_鮮度が閾値内へ戻ると停滞イベントが解消すること(self):
@@ -473,16 +498,48 @@ class 停滞判定とイベント管理(unittest.TestCase):
         )
         事象たち = self._判定する(記録)
         self.assertEqual(self.再起動の呼び出し, 0)
-        # 再起動から30分以内は回復を待つ(通知もまだ出さない)
+        # 再起動から45分以内は回復を待つ(通知もまだ出さない)
         self.assertEqual(事象たち, [])
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
-    def test_再起動から30分を超えて回復しない場合は復旧失敗になること(self):
+    def test_再起動から44分なら復旧失敗とせず回復を待つこと(self):
+        """境界の待ち側。復旧しつつある状態を復旧失敗として通知しないことを固定する。"""
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
-                開始時刻=基準時刻 - timedelta(minutes=40),
-                再起動時刻=基準時刻 - timedelta(minutes=31),
+                開始時刻=基準時刻 - timedelta(minutes=53),
+                再起動時刻=基準時刻 - timedelta(minutes=44),
+            )
+        )
+        事象たち = self._判定する(記録)
+        self.assertEqual(self.再起動の呼び出し, 0)
+        self.assertEqual(事象たち, [])
+        self.assertFalse(記録.停滞イベント.復旧失敗判定済み)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
+    def test_再起動から45分ちょうどは復旧失敗としないこと(self):
+        """要件は「45分以内に戻らない場合」に復旧失敗とするため、境界は待ち側。"""
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(minutes=54),
+                再起動時刻=基準時刻 - timedelta(minutes=45),
+            )
+        )
+        事象たち = self._判定する(記録)
+        self.assertEqual(事象たち, [])
+        self.assertFalse(記録.停滞イベント.復旧失敗判定済み)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
+    def test_再起動から45分を超えて回復しない場合は復旧失敗になること(self):
+        """再起動から鮮度が閾値内へ戻るまでに35分を要した実測があるため、
+        これより短いと復旧しつつある状態を復旧失敗として通知してしまう。
+        """
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            停滞イベント=sync_monitor.停滞イベント(
+                開始時刻=基準時刻 - timedelta(minutes=55),
+                再起動時刻=基準時刻 - timedelta(minutes=46),
             )
         )
         事象たち = self._判定する(記録)
@@ -580,11 +637,11 @@ class 停滞判定とイベント管理(unittest.TestCase):
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#監視通知の書き出しバッチサイクルの最後
     def test_未書き出しの再起動通知は復旧失敗への遷移時も積まれること(self):
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
-        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(minutes=31))
+        保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(minutes=46))
         記録 = self._稼働中の記録(
             停滞イベント=sync_monitor.停滞イベント(
-                開始時刻=基準時刻 - timedelta(minutes=40),
-                再起動時刻=基準時刻 - timedelta(minutes=31),
+                開始時刻=基準時刻 - timedelta(minutes=55),
+                再起動時刻=基準時刻 - timedelta(minutes=46),
             ),
             保留中の再起動通知=保留中,
         )
