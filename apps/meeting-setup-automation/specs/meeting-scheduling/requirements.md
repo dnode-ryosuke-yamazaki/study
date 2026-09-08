@@ -38,19 +38,19 @@ flowchart LR
     uc4(["候補を1つ選ぶ"])
     uc5(["Teams会議を作成して招待する"])
     uc6(["録画とファシリテーターを手動で有効化する"])
-    uc7(["通知をTeamsへ投稿する"])
+    uc7(["会議設定の通知を届ける"])
 
     organizer --> uc1
     organizer --> uc4
     organizer --> uc6
-    searchflow --> uc2
+    organizer -->|受け取る| uc7
     skill --> uc3
+    searchflow --> uc2
     createflow --> uc5
-    notifyflow --> uc7
-    uc7 --> organizer
+    notifyflow -->|投稿する| uc7
 ```
 
-正となる文章は[機能要件](#機能要件)・[ビジネスルール・制約](#ビジネスルール制約)を参照。
+線はアクターとユースケースの関わりを表し、処理の順序ではない。正となる文章は[機能要件](#機能要件)・[ビジネスルール・制約](#ビジネスルール制約)を参照。
 
 ## 機能要件
 
