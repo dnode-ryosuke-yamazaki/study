@@ -256,7 +256,7 @@ sequenceDiagram
 既存で使うもの:
 
 - `~/.claude/skills/teams-post/scripts/run.py` — 通知の投稿(投稿先を表示名で指定して呼ぶ)
-- `~/.claude/config/project-profiles.json` — 投稿先「会議設定通知」の登録先
+- `~/.claude/config/project-profiles.json` — 投稿先「会議設定通知」の登録先(最上位の `user.teams.destinations`)
 - `~/Library/Application Support/meeting-setup-automation/roster.json` — メンバー名簿の実体(Git管理外)
 
 ### 手順の担い手

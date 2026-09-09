@@ -1,5 +1,7 @@
 # 空き時間からの会議候補提示とTeams会議の自動作成 タスク分解
 
+> 実装中: session study-60, branch: feature/meeting-scheduling, started: 2026-09-09T12:32:12+09:00
+
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
 テストは `apps/meeting-setup-automation/application/tests/` に unittest で書き、`python3 -m unittest discover -s tests -t .` で実行する(teams-transcript-fetcher・meeting-minutes-generatorと同じ)。OneDriveのフォルダ・メンバー名簿・現在時刻はテストでは一時ディレクトリと固定値に差し替える。Power Automateフローとブラウザは自動テストから動かさない(該当項目は[実機確認](#仕様承認pr前に行う実機確認)と[動作確認チェックリスト](#動作確認チェックリスト)で担保する)。
@@ -311,7 +313,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 
 ### 22. 会議設定通知の投稿先の登録(テスト対象外)
 
-- `~/.claude/config/project-profiles.json` の `study(個人)` プロファイルの `teams.destinations` に「会議設定通知」を追加する(`folder_path` は `auto/teamsNotice/meetingSetting/`、`channel_type` は `private`)
+- `~/.claude/config/project-profiles.json` の最上位 `user.teams.destinations` に「会議設定通知」を追加する(投稿先は運用者個人の通知フォルダでPJの属性ではないため、`teams-post` はPJの中ではなくこの区分を読む)(`folder_path` は `auto/teamsNotice/meetingSetting/`、`channel_type` は `private`)
 - `teams-post` の一覧に「会議設定通知」が有効な候補として出ることを確認する
 - 通知フォルダ `auto/teamsNotice/meetingSetting/` を監視してTeamsへ投稿するPower Automateフローを新設する(`extend-teams-automation` のB節に従い、既存の投稿先のフローを複製して監視先フォルダと投稿先チャネルを変える)。**投稿先ごとに専用フォルダと専用フローが1組必要で、既存フローの使い回しはできない**
 - 新設したフローで実際にファイルを1件書き出し、自分専用チャネルへ投稿されることを確認する
