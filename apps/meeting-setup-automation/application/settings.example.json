@@ -1,0 +1,5 @@
+{
+  "_comment": "候補選択画面をブラウザで開く形式のURLを組み立てるための設定。実体は ~/Library/Application Support/meeting-setup-automation/settings.json に置く(Git管理外。個人のテナントURLを含むため)。値の取り方は README.md の「ビューアURLの設定値の取り方」を参照。",
+  "output_web_viewer": "https://<テナント>-my.sharepoint.com/personal/<ユーザー>/_layouts/15/onedrive.aspx",
+  "output_web_dir": "/personal/<ユーザー>/Documents/00_root/auto/meetingSetting/html"
+}
