@@ -86,6 +86,16 @@ class 候補ファイルとの突き合わせ(unittest.TestCase):
         # 試行番号1のファイルにはこの枠は無い
         self.assertFalse(selection.突き合わせる(self.設定, selection.読み取る(代替2の行.replace(" a2 ", " a1 "))).ok)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#依頼ファイルの区分
+    def test_候補ファイルに試行番号が書かれていなくても開いたファイルの試行番号で枠を扱うこと(self):
+        内容 = _候補ファイル([_枠(datetime(2026, 9, 25, 18, 0, tzinfo=JST))], 試行=2)
+        del 内容["attempt"]
+        ledger.write_json(ledger.候補ファイル(self.設定, self.id, 2), 内容)
+        代替2の行 = "MEETING-SELECT 20260909-101500-ab3f a2 #3 2026-09-25T18:00:00+09:00 2026-09-25T19:00:00+09:00"
+        結果 = selection.突き合わせる(self.設定, selection.読み取る(代替2の行))
+        self.assertTrue(結果.ok)
+        self.assertEqual(結果.枠.試行番号, 2)
+
     def test_候補ファイルが無い場合は一致しないものとして返すこと(self):
         結果 = selection.突き合わせる(self.設定, selection.読み取る(行.replace("ab3f", "zzzz")))
         self.assertFalse(結果.ok)

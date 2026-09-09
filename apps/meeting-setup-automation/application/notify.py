@@ -104,17 +104,22 @@ def 完了の通知文(r: 作成結果, 直リンク: Optional[str]) -> str:
     return "\n".join(行)
 
 
-_url = re.compile(r"https?://[^\s<>\"']+")
+#: URLに使える文字(RFC 3986)だけを拾う。全角の句読点・括弧・日本語で切れるようにして、
+#: 「理由: https://…/run/123。次を確認」のように文の途中にURLが来ても後ろを巻き込まない。
+#: 末尾の約物は文の区切りとみなしてリンクから外す。
+_url = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
+_url末尾の約物 = ".,;:!?"
 
 
 def _行をhtmlにする(行: str) -> str:
     出力: List[str] = []
     位置 = 0
     for m in _url.finditer(行):
+        素のurl = m.group(0).rstrip(_url末尾の約物)
         出力.append(html.escape(行[位置:m.start()]))
-        url = html.escape(m.group(0))
+        url = html.escape(素のurl)
         出力.append(f'<a href="{url}">{url}</a>')
-        位置 = m.end()
+        位置 = m.start() + len(素のurl)
     出力.append(html.escape(行[位置:]))
     組み立て = "".join(出力)
     字下げ = len(行) - len(行.lstrip(" "))

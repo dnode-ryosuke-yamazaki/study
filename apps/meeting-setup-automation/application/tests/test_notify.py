@@ -161,6 +161,12 @@ class 通知本文のHTML化(unittest.TestCase):
         html = notify.html断片にする("- 代替案1(仮の予定を含める): 2件\n    候補1: 山田 太郎: 顧客MTG")
         self.assertIn("&nbsp;&nbsp;&nbsp;&nbsp;候補1: 山田 太郎: 顧客MTG", html)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-1
+    def test_文の途中に現れたURLが後ろの日本語や句点を巻き込まないこと(self):
+        html = notify.html断片にする("理由: https://example.com/run/123。次を確認してください")
+        self.assertIn('<a href="https://example.com/run/123">https://example.com/run/123</a>', html)
+        self.assertIn("</a>。次を確認してください", html)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-3
     def test_チャットに出す通知文はプレーンなまま組み立てられること(self):
         文 = notify.選択画面の通知文("定例 <確認>", 1, "https://example.com/v", None)

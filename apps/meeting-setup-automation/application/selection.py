@@ -99,7 +99,7 @@ def 突き合わせる(設定値: 設定, 行: 選択行) -> 突き合わせ結�
     内容 = ledger.read_json(ledger.候補ファイル(設定値, 行.依頼id, 行.試行番号))
     if 内容 is None:
         return 突き合わせ結果(ok=False, error=f"依頼ID {行.依頼id} の試行番号 {行.試行番号} の候補ファイルが見つかりません")
-    読み = candidates.読む(内容)
+    読み = candidates.読む(内容, 試行番号=行.試行番号)
     一致 = [w for w in 読み.枠一覧 if w.開始 == 行.開始 and w.終了 == 行.終了]
     if len(一致) != 1:
         return 突き合わせ結果(

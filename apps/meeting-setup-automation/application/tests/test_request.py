@@ -42,12 +42,15 @@ class 依頼IDの生成(unittest.TestCase):
         self.assertRegex(依頼id, r"^20260909-101500-[0-9a-z]{4}$")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#非機能要件-1
-    def test_同じ時刻に連続して生成しても重ならないこと(self):
+    def test_同じ時刻に連続して生成しても乱数部分が効いていて重ならないこと(self):
         from datetime import datetime
 
         同時刻 = datetime(2026, 9, 9, 10, 15, 0)
-        一覧 = {request.依頼idを生成(同時刻) for _ in range(200)}
-        self.assertEqual(len(一覧), 200)
+        一覧 = [request.依頼idを生成(同時刻) for _ in range(500)]
+        self.assertTrue(all(i.startswith("20260909-101500-") for i in 一覧))
+        # 乱数は36文字×4桁(1,679,616通り)なので、500件での重複の期待値は0.07件。
+        # 5件を超える重複は乱数が効いていない(桁が足りない・固定値になっている)ことを意味する
+        self.assertGreaterEqual(len(set(一覧)), 495)
 
 
 class 依頼の組み立て(unittest.TestCase):

@@ -141,6 +141,34 @@ class 件名の取り出し(unittest.TestCase):
         self.assertTrue(一覧[0].取得できない)
         self.assertIn("繰り返し", 一覧[0].理由)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#ログ
+    def test_件名を取得できた人数は画面に件名を示せる参加者だけを数えること(self):
+        読み = self._読み(
+            [
+                {
+                    "address": "b@example.com",
+                    "calendarFound": True,
+                    "events": [_予定(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 件名="顧客MTG")],
+                },
+                {  # 非公開なので件名は示せない
+                    "address": "c@example.com",
+                    "calendarFound": True,
+                    "events": [_予定(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 件名="秘密", sensitivity="private")],
+                },
+                {  # 繰り返しなので件名は示せない
+                    "address": "d@example.com",
+                    "calendarFound": True,
+                    "events": [_予定(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 件名="毎週の定例", isRecurring=True)],
+                },
+                {  # カレンダーが共有されていない
+                    "address": "e@example.com",
+                    "calendarFound": False,
+                    "events": [],
+                },
+            ]
+        )
+        self.assertEqual(detail.件名を取得できた人数(読み), 1)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2
     def test_非公開の予定は件名を返さず非公開であることだけを返すこと(self):
         読み = self._読み(

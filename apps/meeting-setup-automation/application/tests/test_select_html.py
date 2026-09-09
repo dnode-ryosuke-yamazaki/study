@@ -5,7 +5,6 @@
 代替案2の枠は2)。件名・参加者名は開催者の入力値なのでエスケープして埋め込む。
 """
 
-import re
 import shutil
 import subprocess
 import tempfile

@@ -98,7 +98,9 @@ def ログを設定(設定値: config.設定) -> None:
     _この関数が付けたハンドラ.clear()
     _設定済みのログファイル = str(設定値.ログファイル)
     書式 = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    # 進捗と結果はチャット向けに標準出力へ出すので、標準エラーには異常だけを出す(同じ行が二重に出るのを避ける)
     stderr = logging.StreamHandler(sys.stderr)
+    stderr.setLevel(logging.WARNING)
     stderr.setFormatter(書式)
     logger.addHandler(stderr)
     _この関数が付けたハンドラ.append(stderr)
@@ -109,6 +111,7 @@ def ログを設定(設定値: config.設定) -> None:
         logger.addHandler(ファイル)
         _この関数が付けたハンドラ.append(ファイル)
     except OSError as e:  # ログが書けなくても処理は止めない
+        _設定済みのログファイル = None  # 次の呼び出しで開き直せるようにする
         logger.warning("ログファイルを開けません: %s", e)
 
 
@@ -532,9 +535,10 @@ def _完了を伝える(env: 実行環境, 作成内容: dict, 通知する: boo
 
 
 def _作成結果を待つ(env: 実行環境, 依頼id: str, 再試行番号: int) -> int:
-    結果 = _待つ(env, 依頼id, {"作成結果": (ledger.作成結果ファイル(env.設定, 依頼id, 再試行番号), env.設定.作成結果待ち上限秒)})["作成結果"]
+    対象名 = f"作成結果(再試行{再試行番号})"
+    結果 = _待つ(env, 依頼id, {対象名: (ledger.作成結果ファイル(env.設定, 依頼id, 再試行番号), env.設定.作成結果待ち上限秒)})[対象名]
     if 結果.打ち切り:
-        logger.warning("待ち上限で打ち切り: 依頼ID=%s 対象=作成結果 経過=%d秒", 依頼id, 結果.経過秒)
+        logger.warning("待ち上限で打ち切り: 依頼ID=%s 対象=%s 経過=%d秒", 依頼id, 対象名, 結果.経過秒)
         env.出力(打ち切りの案内.replace("<依頼ID>", 依頼id))
         return 0
     状態 = progress.判定(env.設定, 依頼id)

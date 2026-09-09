@@ -232,11 +232,14 @@ class 候補提示から会議作成までの通し(unittest.TestCase):
             ビューアurl="https://example-my.sharepoint.com/personal/u/_layouts/15/onedrive.aspx",
             サーバー相対パス="/personal/u/Documents/00_root/auto/meetingSetting/html",
         )
-        self._候補を提示させる()
+        _, out = self._候補を提示させる()
         中身 = self.e.通知一覧()[0].read_text(encoding="utf-8")
         self.assertIn("<br>", 中身)
         self.assertNotIn("\n", 中身)
         self.assertIn('<a href="https://example-my.sharepoint.com', 中身)
+        # チャットへ出す文は同じ内容をプレーンテキストのまま出す
+        self.assertNotIn("<br>", out)
+        self.assertNotIn("<a href", out)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の選択-3、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#完了の通知-1
     def test_貼られた選択結果から選択結果を書き出し作成結果を待って完了を通知すること(self):

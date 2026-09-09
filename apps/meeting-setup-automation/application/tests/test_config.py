@@ -5,7 +5,6 @@
 """
 
 import json
-import os
 import tempfile
 import unittest
 from datetime import time
