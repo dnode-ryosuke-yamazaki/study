@@ -190,7 +190,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 件名・参加者名をHTMLとして解釈されない形で埋め込むこと
 - 生成物に含まれるJavaScriptが構文として成立していること(f文字列の改行でJSの文字列が壊れる不具合を防ぐ)
 - 書き出した後に読み戻して内容が一致すること、続けて読んだときにサイズが変わらないことを確認できること
-- 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [2][3][4] / [requirements.md#候補の選択](requirements.md#候補の選択) [1][2] / [design.md#画面設計](design.md#画面設計)
+- 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [2][3][4][8] / [requirements.md#候補の選択](requirements.md#候補の選択) [1][2] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [5] / [design.md#画面設計](design.md#画面設計)
 
 ### 12. ビューア形式URLの組み立て(select_html.py)
 
@@ -243,7 +243,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 通知フォルダへ `meeting-<書き出し時刻>.txt` の一意な名前で書き出すこと。通知フォルダが台帳のフォルダと別であること
 - 書き出しに失敗しても例外を投げず、失敗した旨を返すこと(チャットへの表示で処理を続ける)
 - HTTPで直接投稿する経路を持たないこと(投稿はteams-post経由のファイル書き出しだけ)
-- 対応: [requirements.md#完了の通知](requirements.md#完了の通知) [1][2] / [requirements.md#通知](requirements.md#通知) [1][2][3] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [4]
+- 対応: [requirements.md#完了の通知](requirements.md#完了の通知) [1][2] / [requirements.md#候補の提示](requirements.md#候補の提示) [8] / [requirements.md#通知](requirements.md#通知) [1][2][3] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [4]
 
 ### 17. ログ出力(logging)
 
@@ -288,7 +288,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 開催者が期間と時間帯の両方を指定した依頼では代替案2が作られないこと
 - 期間を広げた再探索の待ちを打ち切った場合も台帳が残り、依頼IDを指定した再開で続けられること
 - 時間帯を緩めて出た候補について、絞り込みを再現しない別プロセス相当の呼び出しでも選択結果の突き合わせが通ること
-- 対応: [requirements.md#往復の待ち合わせ](requirements.md#往復の待ち合わせ) [3] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][3] / [requirements.md#非機能要件](requirements.md#非機能要件) [1] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][2][4][8] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3][5]
+- 対応: [requirements.md#往復の待ち合わせ](requirements.md#往復の待ち合わせ) [3][5] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][3] / [requirements.md#非機能要件](requirements.md#非機能要件) [1] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][2][4][8] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3]
 
 ### 20. Power Automateフロー3本の構築(テスト対象外)
 
