@@ -14,12 +14,14 @@
 
 from __future__ import annotations
 
+import copy
 import secrets
 import string
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional, Sequence
 
+import candidates
 import ledger
 import timeutil
 from config import 設定
@@ -178,3 +180,104 @@ def 書き出す(設定値: 設定, 依頼: dict) -> 書き出し結果:
     except OSError as e:
         return 書き出し結果(ok=False, path=str(path), error=f"依頼ファイルを書き出せません: {e}")
     return 書き出し結果(ok=True, path=str(path))
+
+
+# ---------------------------------------------------------------------------
+# 候補が0件のときの代替案(requirements.md#候補が0件のときの代替案の提示)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class 代替案1結果:
+    """同じ候補ファイルを仮の予定を空きとみなして絞り直した結果。探索の依頼は出し直さない。"""
+
+    採用: List[candidates.枠]
+    件名を取りに行く対象: List[str]
+    打ち切りの可能性: bool
+    絞り込み: candidates.絞り込み結果
+
+
+def 代替案2を作れるか(依頼: dict) -> bool:
+    """開催者が探索期間と時間帯の両方を明示的に指定していれば、広げられる項目が無いので作らない。"""
+    指定 = set(依頼.get("specified") or [])
+    return not ({指定項目_期間, 指定項目_時間帯} <= 指定)
+
+
+def 広げなかった項目(依頼: dict) -> List[str]:
+    """開催者の指定のため代替案2で広げなかった項目(表示用)。"""
+    指定 = set(依頼.get("specified") or [])
+    一覧 = []
+    if 指定項目_期間 in 指定:
+        一覧.append("期間")
+    if 指定項目_時間帯 in 指定:
+        一覧.append("時間帯")
+    return 一覧
+
+
+def 代替案2の依頼を組み立てる(依頼: dict, 設定値: 設定, 今日: date) -> Optional[dict]:
+    """期間を当日から3週間、時間帯を9時30分から18時30分に広げた試行番号2の依頼。
+
+    開催者が明示的に指定した項目は広げない。対象曜日・全員空き・候補件数・会議の内容は
+    元の依頼のまま引き継ぐ。広げられる項目が1つも無ければNone。
+    """
+    if not 代替案2を作れるか(依頼):
+        return None
+    指定 = set(依頼.get("specified") or [])
+    代替 = copy.deepcopy(依頼)
+    代替["attempt"] = 2
+    if 指定項目_期間 not in 指定:
+        終了 = 今日 + timedelta(days=設定値.代替案の探索期間日数)
+        代替["search"]["start"] = timeutil.format_jst(datetime.combine(今日, time.min, tzinfo=timeutil.JST))
+        代替["search"]["end"] = timeutil.format_jst(datetime.combine(終了, time(23, 59, 59), tzinfo=timeutil.JST))
+    if 指定項目_時間帯 not in 指定:
+        代替["filter"]["timeWindowStart"] = 設定値.代替案の時間帯開始.strftime("%H:%M")
+        代替["filter"]["timeWindowEnd"] = 設定値.代替案の時間帯終了.strftime("%H:%M")
+    return 代替
+
+
+def 代替案1を組み立てる(
+    読み: candidates.候補の読み取り,
+    条件: candidates.絞り込み条件,
+    要求件数: int,
+    開催者メール: Optional[str] = None,
+) -> 代替案1結果:
+    """同じ候補ファイルを仮の予定を空きとみなす条件で絞り直す。
+
+    件名を取りに行く対象は、採用した枠に仮の予定を持つ参加者。開催者が仮の枠は、開催者の
+    メールアドレスが分かる場合だけ対象に含める。代替案1が0件で受け取った枠が要求件数と同数なら、
+    応答が件数で打ち切られている可能性を添える([7])。
+    """
+    絞り込み = candidates.絞り込む(読み, 条件, 仮を空きとみなす=True)
+    対象: List[str] = []
+    for w in 絞り込み.採用:
+        for a in w.仮の参加者:
+            if a not in 対象:
+                対象.append(a)
+        if w.開催者が仮 and 開催者メール and 開催者メール.lower() not in 対象:
+            対象.append(開催者メール.lower())
+    打ち切り = not 絞り込み.採用 and 読み.枠一覧 and len(読み.枠一覧) == 要求件数
+    return 代替案1結果(採用=絞り込み.採用, 件名を取りに行く対象=対象, 打ち切りの可能性=bool(打ち切り), 絞り込み=絞り込み)
+
+
+def 条件の要約(依頼: dict) -> str:
+    """依頼ファイルの探索の指示と絞り込みの条件を1行にする(選択画面・通知・チャット用)。"""
+    s = 依頼["search"]
+    f = 依頼["filter"]
+    曜日名 = "月火水木金土日"
+    曜日 = "".join(曜日名[int(w)] for w in f["weekdays"])
+    空き = "全員空きのみ" if f["requireAllFree"] else "一部不在の枠も含む"
+    return (
+        f"期間 {s['start'][:10]}〜{s['end'][:10]}、時間帯 {f['timeWindowStart']}〜{f['timeWindowEnd']}、"
+        f"曜日 {曜日}、{空き}"
+    )
+
+
+def 試した条件(元の依頼: dict, 代替案2の依頼: Optional[dict]) -> List[str]:
+    """両方の代替案とも0件のときに開催者へ報告する、試した条件の一覧([6])。"""
+    一覧 = [
+        f"既定の条件: {条件の要約(元の依頼)}(仮の予定は空きとみなさない)",
+        f"代替案1: 同じ条件で仮の予定を空きとみなす",
+    ]
+    if 代替案2の依頼 is not None:
+        一覧.append(f"代替案2: {条件の要約(代替案2の依頼)}(仮の予定は空きとみなさない)")
+    return 一覧
