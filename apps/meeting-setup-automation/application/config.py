@@ -125,14 +125,17 @@ class 設定:
         return self.作業フォルダ / "meeting-setup.log"
 
 
-def _整数(environ: Mapping[str, str], 名前: str, 既定: int) -> int:
+def _整数(environ: Mapping[str, str], 名前: str, 既定: int, 下限: Optional[int] = None) -> int:
     値 = environ.get(名前)
     if 値 is None or 値 == "":
         return 既定
     try:
-        return int(値)
+        数 = int(値)
     except ValueError as e:
         raise 設定エラー(f"環境変数 {名前} の値 {値!r} を整数として読めません") from e
+    if 下限 is not None and 数 < 下限:
+        raise 設定エラー(f"環境変数 {名前} の値 {値!r} は {下限} 以上である必要があります")
+    return 数
 
 
 def _ビューア設定(作業フォルダ: Path) -> dict:
@@ -162,7 +165,8 @@ def load(environ: Optional[Mapping[str, str]] = None) -> 設定:
         候補待ち上限秒=_整数(env, 候補待ち上限環境変数, 300),
         予定詳細待ち上限秒=_整数(env, 予定詳細待ち上限環境変数, 300),
         作成結果待ち上限秒=_整数(env, 作成結果待ち上限環境変数, 300),
-        確認間隔秒=_整数(env, 確認間隔環境変数, 5),
+        # 0以下だと待ちが休みなく回り続けるため下限を置く(design.md#往復の待ち合わせと打ち切り)
+        確認間隔秒=_整数(env, 確認間隔環境変数, 5, 下限=1),
         同期猶予秒=_整数(env, 同期猶予環境変数, 30),
         ビューアurl=ビューア,
         サーバー相対パス=相対パス,

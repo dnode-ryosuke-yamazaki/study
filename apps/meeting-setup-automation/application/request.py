@@ -17,7 +17,7 @@ from __future__ import annotations
 import copy
 import secrets
 import string
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional, Sequence
 
@@ -279,7 +279,7 @@ def 試した条件(元の依頼: dict, 代替案2の依頼: Optional[dict]) -> 
     """両方の代替案とも0件のときに開催者へ報告する、試した条件の一覧([6])。"""
     一覧 = [
         f"既定の条件: {条件の要約(元の依頼)}(仮の予定は空きとみなさない)",
-        f"代替案1: 同じ条件で仮の予定を空きとみなす",
+        "代替案1: 同じ条件で仮の予定を空きとみなす",
     ]
     if 代替案2の依頼 is not None:
         一覧.append(f"代替案2: {条件の要約(代替案2の依頼)}(仮の予定は空きとみなさない)")

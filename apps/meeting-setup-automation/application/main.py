@@ -16,7 +16,7 @@ import logging
 import sys
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time as dtime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -74,21 +74,40 @@ class 実行環境:
 # ---------------------------------------------------------------------------
 
 
+_この関数が付けたハンドラ: List[logging.Handler] = []
+_設定済みのログファイル: Optional[str] = None
+
+
 def ログを設定(設定値: config.設定) -> None:
-    """標準エラーと作業フォルダのログファイル(5世代ローテーション)へ出す。標準出力はチャット向けの文に使う。"""
-    for h in list(logger.handlers):
-        logger.removeHandler(h)
+    """標準エラーと作業フォルダのログファイル(5世代ローテーション)へ出す。標準出力はチャット向けの文に使う。
+
+    付け外しするのは自分で付けたハンドラだけにして、同じログファイルへの2回目以降の呼び出しでは
+    付け直さない(呼ぶたびに新しいファイルハンドラを開くと、前のものが閉じられないまま積み上がる)。
+    """
+    global _設定済みのログファイル
     logger.setLevel(logging.INFO)
     logger.propagate = False
+    if _この関数が付けたハンドラ and _設定済みのログファイル == str(設定値.ログファイル):
+        for h in _この関数が付けたハンドラ:
+            if h not in logger.handlers:
+                logger.addHandler(h)
+        return
+    for h in _この関数が付けたハンドラ:
+        logger.removeHandler(h)
+        h.close()
+    _この関数が付けたハンドラ.clear()
+    _設定済みのログファイル = str(設定値.ログファイル)
     書式 = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     stderr = logging.StreamHandler(sys.stderr)
     stderr.setFormatter(書式)
     logger.addHandler(stderr)
+    _この関数が付けたハンドラ.append(stderr)
     try:
         設定値.作業フォルダ.mkdir(parents=True, exist_ok=True)
         ファイル = RotatingFileHandler(設定値.ログファイル, maxBytes=1_000_000, backupCount=5, encoding="utf-8")
         ファイル.setFormatter(書式)
         logger.addHandler(ファイル)
+        _この関数が付けたハンドラ.append(ファイル)
     except OSError as e:  # ログが書けなくても処理は止めない
         logger.warning("ログファイルを開けません: %s", e)
 
@@ -149,8 +168,15 @@ def _仮の予定の表示(
     return 行
 
 
-def _待つ(env: 実行環境, 対象: Dict[str, tuple]) -> Dict[str, wait_for.待ち結果]:
-    return wait_for.wait_for_all(対象, 間隔秒=env.設定.確認間隔秒, 進捗=env.出力, 時計=env.時計, 待つ=env.待つ)
+def _待つ(env: 実行環境, 依頼id: str, 対象: Dict[str, tuple]) -> Dict[str, wait_for.待ち結果]:
+    """待ちの開始と進捗を、チャット(標準出力)とログの両方に出す(design.md#ログ)。"""
+    logger.info("待ちの開始: 依頼ID=%s 対象=%s", 依頼id, "、".join(対象))
+
+    def 進捗(文: str) -> None:
+        env.出力(文)
+        logger.info("待ちの進捗: 依頼ID=%s %s", 依頼id, 文)
+
+    return wait_for.wait_for_all(対象, 間隔秒=env.設定.確認間隔秒, 進捗=進捗, 時計=env.時計, 待つ=env.待つ)
 
 
 # ---------------------------------------------------------------------------
@@ -271,8 +297,7 @@ def cmd_submit(args, env: 実行環境) -> int:
 
 
 def _候補を待つ(env: 実行環境, 依頼id: str, 試行番号: int) -> wait_for.待ち結果:
-    logger.info("待ちの開始: 依頼ID=%s 対象=候補(試行%d)", 依頼id, 試行番号)
-    結果 = _待つ(env, {f"候補(試行{試行番号})": (ledger.候補ファイル(env.設定, 依頼id, 試行番号), env.設定.候補待ち上限秒)})
+    結果 = _待つ(env, 依頼id, {f"候補(試行{試行番号})": (ledger.候補ファイル(env.設定, 依頼id, 試行番号), env.設定.候補待ち上限秒)})
     return 結果[f"候補(試行{試行番号})"]
 
 
@@ -319,7 +344,7 @@ def _選択画面を用意(
 
 def _候補を処理(env: 実行環境, 依頼: dict, 候補内容: dict) -> int:
     依頼id = 依頼["requestId"]
-    読み = candidates.読む(候補内容)
+    読み = candidates.読む(候補内容, 試行番号=1)
     if 読み.失敗:
         logger.error("フローからの失敗理由: 依頼ID=%s 理由=%s", 依頼id, 読み.失敗理由)
         env.出力(f"探索フローが失敗を返しました: {読み.失敗理由}")
@@ -380,7 +405,7 @@ def _代替案を開始(env: 実行環境, 依頼: dict, 読み: candidates.候�
 
     if 待ち対象:
         env.出力("代替案の結果を待ちます(既定の依頼の直後に続くため、往復が伸びて上限で打ち切られることがあります。打ち切られても `resume` で続きから再開できます)。")
-        _待つ(env, 待ち対象)
+        _待つ(env, 依頼id, 待ち対象)
     return _代替案をまとめる(env, 依頼, 伝える)
 
 
@@ -411,7 +436,7 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
     条件 = candidates.絞り込み条件.依頼から(依頼)
 
     候補1 = ledger.read_json(ledger.候補ファイル(設定値, 依頼id, 1))
-    読み1 = candidates.読む(候補1) if 候補1 is not None else candidates.候補の読み取り(依頼id, 1, [], "", "")
+    読み1 = candidates.読む(候補1, 試行番号=1) if 候補1 is not None else candidates.候補の読み取り(依頼id, 1, [], "", "")
     代替1 = request.代替案1を組み立てる(
         読み1, 条件, 要求件数=int(依頼["search"]["maxCandidates"]),
         開催者メール=名簿.organizer_email if 名簿 else None,
@@ -428,7 +453,7 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
                 logger.error("フローからの失敗理由: 依頼ID=%s 理由=%s", 依頼id, 詳細.失敗理由)
                 伝える.append(f"予定詳細フローが失敗を返したため件名なしで示しています: {詳細.失敗理由}")
             else:
-                logger.info("予定詳細の取得: 依頼ID=%s 対象=%d人", 依頼id, len(詳細.参加者ごと))
+                logger.info("予定詳細の取得: 依頼ID=%s 対象=%d人 件名取得=%d人", 依頼id, len(詳細.参加者ごと), detail.件名を取得できた人数(詳細))
     仮の予定の行: List[str] = []
     カード1 = []
     for i, w in enumerate(代替1.採用, start=1):
@@ -446,7 +471,7 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
         if 候補2 is None:
             代替2理由 = "待ち上限内に候補が届かなかったため打ち切りました。`resume` で再開すると続きから待てます。"
         else:
-            読み2 = candidates.読む(候補2)
+            読み2 = candidates.読む(候補2, 試行番号=2)
             if 読み2.失敗:
                 logger.error("フローからの失敗理由: 依頼ID=%s 理由=%s(代替案2)", 依頼id, 読み2.失敗理由)
                 代替2理由 = f"探索フローが失敗を返しました: {読み2.失敗理由}"
@@ -484,7 +509,7 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
 def _作成失敗を伝える(env: 実行環境, 状態: progress.進行状態, 依頼id: str) -> int:
     logger.error("フローからの失敗理由: 依頼ID=%s 理由=%s(作成結果 再試行%d)", 依頼id, 状態.失敗理由, 状態.再試行番号)
     枠 = selection.選択した枠(状態.選択結果)
-    env.出力(f"【会議の作成に失敗しました】" + (f"(枠: {枠})" if 枠 else ""))
+    env.出力("【会議の作成に失敗しました】" + (f"(枠: {枠})" if 枠 else ""))
     env.出力(f"失敗理由: {状態.失敗理由}")
     env.出力(再試行の案内.replace("<依頼ID>", 依頼id))
     return 0
@@ -507,8 +532,7 @@ def _完了を伝える(env: 実行環境, 作成内容: dict, 通知する: boo
 
 
 def _作成結果を待つ(env: 実行環境, 依頼id: str, 再試行番号: int) -> int:
-    logger.info("待ちの開始: 依頼ID=%s 対象=作成結果(再試行%d)", 依頼id, 再試行番号)
-    結果 = _待つ(env, {"作成結果": (ledger.作成結果ファイル(env.設定, 依頼id, 再試行番号), env.設定.作成結果待ち上限秒)})["作成結果"]
+    結果 = _待つ(env, 依頼id, {"作成結果": (ledger.作成結果ファイル(env.設定, 依頼id, 再試行番号), env.設定.作成結果待ち上限秒)})["作成結果"]
     if 結果.打ち切り:
         logger.warning("待ち上限で打ち切り: 依頼ID=%s 対象=作成結果 経過=%d秒", 依頼id, 結果.経過秒)
         env.出力(打ち切りの案内.replace("<依頼ID>", 依頼id))
@@ -557,7 +581,7 @@ def cmd_resume(args, env: 実行環境) -> int:
             待ち対象["予定詳細"] = (ledger.予定詳細ファイル(設定値, 依頼id), 設定値.予定詳細待ち上限秒)
         if 状態.代替案2の候補を待つ:
             待ち対象["代替案2の候補"] = (ledger.候補ファイル(設定値, 依頼id, 2), 設定値.候補待ち上限秒)
-        _待つ(env, 待ち対象)
+        _待つ(env, 依頼id, 待ち対象)
         return _代替案をまとめる(env, 依頼)
 
     # 代替案の提示済み

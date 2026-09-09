@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import holidays_jp
 import timeutil
@@ -126,9 +126,15 @@ def _枠を読む(項目: dict, 試行番号: int) -> 枠:
     )
 
 
-def 読む(内容: dict) -> 候補の読み取り:
-    """候補ファイルから枠の一覧・枠が無かった理由・失敗理由を取り出す。枠は日本時間に変換して持つ。"""
-    試行番号 = int(内容.get("attempt") or 1)
+def 読む(内容: dict, 試行番号: Optional[int] = None) -> 候補の読み取り:
+    """候補ファイルから枠の一覧・枠が無かった理由・失敗理由を取り出す。枠は日本時間に変換して持つ。
+
+    枠がどちらの代替案のものかは、読んだ候補ファイルの試行番号で決まる(design.md#依頼ファイルの区分)。
+    呼び出し側が `試行番号` を渡した場合はそれを使い、ファイル本文の `attempt` では上書きしない
+    (フローが失敗時の結果ファイルなどで `attempt` を書き落としても取り違えないため)。
+    """
+    if 試行番号 is None:
+        試行番号 = int(内容.get("attempt") or 1)
     失敗理由 = 内容.get("error") or ""
     if not isinstance(失敗理由, str):
         失敗理由 = str(失敗理由)

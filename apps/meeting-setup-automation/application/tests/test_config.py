@@ -10,7 +10,6 @@ import tempfile
 import unittest
 from datetime import time
 from pathlib import Path
-from unittest import mock
 
 import config
 
@@ -114,6 +113,13 @@ class 待ち時間の上限と間隔(unittest.TestCase):
     def test_環境変数が数値として読めない場合は設定エラーになること(self):
         with self.assertRaises(config.設定エラー):
             config.load(environ={config.確認間隔環境変数: "five"})
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#往復の待ち合わせと打ち切り
+    def test_確認間隔に1秒未満を指定した場合は設定エラーになること(self):
+        for 値 in ("0", "-1"):
+            with self.subTest(値=値):
+                with self.assertRaises(config.設定エラー):
+                    config.load(environ={config.確認間隔環境変数: 値})
 
 
 class 既定の探索条件と代替案の条件(unittest.TestCase):

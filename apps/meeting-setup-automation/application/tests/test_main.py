@@ -8,6 +8,7 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -211,6 +212,32 @@ class 候補提示から会議作成までの通し(unittest.TestCase):
         self.assertIn("select-ID1.html", out)
         self.assertIn("select-ID1.html", self.e.通知一覧()[0].read_text(encoding="utf-8"))
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#ログ
+    def test_待ちの開始と進捗が依頼IDと対象と経過時間つきでログにも残ること(self):
+        self.e.到着させる(2, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        with self.assertLogs(main.logger, level="INFO") as 記録:
+            self.e.run("resume", "ID1")
+        開始 = [r for r in 記録.output if "待ちの開始" in r]
+        進捗 = [r for r in 記録.output if "待ちの進捗" in r]
+        self.assertTrue(開始)
+        self.assertTrue(進捗)
+        self.assertIn("依頼ID=ID1", 進捗[0])
+        self.assertIn("候補(試行1)", 進捗[0])
+        self.assertRegex(進捗[0], r"\d+秒経過")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-5
+    def test_通知ファイルの中身がHTML断片で選択画面のURLがリンクになっていること(self):
+        self.e.設定 = replace(
+            self.e.設定,
+            ビューアurl="https://example-my.sharepoint.com/personal/u/_layouts/15/onedrive.aspx",
+            サーバー相対パス="/personal/u/Documents/00_root/auto/meetingSetting/html",
+        )
+        self._候補を提示させる()
+        中身 = self.e.通知一覧()[0].read_text(encoding="utf-8")
+        self.assertIn("<br>", 中身)
+        self.assertNotIn("\n", 中身)
+        self.assertIn('<a href="https://example-my.sharepoint.com', 中身)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の選択-3、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#完了の通知-1
     def test_貼られた選択結果から選択結果を書き出し作成結果を待って完了を通知すること(self):
         self._候補を提示させる()
@@ -386,7 +413,7 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
             self.e.到着させる(3, self.e.候補("ID1", 2), 代替2内容 if 代替2内容 is not None else _候補ファイル(self.代替2枠, 試行=2))
         return self.e.run("resume", "ID1")
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-5
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-7、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-5
     def test_既定で0件なら確認を挟まず2つの代替案を作り1枚の選択画面に2つの見出しで並べること(self):
         code, out = self._代替案を提示させる()
         self.assertEqual(code, 0)
@@ -417,6 +444,30 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         self.assertIn("Teams会議を作成しました", out)
         self.assertFalse(ledger.予定詳細ファイル(self.e.設定, "ID1").exists())
         self.assertTrue(ledger.予定詳細依頼ファイル(self.e.設定, "ID1").exists())  # 依頼側の台帳は残す
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#依頼ファイルの区分
+    def test_候補ファイルに試行番号が書かれていなくても読んだファイルの試行番号で扱うこと(self):
+        内容 = _候補ファイル(self.代替2枠, 試行=2)
+        del 内容["attempt"]
+        self._代替案を提示させる(代替2内容=内容)
+        _, p = self.e.画面("ID1")
+        self.assertEqual([r["data-attempt"] for r in p.ラジオ], ["1", "1", "2"])
+        self.e.到着させる(1, self.e.作成結果("ID1"), _作成結果(""))
+        code, out = self.e.run("select", _選択行(p.ラジオ[2]))
+        self.assertEqual(code, 0)
+        self.assertIn("Teams会議を作成しました", out)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#ログ
+    def test_予定詳細の取得ログに対象の人数と件名を取得できた件数が残ること(self):
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        self.e.到着させる(2, ledger.予定詳細ファイル(self.e.設定, "ID1"), self.詳細)
+        self.e.到着させる(3, self.e.候補("ID1", 2), _候補ファイル(self.代替2枠, 試行=2))
+        with self.assertLogs(main.logger, level="INFO") as 記録:
+            self.e.run("resume", "ID1")
+        行 = [r for r in 記録.output if "予定詳細の取得" in r]
+        self.assertTrue(行)
+        self.assertIn("対象=2人", 行[0])
+        self.assertIn("件名取得=2人", 行[0])
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#19-台帳フォルダの取り扱いの通し確認結合テスト
     def test_代替案2の枠を貼った場合も突き合わせが通ること(self):

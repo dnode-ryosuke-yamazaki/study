@@ -4,10 +4,16 @@ Teams通知は通知フォルダ(`auto/teamsNotice/meetingSetting/`)へのファ
 同フォルダを監視する会議設定通知フローが投稿する(requirements.md#通知 [1])。HTTPで直接
 投稿する経路は持たない(同 [2]。組織のDLPポリシーでブロックされる)。書き出しに失敗しても
 例外にせず、チャットへの表示で処理を続ける(同 [3])。
+
+通知文はチャットにも同じ内容を出すためプレーンテキストで組み立て、通知フォルダへ書き出す
+直前にHTML断片へ組み替える(`html断片にする`)。Teamsは投稿本文をHTMLとして描画するため、
+そのまま渡すと全行が1行に潰れ、URLがクリックできず、山括弧を含む値がタグとみなされて消える。
 """
 
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
@@ -98,8 +104,36 @@ def 完了の通知文(r: 作成結果, 直リンク: Optional[str]) -> str:
     return "\n".join(行)
 
 
+_url = re.compile(r"https?://[^\s<>\"']+")
+
+
+def _行をhtmlにする(行: str) -> str:
+    出力: List[str] = []
+    位置 = 0
+    for m in _url.finditer(行):
+        出力.append(html.escape(行[位置:m.start()]))
+        url = html.escape(m.group(0))
+        出力.append(f'<a href="{url}">{url}</a>')
+        位置 = m.end()
+    出力.append(html.escape(行[位置:]))
+    組み立て = "".join(出力)
+    字下げ = len(行) - len(行.lstrip(" "))
+    return "&nbsp;" * 字下げ + 組み立て.lstrip(" ") if 字下げ else 組み立て
+
+
+def html断片にする(本文: str) -> str:
+    """プレーンテキストの通知文をTeamsの投稿本文(HTML断片)に組み替える。
+
+    値をエスケープしてから、改行を `<br>`・URLを `<a>`・行頭の字下げを `&nbsp;` にする。
+    """
+    return "<br>".join(_行をhtmlにする(行) for 行 in 本文.split("\n"))
+
+
 def 書き出す(設定値: 設定, 本文: str, 今: Optional[datetime] = None) -> 書き出し結果:
-    """通知フォルダへ `meeting-<書き出し時刻>.txt` の一意な名前で書く。失敗しても例外を投げない。"""
+    """通知フォルダへ `meeting-<書き出し時刻>.txt` の一意な名前で書く。失敗しても例外を投げない。
+
+    渡すのはチャットにも出すプレーンテキスト。ファイルにはHTML断片へ組み替えて書く。
+    """
     今 = 今 or timeutil.now_jst()
     基本 = f"meeting-{今:%Y%m%d-%H%M%S}"
     try:
@@ -109,7 +143,7 @@ def 書き出す(設定値: 設定, 本文: str, 今: Optional[datetime] = None)
         while path.exists():
             n += 1
             path = 設定値.通知フォルダ / f"{基本}-{n}.txt"
-        path.write_text(本文, encoding="utf-8")
+        path.write_text(html断片にする(本文), encoding="utf-8")
     except OSError as e:
         return 書き出し結果(ok=False, error=f"通知ファイルを書き出せません: {e}")
     return 書き出し結果(ok=True, path=str(path))

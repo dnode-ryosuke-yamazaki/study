@@ -137,5 +137,48 @@ class 通知フォルダへの書き出し(unittest.TestCase):
         self.assertIsNone(re.search(r"urllib\.request|http\.client|import requests|webhook", 原文, re.IGNORECASE))
 
 
+class 通知本文のHTML化(unittest.TestCase):
+    """通知フローがTeamsへ渡す本文はHTML断片として描画される。改行をそのまま書くと1行に
+    潰れ、URLはクリックできず、山括弧を含む値はタグとみなされて消える。書き出しの直前に
+    HTMLへ組み替え、チャットに出す文はプレーンのまま保つ。
+    """
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-1
+    def test_改行がbrになりURLがリンクになること(self):
+        html = notify.html断片にする("【会議候補が出そろいました】\n選択画面: https://example.com/v?id=1&x=2")
+        self.assertIn("【会議候補が出そろいました】<br>選択画面: ", html)
+        self.assertIn('<a href="https://example.com/v?id=1&amp;x=2">https://example.com/v?id=1&amp;x=2</a>', html)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-1
+    def test_山括弧を含む値がタグとして解釈されずそのまま読めること(self):
+        html = notify.html断片にする("件名: 定例 <確認>\n出席者: 山田 太郎 <taro@example.com>")
+        self.assertIn("定例 &lt;確認&gt;", html)
+        self.assertIn("山田 太郎 &lt;taro@example.com&gt;", html)
+        self.assertNotIn("<確認>", html)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-8
+    def test_仮の予定の字下げが潰れないこと(self):
+        html = notify.html断片にする("- 代替案1(仮の予定を含める): 2件\n    候補1: 山田 太郎: 顧客MTG")
+        self.assertIn("&nbsp;&nbsp;&nbsp;&nbsp;候補1: 山田 太郎: 顧客MTG", html)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-3
+    def test_チャットに出す通知文はプレーンなまま組み立てられること(self):
+        文 = notify.選択画面の通知文("定例 <確認>", 1, "https://example.com/v", None)
+        self.assertIn("定例 <確認>", 文)
+        self.assertNotIn("<br>", 文)
+        self.assertNotIn("<a href", 文)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#通知-1
+    def test_書き出すファイルの中身がHTML断片になっていること(self):
+        with tempfile.TemporaryDirectory() as d:
+            設定 = config.load(environ={config.通知フォルダ環境変数: f"{d}/notice"})
+            r = notify.書き出す(設定, "件名: 定例 <確認>\n選択画面: https://example.com/v")
+            self.assertTrue(r.ok)
+            中身 = Path(r.path).read_text(encoding="utf-8")
+        self.assertIn("定例 &lt;確認&gt;<br>", 中身)
+        self.assertIn('<a href="https://example.com/v">', 中身)
+        self.assertNotIn("\n", 中身)
+
+
 if __name__ == "__main__":
     unittest.main()
