@@ -60,7 +60,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 環境変数で台帳のルートと作業フォルダを差し替えられること(テスト用。teams-transcript-fetcherの `TRANSCRIPT_FETCHER_WORK_DIR` と同じ方式)
 - 候補の待ちの上限(5分)・予定詳細の待ちの上限(5分)・作成結果の待ちの上限(5分)・確認間隔(5秒)・同期の猶予(30秒)を持ち、それぞれ環境変数で上書きできること。3つの上限は別々の設定値にすること(実測の結果、別の値になりうるため)
 - 既定の探索条件(期間2週間・時間帯9時30分から17時30分・候補5件・出席可能率の下限100%・フローに返させる最大件数50件)を持つこと
-- 代替案の条件(期間3週間・時間帯9時30分から18時30分)と、予定詳細を取る枠の刻み(30分)を持つこと
+- 代替案の条件(期間3週間・時間帯9時30分から18時30分)を持つこと
 - 候補選択画面のビューアURLとサーバー相対パスを持ち、環境変数で上書きできること(sprint-review-generatorと同じ `output_web_viewer` / `output_web_dir` の考え方)
 - 対応: [design.md#関連するファイル抜粋](design.md#関連するファイル抜粋) / [requirements.md#候補探索の既定条件](requirements.md#候補探索の既定条件) [1]
 
@@ -81,7 +81,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 名簿の中に同じ名前が複数ある場合も解決できないものとして返すこと
 - 名簿に登録されたカレンダーの表示名を、参加者ごとに任意項目として読めること(未登録の場合は空として返すこと)
 - 複数の名前をまとめて解決し、解決できなかった名前の一覧を返すこと(1件でもあれば全体を失敗として扱う)
-- 対応: [requirements.md#会議設定の依頼](requirements.md#会議設定の依頼) [3][4] / [requirements.md#参加者の解決](requirements.md#参加者の解決) [1][2][3]
+- 対応: [requirements.md#会議設定の依頼](requirements.md#会議設定の依頼) [3][4] / [requirements.md#参加者の解決](requirements.md#参加者の解決) [1][2][3][4]
 
 ### 4. 依頼IDの生成と依頼の書き出し(request.py)
 
@@ -159,7 +159,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 代替案2の待ちが上限を超えて打ち切られた場合を異常として扱わず、打ち切りとして返すこと(既定の依頼から間を置かずに続くため往復が伸びる)
 - **代替案2が得られなかった場合(打ち切り・候補ファイルに失敗理由・依頼の書き出し失敗)も、代替案1の枠の提示を止めないこと。** 得られなかった理由を結果に含めて返すこと
 - 代替案2の候補ファイルの失敗理由を、通常の候補ファイルの失敗(その時点で終了する)と区別して扱うこと
-- 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [7] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][3][5][6][7] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3]
+- 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [7] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][4][6][7][8] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3]
 
 ### 10. 予定詳細の依頼と件名の取り出し(detail.py)
 
@@ -174,7 +174,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 非公開に設定された予定の件名を返さないこと(非公開であることだけを返すこと)
 - 失敗理由が入っている予定詳細ファイルを失敗として返すこと。代替案1の提示そのものは止めず、件名なしで示せること
 - 選択結果を書き出した時点で予定詳細ファイルを削除できること(他人の予定の件名を残さない)
-- 対応: [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [2] / [design.md#セキュリティ](design.md#セキュリティ)
+- 対応: [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [2][3] / [requirements.md#参加者の解決](requirements.md#参加者の解決) [4] / [design.md#セキュリティ](design.md#セキュリティ)
 
 ### 11. 候補選択画面の生成(select_html.py)
 
@@ -288,7 +288,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 開催者が期間と時間帯の両方を指定した依頼では代替案2が作られないこと
 - 期間を広げた再探索の待ちを打ち切った場合も台帳が残り、依頼IDを指定した再開で続けられること
 - 時間帯を緩めて出た候補について、絞り込みを再現しない別プロセス相当の呼び出しでも選択結果の突き合わせが通ること
-- 対応: [requirements.md#往復の待ち合わせ](requirements.md#往復の待ち合わせ) [3] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][3] / [requirements.md#非機能要件](requirements.md#非機能要件) [1] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][2][3][7] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3]
+- 対応: [requirements.md#往復の待ち合わせ](requirements.md#往復の待ち合わせ) [3] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][3] / [requirements.md#非機能要件](requirements.md#非機能要件) [1] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][2][4][8] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [3][5]
 
 ### 20. Power Automateフロー3本の構築(テスト対象外)
 
@@ -334,10 +334,11 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 ### 24. セットアップと運用手順(README.md、テスト対象外)
 
 - `apps/meeting-setup-automation/README.md` に、台帳フォルダの作成・メンバー名簿の置き方(`roster.example.json` を写して作業フォルダへ置く)・ビューアURLの設定値の取り方・テストの実行コマンドを書く
+- **メンバー名簿のカレンダーの表示名の書き方を書く。** Power Automateの「予定表の取得 (V2)」を1回実行して返る一覧の名前をそのまま写すこと、一覧に出てくるのはその参加者が開催者にカレンダーを共有している場合だけであること、未記入なら件名を取りに行かないこと(候補の提示自体は動くこと)を書く
 - Power Automateフロー3本(探索フロー・作成フロー・予定詳細フロー)と通知フローの関係、障害時にどのフォルダを見るかを書く
 - 録画とファシリテーターが手動である理由と、その手順を書く
-- `roster.example.json` を作る(実体はGit管理外であることを明記する)
-- 対応: [design.md#関連するファイル抜粋](design.md#関連するファイル抜粋) / [requirements.md#参加者の解決](requirements.md#参加者の解決) [1]
+- `roster.example.json` を作る(実体はGit管理外であることを明記する)。カレンダーの表示名の記入例と、任意項目であることを含める
+- 対応: [design.md#関連するファイル抜粋](design.md#関連するファイル抜粋) / [requirements.md#参加者の解決](requirements.md#参加者の解決) [1][4]
 
 
 ## 動作確認チェックリスト
