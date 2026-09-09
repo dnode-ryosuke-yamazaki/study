@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><!--TITLE--></title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif; margin: 0; background: #f4f5f7; color: #1f2328; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 96px; }
+  header { background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+  header h1 { font-size: 1.25rem; margin: 0 0 8px; }
+  header dl { display: grid; grid-template-columns: 6em 1fr; gap: 4px 12px; margin: 0; font-size: 0.95rem; }
+  header dt { color: #57606a; }
+  header dd { margin: 0; }
+  .notice { background: #fff8c5; border: 1px solid #d4a72c; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+  section h2 { font-size: 1.05rem; margin: 24px 0 4px; }
+  section .condition { color: #57606a; font-size: 0.9rem; margin: 0 0 12px; }
+  .card { display: block; background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; cursor: pointer; }
+  .card:has(input:checked) { border-color: #0969da; box-shadow: 0 0 0 2px #b6d4fe; }
+  .card input { margin-right: 10px; }
+  .card .num { font-weight: 600; margin-right: 8px; }
+  .card .when { font-size: 1.05rem; }
+  .card .avail { color: #57606a; font-size: 0.9rem; margin-top: 6px; }
+  .card ul.tentative { margin: 6px 0 0 26px; padding: 0; font-size: 0.9rem; color: #57606a; }
+  .empty { color: #57606a; font-style: italic; }
+  .actions { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #d0d7de; padding: 12px 16px; }
+  .actions .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .actions input[type=text] { flex: 1 1 320px; font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; padding: 8px; border: 1px solid #d0d7de; border-radius: 6px; }
+  .actions button { padding: 9px 16px; border-radius: 6px; border: 1px solid #0969da; background: #0969da; color: #fff; font-size: 0.95rem; cursor: pointer; }
+  .actions button[disabled] { background: #8c959f; border-color: #8c959f; cursor: default; }
+  .actions .status { flex: 1 1 100%; font-size: 0.85rem; color: #57606a; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+<!--HEADER-->
+<!--SECTIONS-->
+<p class="guide">候補を1つ選んで「選択結果をコピー」を押し、コピーした1行をチャットに貼ると会議が作られます。コピーできない場合は下の入力欄が選択状態になるので、手作業でコピーしてください。</p>
+</main>
+<div class="actions">
+  <div class="inner">
+    <input type="text" id="selection-line" readonly value="" placeholder="候補を選ぶとここに選択結果の1行が入ります" aria-label="選択結果">
+    <button type="button" id="copy-button" disabled>選択結果をコピー</button>
+    <div class="status" id="copy-status"></div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var MARKER = "<!--MARKER-->";
+  var line = document.getElementById("selection-line");
+  var button = document.getElementById("copy-button");
+  var status = document.getElementById("copy-status");
+
+  function selectedRadio() {
+    return document.querySelector('input[name="candidate"]:checked');
+  }
+
+  // 選んだ候補の1行: 目印の語・依頼ID・試行番号・候補番号・開始時刻・終了時刻(日本時間のオフセット付き)。
+  // 試行番号はカードごとに埋め込まれた値を使う(代替案1の枠は1、代替案2の枠は2)。
+  function buildLine(radio) {
+    return MARKER + " " + radio.dataset.request + " a" + radio.dataset.attempt + " #" + radio.dataset.number
+      + " " + radio.dataset.start + " " + radio.dataset.end;
+  }
+
+  function refresh() {
+    var radio = selectedRadio();
+    if (!radio) { line.value = ""; button.disabled = true; return; }
+    line.value = buildLine(radio);
+    button.disabled = false;
+    status.textContent = "";
+  }
+
+  function selectLine() {
+    line.focus();
+    line.select();
+    try { line.setSelectionRange(0, line.value.length); } catch (e) { /* 対応しない環境 */ }
+  }
+
+  function copied() { status.textContent = "コピーしました。チャットに貼り付けてください。"; }
+  function notCopied() {
+    selectLine();
+    status.textContent = "クリップボードにコピーできませんでした。入力欄を選択状態にしたので、手作業でコピーしてください(Cmd+C / Ctrl+C)。";
+  }
+
+  // 1段目: 押した瞬間のユーザー操作が有効なうちに同期の execCommand を試す
+  // 2段目: クリップボードの機能があれば navigator.clipboard.writeText を呼ぶ
+  // 3段目: どちらも駄目なら入力欄を選択状態にして手作業のコピーを案内する
+  function copySelection() {
+    var text = line.value;
+    if (!text) { return; }
+    selectLine();
+    var ok = false;
+    try { ok = document.execCommand("copy") === true; } catch (e) { ok = false; }
+    if (ok) { copied(); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(copied, notCopied);
+      return;
+    }
+    notCopied();
+  }
+
+  var radios = document.querySelectorAll('input[name="candidate"]');
+  for (var i = 0; i < radios.length; i++) { radios[i].addEventListener("change", refresh); }
+  button.addEventListener("click", copySelection);
+  refresh();
+})();
+</script>
+</body>
+</html>
