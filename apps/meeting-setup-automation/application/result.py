@@ -65,9 +65,10 @@ def _出席者(一覧) -> List[str]:
 
 def 読む(内容: dict) -> 作成結果:
     失敗理由 = 失敗理由を取り出す(内容)
-    ev = 内容.get("event") or {}
+    ev = 内容.get("event")
     if not isinstance(ev, dict):
-        ev = {}
+        # フローがGraphの応答を包まずにそのまま書いた場合は、ファイル全体をイベントとして読む
+        ev = 内容 if isinstance(内容, dict) and ("subject" in 内容 or "id" in 内容) else {}
     online = ev.get("onlineMeeting") or {}
     return 作成結果(
         依頼id=str(内容.get("requestId") or ""),

@@ -119,6 +119,8 @@ class 依頼の組み立て(unittest.TestCase):
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成内容-2
     def test_参加者はGraphが受け取る形の必須出席者として書かれること(self):
         依頼 = request.組み立て(_条件(), self.設定, 今日, "ID1")
+        # 探索フローが「会議の時間を検索 (V2)」へ渡すメールアドレスの配列も併せて持つ
+        self.assertEqual(依頼["meeting"]["requiredAttendees"], ["taro@example.com", "hanako@example.com"])
         self.assertEqual(
             依頼["meeting"]["attendees"],
             [

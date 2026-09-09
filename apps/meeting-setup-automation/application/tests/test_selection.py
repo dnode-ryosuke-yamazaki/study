@@ -116,18 +116,19 @@ class 選択結果の書き出し(unittest.TestCase):
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成内容-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成内容-3
     def test_選択結果は単体で会議を作れる内容でTeams会議として作る指定を含み会議室を含まないこと(self):
         内容 = selection.選択結果を組み立てる(self.依頼, self.読み枠)
-        ev = 内容["event"]
+        ev = 内容["meeting"]
         self.assertEqual(内容["requestId"], "ID1")
         self.assertEqual(内容["retry"], 0)
         self.assertEqual(ev["subject"], "定例")
-        self.assertEqual(ev["start"], {"dateTime": "2026-09-10T10:00:00+09:00", "timeZone": "Tokyo Standard Time"})
-        self.assertEqual(ev["end"]["dateTime"], "2026-09-10T11:00:00+09:00")
+        # 台帳の日時はオフセット付き。フロー側で末尾を落として timeZone と組み合わせる
+        self.assertEqual(ev["start"], "2026-09-10T10:00:00+09:00")
+        self.assertEqual(ev["end"], "2026-09-10T11:00:00+09:00")
+        self.assertEqual(ev["timeZone"], "Tokyo Standard Time")
         self.assertEqual(ev["attendees"], self.依頼["meeting"]["attendees"])
         self.assertTrue(all(a["type"] == "required" for a in ev["attendees"]))
         self.assertTrue(ev["isOnlineMeeting"])
         self.assertEqual(ev["onlineMeetingProvider"], "teamsForBusiness")
-        self.assertEqual(ev["body"]["contentType"], "HTML")
-        self.assertIn("進捗", ev["body"]["content"])
+        self.assertIn("進捗", ev["bodyHtml"])
         self.assertNotIn("location", ev)
         self.assertNotIn("locations", ev)
 
@@ -155,7 +156,7 @@ class 選択結果の書き出し(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成-5
     def test_失敗した作成結果がある依頼IDは再試行として書き出せる状態を返し自動では書き出さないこと(self):
-        ledger.write_json(ledger.選択結果ファイル(self.設定, self.id, 0), {"requestId": self.id, "retry": 0, "event": {"subject": "定例"}})
+        ledger.write_json(ledger.選択結果ファイル(self.設定, self.id, 0), {"requestId": self.id, "retry": 0, "meeting": {"subject": "定例"}})
         ledger.write_json(ledger.作成結果ファイル(self.設定, self.id, 0), {"requestId": self.id, "error": "Forbidden"})
         判定 = selection.書き出せるか(self.設定, self.id)
         self.assertEqual(判定.種別, selection.作成失敗)
@@ -165,14 +166,14 @@ class 選択結果の書き出し(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の選択-5、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成-5
     def test_再試行として書き出す場合は再試行番号を1つ増やした名前に前回と同じ内容を書くこと(self):
-        前回 = {"requestId": self.id, "retry": 0, "event": {"subject": "定例"}}
+        前回 = {"requestId": self.id, "retry": 0, "meeting": {"subject": "定例"}}
         ledger.write_json(ledger.選択結果ファイル(self.設定, self.id, 0), 前回)
         ledger.write_json(ledger.作成結果ファイル(self.設定, self.id, 0), {"requestId": self.id, "error": "Forbidden"})
         結果 = selection.再試行を書き出す(self.設定, self.id)
         self.assertTrue(結果.ok)
         書いた = json.loads(Path(self._tmp.name, "selection", "selection-ID1-r1.json").read_text(encoding="utf-8"))
         self.assertEqual(書いた["retry"], 1)
-        self.assertEqual(書いた["event"], 前回["event"])
+        self.assertEqual(書いた["meeting"], 前回["meeting"])
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成-5
     def test_失敗した作成結果が無い依頼IDには再試行を書き出さないこと(self):

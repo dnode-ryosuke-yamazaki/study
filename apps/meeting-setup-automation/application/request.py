@@ -147,6 +147,9 @@ def 組み立て(条件: 依頼条件, 設定値: 設定, 今日: date, 依頼id
         "meeting": {
             "subject": 条件.件名,
             "durationMinutes": 条件.所要時間分,
+            # 探索フローが「会議の時間を検索 (V2)」の必須出席者に渡す形(メールアドレスの配列)
+            "requiredAttendees": [p["email"] for p in 条件.参加者],
+            # 選択結果へ引き継ぐ形(Graphの出席者の形。作成フローが配列を組み替えずに使える)
             "attendees": [
                 {"emailAddress": {"address": p["email"], "name": p["name"]}, "type": "required"}
                 for p in 条件.参加者

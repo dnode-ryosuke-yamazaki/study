@@ -483,11 +483,8 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
 
 def _作成失敗を伝える(env: 実行環境, 状態: progress.進行状態, 依頼id: str) -> int:
     logger.error("フローからの失敗理由: 依頼ID=%s 理由=%s(作成結果 再試行%d)", 依頼id, 状態.失敗理由, 状態.再試行番号)
-    枠 = ""
-    ev = (状態.選択結果 or {}).get("event") or {}
-    if ev.get("start") and ev.get("end"):
-        枠 = f"(枠: {ev['start'].get('dateTime')} 〜 {ev['end'].get('dateTime')})"
-    env.出力(f"【会議の作成に失敗しました】{枠}")
+    枠 = selection.選択した枠(状態.選択結果)
+    env.出力(f"【会議の作成に失敗しました】" + (f"(枠: {枠})" if 枠 else ""))
     env.出力(f"失敗理由: {状態.失敗理由}")
     env.出力(再試行の案内.replace("<依頼ID>", 依頼id))
     return 0

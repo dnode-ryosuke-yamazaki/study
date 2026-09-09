@@ -134,7 +134,11 @@ def 読む(内容: dict) -> 候補の読み取り:
         失敗理由 = str(失敗理由)
     枠一覧: List[枠] = []
     if not 失敗理由:
-        for 項目 in 内容.get("meetingTimeSuggestions") or []:
+        # 「会議の時間を検索 (V2)」の応答は meetingTimeSuggestions。フローが別名で包んだ場合も拾う
+        一覧 = 内容.get("meetingTimeSuggestions")
+        if 一覧 is None:
+            一覧 = 内容.get("suggestions") or 内容.get("value") or []
+        for 項目 in 一覧:
             枠一覧.append(_枠を読む(項目, 試行番号))
     return 候補の読み取り(
         依頼id=str(内容.get("requestId") or ""),

@@ -61,6 +61,15 @@ class 作成結果の読み取り(unittest.TestCase):
         内容["event"]["start"] = {"dateTime": "2026-09-10T01:00:00.0000000", "timeZone": "UTC"}
         self.assertEqual(result.読む(内容).開始, datetime(2026, 9, 10, 10, 0, tzinfo=JST))
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#作成結果ファイルの区分
+    def test_フローがGraphの応答を包まずそのまま書いた作成結果も読めること(self):
+        内容 = _作成結果("")["event"]
+        内容["requestId"] = "ID1"
+        r = result.読む(内容)
+        self.assertFalse(r.失敗)
+        self.assertEqual(r.件名, "定例")
+        self.assertTrue(r.参加url)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議の作成-5
     def test_失敗理由が入っている作成結果は失敗として返ること(self):
         r = result.読む({"requestId": "ID1", "retry": 1, "error": "ErrorAccessDenied", "event": None})

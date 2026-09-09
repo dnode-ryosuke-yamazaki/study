@@ -6,11 +6,12 @@
 (design.md#エラーハンドリング「二重の会議作成を防ぐ」)。
 
 選択結果ファイルの形(作成フローがこれだけで会議を作れる内容。台帳の日時はオフセット付きで書き、
-フロー側で末尾を落として `timeZone` と組み合わせる):
+フロー側で末尾のオフセットを落として `timeZone: Tokyo Standard Time` と組み合わせる。
+出席者はGraphの出席者の形で書き、フロー側で配列を組み替えずに渡せるようにする):
     {"requestId": "...", "retry": 0,
-     "event": {"subject": ..., "start": {"dateTime": "...+09:00", "timeZone": "Tokyo Standard Time"},
-               "end": {...}, "attendees": [...], "body": {"contentType": "HTML", "content": "..."},
-               "isOnlineMeeting": true, "onlineMeetingProvider": "teamsForBusiness"}}
+     "meeting": {"subject": ..., "start": "2026-09-10T10:00:00+09:00", "end": "2026-09-10T11:00:00+09:00",
+                 "bodyHtml": "<h3>アジェンダ</h3>...", "attendees": [{"emailAddress": {...}, "type": "required"}],
+                 "isOnlineMeeting": true, "onlineMeetingProvider": "teamsForBusiness"}}
 """
 
 from __future__ import annotations
@@ -140,16 +141,25 @@ def 選択結果を組み立てる(依頼: dict, 枠: candidates.枠, 再試行�
     return {
         "requestId": 依頼["requestId"],
         "retry": 再試行番号,
-        "event": {
+        "meeting": {
             "subject": meeting["subject"],
-            "start": {"dateTime": timeutil.format_jst(枠.開始), "timeZone": タイムゾーン名},
-            "end": {"dateTime": timeutil.format_jst(枠.終了), "timeZone": タイムゾーン名},
+            "start": timeutil.format_jst(枠.開始),
+            "end": timeutil.format_jst(枠.終了),
+            "timeZone": タイムゾーン名,
+            "bodyHtml": アジェンダを整形(meeting.get("agenda")),
             "attendees": [dict(a, type="required") for a in meeting["attendees"]],
-            "body": {"contentType": "HTML", "content": アジェンダを整形(meeting.get("agenda"))},
             "isOnlineMeeting": True,
             "onlineMeetingProvider": "teamsForBusiness",
         },
     }
+
+
+def 選択した枠(選択結果: Optional[dict]) -> str:
+    """選択結果ファイルから枠の表示(開始〜終了)を作る。読めなければ空文字。"""
+    m = (選択結果 or {}).get("meeting") or {}
+    if m.get("start") and m.get("end"):
+        return f"{m['start']} 〜 {m['end']}"
+    return ""
 
 
 def 書き出せるか(設定値: 設定, 依頼id: str) -> 書き出し判定:
@@ -182,5 +192,5 @@ def 再試行を書き出す(設定値: 設定, 依頼id: str) -> 書き出し�
     前回 = ledger.read_json(ledger.選択結果ファイル(設定値, 依頼id, 判定.再試行番号))
     if 前回 is None:
         return 書き出し結果(ok=False, error=f"依頼ID {依頼id} の前回の選択結果を読めません")
-    次 = dict(前回, retry=判定.再試行番号 + 1)
+    次 = dict(前回, retry=判定.再試行番号 + 1)  # 内容は前回と同じ。再試行番号だけを増やす
     return 書き出す(設定値, 次)
