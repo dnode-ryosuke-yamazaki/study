@@ -418,3 +418,14 @@ T17で「処理対象から除外」まで実装した挙動に、発行要求�
 | #10 識別子がファイル名に使える形式か | T22の実施そのもの(フロー①が台帳を作成できるか) | 満たさない場合、[design.md#識別子とファイル名の規則唯一の定義](design.md#識別子とファイル名の規則唯一の定義)に単純な置換規則を追加し、T2に反映する |
 
 **設計はいずれの結果でも動作するようにしてある。** 観測結果は最適化のための情報であり、実装の前提条件ではない。
+
+---
+
+### T32. 台帳・URLの到着による即時起動
+
+`launchd/com.example.teams-transcript-fetcher.plist` に `WatchPaths` を追加し、`ledger/` と `url/` の変化でバッチが起動するようにする。`StartInterval`(300秒)は取りこぼしの回収用に残す。
+
+- `WatchPaths` の対象は作業フォルダ配下の `ledger/` と `url/` の2つ。`request/`・`invalid/`・`vtt/` は入れない(バッチ自身の書き込みで起動が増えるだけで、取得を進める契機にならない)
+- テスト: `test_launchd_plist.py` に、`WatchPaths` に2つのパスが含まれること・`StartInterval` が300のまま残ること・置換前のパスに `__ホームディレクトリ__` が使われていることを追加
+- README(`apps/teams-transcript-fetcher/README.md`)の「定期実行に登録する」に、`WatchPaths` の対象フォルダが登録前に存在している必要があることを追記する(存在しないパスを監視するとイベントが飛ばない)
+- 仕様: [requirements.md#実行環境](requirements.md#実行環境) [7] / [design.md#バッチの起動launchd](design.md#バッチの起動launchd)

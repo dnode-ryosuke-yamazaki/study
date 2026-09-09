@@ -96,7 +96,7 @@ class 設定:
 
     @property
     def ハートビートファイル(self) -> Path:
-        """Power Automateが15分間隔で上書きするハートビート。バッチは読むだけ。
+        """Power Automateが5分間隔で上書きするハートビート。バッチは読むだけ。
 
         取得バッチが監視しているのと同じ同期経路にあることが検知の前提。
         仕様: sync-stall-recovery/requirements.md#ハートビートの書き込み [2]
@@ -167,17 +167,19 @@ def load(作業フォルダ: Path | None = None) -> 設定:
         # 仕様: design.md#ログ(観測に使う項目がDEBUGで出るため既定をDEBUGにする)
         ログレベル=logging.DEBUG,
         # 仕様: sync-stall-recovery/requirements.md#停滞判定の閾値 [1]
-        # (ハートビート3回分の欠落に相当)
-        停滞判定しきい値分=45,
+        # (ハートビート4回分の欠落に相当。正常時の鮮度はハートビート間隔5分に
+        #  同期の通常ラグ(数分)が乗る範囲に収まる)
+        停滞判定しきい値分=20,
         # 仕様: sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止 [1]
         # (5分間隔の3サイクル分を超える空白は稼働の連続性が切れた証拠)
         実行中断とみなす間隔分=15,
         # 仕様: sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止 [2]
         # (停滞判定の閾値と揃える。短いと復帰直後の判定が素通りになる)
-        復帰後の猶予分=45,
+        復帰後の猶予分=20,
         # 仕様: sync-stall-recovery/requirements.md#再起動の回数制限 [4]
-        # (同期再開とハートビート2回分の更新を待つのに十分な時間)
-        復旧確認しきい値分=30,
+        # (再起動から鮮度が閾値内へ戻るまでに35分を要した実測があり、これより
+        #  短いと復旧しつつある状態を復旧失敗として通知してしまう)
+        復旧確認しきい値分=45,
         # 仕様: sync-stall-recovery/requirements.md#再起動の回数制限 [3]
         再起動の24時間上限=2,
         # 仕様: sync-stall-recovery/requirements.md#通知の抑止と限界 [1]

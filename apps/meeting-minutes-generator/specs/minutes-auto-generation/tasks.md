@@ -132,3 +132,15 @@
 
 - 控えの置き場所と、その存在理由(OneDriveの同期フォルダは許可の無いプロセスから読めないため、下流ツールは控えを読む)を追記する
 - 控えフォルダを差し替える環境変数を追記する
+
+---
+
+### 19. VTTの到着による即時起動
+
+`launchd/com.example.meeting-minutes-generator.plist` に `WatchPaths` を追加し、`vtt/` の変化でバッチが起動するようにする。`StartInterval`(600秒)は取りこぼしの回収用に残す。
+
+- `WatchPaths` の対象は `auto/transcript/vtt/` のみ。議事録の出力先・控え・投稿用フォルダは入れない(バッチ自身の書き込みで起動が増えるだけになる)
+- 実行中に届いたVTTがその実行の一覧取得に間に合わなかった場合は、既存の二重起動防止ロックにより後続が何もせず終わり、次の起動(即時または定期)で拾う
+- テスト: plistの検査を行うテストを追加する(`WatchPaths` に `vtt/` が含まれること・`StartInterval` が600のまま残ること)。teams-transcript-fetcher の `test_launchd_plist.py` と同じ方式にする
+- README(`apps/meeting-minutes-generator/README.md`)の登録手順に、`WatchPaths` の対象フォルダが登録前に存在している必要があることを追記する
+- 仕様: [requirements.md#新規トランスクリプトの検知](requirements.md#新規トランスクリプトの検知) [1] / [design.md#定期実行と未処理vttの検知](design.md#定期実行と未処理vttの検知) 手順1

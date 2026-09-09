@@ -49,7 +49,7 @@ flowchart LR
 
 ### 新規トランスクリプトの検知
 
-- [1] teams-transcript-fetcher の成果物フォルダ(OneDriveの `auto/transcript/vtt/`)を定期実行で確認し、未処理のVTTファイルを検知すること
+- [1] teams-transcript-fetcher の成果物フォルダ(OneDriveの `auto/transcript/vtt/`)にVTTが届いた時点でバッチが起動し、未処理のVTTファイルを検知すること。定期実行(10分間隔)はこれと併用し、取りこぼしの回収に用いること
 - [2] 処理済みのVTTを記録し、同じVTTから議事録を二重に生成しないこと
 - [3] 初回実行時点で既に存在するVTTは処理済みとして扱い、議事録を生成しないこと(遡及処理はスコープ外)
 - [4] OneDrive同期の実体化待ちなどでVTTを読み取れない場合は、そのVTTをエラー扱いにせず次回実行で再度対象にすること
@@ -118,9 +118,13 @@ flowchart LR
 
 ## 非機能要件・依存関係
 
+- **遅延**: VTTの到着から議事録の保存・投稿用ファイルの書き出しまでを**約1〜2分**とする
+  - 内訳: `vtt/` の変化によるバッチの起動(即時)+ ロックの取得と状態ファイルの突き合わせ(数秒)+ `claude -p` による生成(実測57秒)+ 保存・控え・投稿用ファイルの書き出し(数秒)
+  - `claude -p` のタイムアウト(15分)は異常時の打ち切り値であり、通常の所要時間ではない。未処理VTTが複数溜まっている場合は直列処理のため件数分だけ伸びる
+  - 上位の目標は「トラブルがなければ会議終了から15分以内に通知が届く」こと。内訳は供給側の [transcript-auto-fetch#非機能要件](../../../teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#非機能要件)(約4〜12分)+ 本機能(約1〜2分)+ 下流の起票リスト案の通知(約30秒)で、**OneDrive同期が停滞していない場合に限り**この目標に収まる。停滞時は供給側で必ず超過する
 - **下流のツール**: 議事録のローカル控えは、`~/.claude/skills/minutes-todo-to-jira/`(議事録のTODOをJIRAチケットにするSkill)が入力として読む。控えの置き場所は状態ファイルと同じフォルダの配下(`~/Library/Application Support/meeting-minutes-generator/minutes/`)とし、下流はその場所を設定で指して読む。下流の仕様は `~/.claude/local-specs/Users/ryosyamazaki/.claude/specs/minutes-todo-to-jira/requirements.md#TODOの読み取り方` を参照
 - **依存**: teams-transcript-fetcher の成果物(`auto/transcript/vtt/` のWEBVTT)。VTTの供給側の仕様は [teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md](../../../teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md) を参照
-- **実行環境**: このMacのlaunchdによる定期実行(方式は create-automation-batch Skill の検証済みテンプレートに従う)
+- **実行環境**: このMacのlaunchdによる起動(`vtt/` の変化による即時起動と定期実行の併用。方式は create-automation-batch Skill の検証済みテンプレートに従う)
 - **セットアップ**: Teams投稿用のPower Automateフロー(OneDrive検知 → 固定チャネルへ投稿)の新設はユーザーの手作業。バッチ側はフォルダへの書き出しまでを責務とする
 
 ## スコープ外

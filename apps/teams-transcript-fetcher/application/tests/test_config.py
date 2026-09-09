@@ -181,16 +181,16 @@ class 監視のしきい値(unittest.TestCase):
         self.設定 = config.load()
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
-    def test_停滞判定のしきい値が45分であること(self):
-        self.assertEqual(self.設定.停滞判定しきい値分, 45)
+    def test_停滞判定のしきい値が20分であること(self):
+        self.assertEqual(self.設定.停滞判定しきい値分, 20)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-1
     def test_実行の中断とみなす間隔が15分であること(self):
         self.assertEqual(self.設定.実行中断とみなす間隔分, 15)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
-    def test_復帰後の猶予が45分であること(self):
-        self.assertEqual(self.設定.復帰後の猶予分, 45)
+    def test_復帰後の猶予が20分であること(self):
+        self.assertEqual(self.設定.復帰後の猶予分, 20)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#スリープ復帰直後の誤検知防止-2
     def test_復帰後の猶予が停滞判定のしきい値と揃っていること(self):
@@ -200,8 +200,8 @@ class 監視のしきい値(unittest.TestCase):
         self.assertEqual(self.設定.復帰後の猶予分, self.設定.停滞判定しきい値分)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-4
-    def test_復旧確認のしきい値が30分であること(self):
-        self.assertEqual(self.設定.復旧確認しきい値分, 30)
+    def test_復旧確認のしきい値が45分であること(self):
+        self.assertEqual(self.設定.復旧確認しきい値分, 45)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
     def test_再起動が直近24時間で2回までであること(self):

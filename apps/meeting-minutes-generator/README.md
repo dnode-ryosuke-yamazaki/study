@@ -31,14 +31,22 @@ MINUTES_GENERATOR_WORK_DIR=/tmp/minutes-test MINUTES_GENERATOR_STATE_DIR=/tmp/mi
 
 ### 2. OneDriveフォルダを用意する
 
-`00_root/auto/` 配下に次の2フォルダを作ります(初回実行時にバッチも自動作成しますが、Power Automateフローの設定で先に必要になります)。
+`00_root/auto/` 配下に次の3フォルダを作ります(初回実行時にバッチも自動作成しますが、Power Automateフローの設定とlaunchdの監視先に先に必要になります)。
 
 ```
 auto/
 ├── minutes/                    # 成果物。議事録Markdownがここに溜まる
+├── transcript/
+│   └── vtt/                    # 入力。teams-transcript-fetcherがVTTを置く。launchdの監視先
 └── teamsNotice/
     └── minutesNotice/          # Teams投稿用。ここへのファイル作成をPower Automateが検知する
 ```
+
+```
+mkdir -p ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/minutes ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/transcript/vtt ~/Library/CloudStorage/OneDrive-Deloitte\(O365D\)/00_root/auto/teamsNotice/minutesNotice
+```
+
+`transcript/vtt/` は本来は上流の teams-transcript-fetcher が初回保存時に作るフォルダですが、**このバッチのlaunchd登録より前に存在していないと即時起動が効きません**(下記「定期実行に登録する」)。フォルダが無い間はこのバッチ自身も入力0件として静かに終わるため、ログにも痕跡が残りません。
 
 **投稿用ファイルの置き場は既存のTeams投稿用フローの監視範囲と重ねないでください。** Teams投稿系のフローは `00_root/auto/teamsNotice/` 配下に投稿先ごとのサブフォルダを持つ運用で(例: 既存のdaily-report用は `teamsNotice/general/`)、本機能もその並びの専用サブフォルダ `minutesNotice/` を使います。
 
@@ -57,6 +65,10 @@ auto/
 ### 4. 定期実行に登録する
 
 `launchd/com.example.meeting-minutes-generator.plist` のプレースホルダを実際のパスに置き換えてから配置します。
+
+**しきい値の変更を含む更新では、先に [反映の順序](../teams-transcript-fetcher/application/power-automate/README.md#反映の順序既に15分間隔で動いているフローを切り替える場合) を読んでください。** 同期停滞の監視は teams-transcript-fetcher 側が担っており、そちらのしきい値とハートビートの周期は順序を守って変える必要があります。
+
+**登録の前に `transcript/vtt/` が存在していることを確認してください**(手順2で作ります)。このplistはこのフォルダを `WatchPaths` で監視し、VTTが届いた時点でバッチを起動します。存在しないパスを監視してもイベントは飛ばないため、フォルダを作る前に登録すると即時起動だけが無言で効かなくなります(10分間隔の定期起動は動くので、遅くなるだけで気づきにくい壊れ方です)。
 
 Pythonはplistに `/Library/Frameworks/Python.framework/Versions/Current/bin/python3` と書いてあり、置き換えは不要です。`Current` はpython.org版のインストーラが最新版へ張り替えるsymlinkなので、Pythonを上げても指し先が残ります。
 
