@@ -18,6 +18,13 @@
 │           └── <feature-name>/  # requirements.md / design.md / tasks.md
 ├── specs/
 │   └── <feature-name>/      # 特定のappsに属さない横断的なCI/tooling機能の仕様
+├── .github/
+│   ├── workflows/           # GitHub Actions（上記 specs/ の横断機能の実装）
+│   └── actions/             # workflowから呼ぶリポジトリ内action
+├── .claude/
+│   ├── skills/              # study固有の差分Skill（ワークフロー一覧は skills/README.md）
+│   ├── hooks/               # Claude Code のhookスクリプト
+│   └── settings.json        # リポジトリ共通のClaude Code設定
 ├── doc/
 │   └── adr/                 # 複数アプリにまたがる技術選定・方針のADR
 ├── CLAUDE.md                # リポジトリ運用ルール（AGENTS.mdはこれへのシンボリックリンク）
