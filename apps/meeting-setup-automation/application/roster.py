@@ -22,12 +22,13 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
-
+from typing import Dict, List, Optional, Tuple
 
 _敬称 = ("さん", "サン")
+_空白 = re.compile(r"[\s\u3000]+")
 
 
 class 名簿エラー(Exception):
@@ -35,33 +36,33 @@ class 名簿エラー(Exception):
 
 
 def _照合キー(名前: str) -> str:
-    """打ち方の違いを吸収した比較用の文字列。空白を落とし、敬称を外し、大文字小文字を揃える。"""
-    キー = 名前.strip().replace("\u3000", "").replace(" ", "")
+    """打ち方の違いを吸収した比較用の文字列。空白をすべて落とし、大文字小文字を揃える。
+
+    敬称はここでは外さない。名簿の登録名が敬称で終わる場合(「ハッサン」など)に、
+    索引側で外すと別人と潰れてしまうため、外すのは問い合わせ側だけにする。
+    """
+    return _空白.sub("", 名前.strip()).casefold()
+
+
+def _敬称を外した照合キー(名前: str) -> Optional[str]:
+    """末尾の敬称を落とした照合キー。敬称が付いていなければNone。"""
+    キー = _照合キー(名前)
     for 敬称 in _敬称:
-        if キー.endswith(敬称) and len(キー) > len(敬称):
-            キー = キー[: -len(敬称)]
-            break
-    return キー.casefold()
+        照合 = _照合キー(敬称)
+        if キー.endswith(照合) and len(キー) > len(照合):
+            return キー[: -len(照合)]
+    return None
 
 
-def _姓と名(フルネーム: str) -> tuple:
-    """氏名を姓と名に割る。区切りは全角・半角スペース。西洋名の姓に付く読点は落とす。"""
-    for 区切り in ("\u3000", " "):
-        if 区切り in フルネーム:
-            姓, 名 = フルネーム.split(区切り, 1)
-            return 姓.rstrip(",、").strip(), 名.strip()
-    return フルネーム.rstrip(",、").strip(), ""
+def _姓と名(フルネーム: str) -> Tuple[str, str]:
+    """氏名を姓と名に割る。区切りは空白(全角・半角)。西洋名の姓に付く読点は落とす。
 
-
-def _その人を指しうる表記(フルネーム: str) -> set:
-    """フルネーム全体・姓だけ・名だけ。ここで広げても、複数人に当たる表記は解決されない。"""
-    姓, 名 = _姓と名(フルネーム)
-    表記 = {フルネーム}
-    if 姓:
-        表記.add(姓)
-    if 名:
-        表記.add(名)
-    return {_照合キー(v) for v in 表記 if v.strip()}
+    3語以上の氏名(ミドルネームを含む場合など)は、最初の語を姓、最後の語を名として扱う。
+    """
+    語 = [w for w in _空白.split(フルネーム.strip()) if w]
+    if len(語) < 2:
+        return (語[0].rstrip(",、").strip() if 語 else ""), ""
+    return 語[0].rstrip(",、").strip(), 語[-1].strip()
 
 
 @dataclass
@@ -79,18 +80,36 @@ class 解決結果:
 
 @dataclass
 class 名簿:
-    #: 照合用の表記 -> その表記に該当する人({"name": フルネーム, "email": ...})の一覧
-    _表記: Dict[str, List[dict]]
+    #: フルネームの照合キー -> 該当する人({"name": フルネーム, "email": ...})の一覧
+    _フルネーム: Dict[str, List[dict]]
+    #: 姓だけ・名だけの照合キー -> 該当する人の一覧
+    _姓名: Dict[str, List[dict]]
     organizer_email: Optional[str] = None
     organizer_name: Optional[str] = None
 
     def _該当(self, 名前: str) -> List[dict]:
-        return self._表記.get(_照合キー(名前), [])
+        """フルネームでの一致を、姓だけ・名だけの一致より先に見る。
+
+        こうしないと、区切りの無い登録名(「田中」)が同姓の別人(「田中 太郎」)の
+        姓と潰れ、登録どおりに打っても解決できなくなる。
+        """
+        キー = _照合キー(名前)
+        敬称なし = _敬称を外した照合キー(名前)
+        for 索引 in (self._フルネーム, self._姓名):
+            for k in (キー, 敬称なし):
+                if k and 索引.get(k):
+                    return 索引[k]
+        return []
 
     def resolve_one(self, 名前: str) -> Optional[str]:
         """名前を1件解決する。登録がない・複数人が該当する場合はNone。"""
+        人 = self.一人に定める(名前)
+        return 人["email"] if 人 else None
+
+    def 一人に定める(self, 名前: str) -> Optional[dict]:
+        """該当が1人ならその人({"name": フルネーム, "email": ...})を返す。定まらなければNone。"""
         該当 = self._該当(名前)
-        return 該当[0]["email"] if len(該当) == 1 else None
+        return dict(該当[0]) if len(該当) == 1 else None
 
     def 候補(self, 名前: str) -> List[dict]:
         """複数人が該当したときの候補(フルネームとメールアドレス)。1人に定まる名前・登録が無い名前は空。"""
@@ -102,12 +121,15 @@ class 名簿:
         結果 = 解決結果()
         for 名前 in 名前一覧:
             表示 = 名前.strip()
-            メール = self.resolve_one(名前)
-            if メール is None:
-                結果.未解決.append(表示)
-                結果.候補一覧[表示] = self.候補(名前)
+            人 = self.一人に定める(名前)
+            if 人 is None:
+                if 表示 not in 結果.候補一覧:
+                    結果.未解決.append(表示)
+                    結果.候補一覧[表示] = self.候補(名前)
             else:
-                結果.解決済み.append({"name": 表示, "email": メール})
+                # 打たれた文字列ではなく名簿のフルネームを返す。姓だけ・敬称付きの指定を
+                # 許した以上、確認提示が入力の反響になっていると誤解決に気づけない
+                結果.解決済み.append(人)
         return 結果
 
 
@@ -125,19 +147,31 @@ def load(path: Path) -> 名簿:
     if not isinstance(内容, dict) or not isinstance(内容.get("members"), list):
         raise 名簿エラー(f"メンバー名簿 {path} に members の配列がありません")
 
-    表記: Dict[str, List[dict]] = {}
+    フルネーム索引: Dict[str, List[dict]] = {}
+    姓名索引: Dict[str, List[dict]] = {}
+
+    def _積む(索引: Dict[str, List[dict]], キー: str, 人: dict) -> None:
+        該当 = 索引.setdefault(キー, [])
+        if not any(x["email"].casefold() == 人["email"].casefold() for x in 該当):
+            該当.append(人)
+
     for 行 in 内容["members"]:
         if not isinstance(行, dict) or not 行.get("name") or not 行.get("email"):
             raise 名簿エラー(f"メンバー名簿 {path} の members に name/email の無い行があります")
         人 = {"name": str(行["name"]).strip(), "email": str(行["email"]).strip()}
-        for キー in _その人を指しうる表記(人["name"]):
-            該当 = 表記.setdefault(キー, [])
-            if not any(x["email"].casefold() == 人["email"].casefold() for x in 該当):
-                該当.append(人)
+        if not 人["name"] or not 人["email"]:
+            # 空白だけの値を通すと、別人が同じ空文字のメールで1人に潰れて先勝ちで解決されてしまう
+            raise 名簿エラー(f"メンバー名簿 {path} の members に name/email が空白だけの行があります")
+        _積む(フルネーム索引, _照合キー(人["name"]), 人)
+        姓, 名 = _姓と名(人["name"])
+        for 部分 in (姓, 名):
+            if 部分:
+                _積む(姓名索引, _照合キー(部分), 人)
 
     開催者 = 内容.get("organizer") or {}
     return 名簿(
-        _表記=表記,
+        _フルネーム=フルネーム索引,
+        _姓名=姓名索引,
         organizer_email=(str(開催者["email"]).strip() if 開催者.get("email") else None),
         organizer_name=(str(開催者["name"]).strip() if 開催者.get("name") else None),
     )

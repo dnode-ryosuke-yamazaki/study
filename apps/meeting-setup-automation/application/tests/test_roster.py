@@ -68,7 +68,7 @@ class 名前の解決(unittest.TestCase):
                 self._tmp.name,
                 [
                     {"name": "山田 太郎", "email": "taro@example.com"},
-                    {"name": "鈴木 花子", "email": "hanako@example.com"},
+                    {"name": "架空 花子", "email": "hanako@example.com"},
                     {"name": "佐藤 次郎", "email": "jiro1@example.com"},
                     {"name": "佐藤 次郎", "email": "jiro2@example.com"},
                 ],
@@ -80,7 +80,7 @@ class 名前の解決(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議設定の依頼-3
     def test_登録のある名前を1件解決できること(self):
-        self.assertEqual(self.名簿.resolve_one("鈴木 花子"), "hanako@example.com")
+        self.assertEqual(self.名簿.resolve_one("架空 花子"), "hanako@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2
     def test_登録がない名前は解決できないものとして返ること(self):
@@ -92,19 +92,19 @@ class 名前の解決(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#会議設定の依頼-4、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-3
     def test_複数の名前をまとめて解決し解決できなかった名前の一覧が返ること(self):
-        結果 = self.名簿.resolve(["山田 太郎", "存在 しない", "佐藤 次郎", "鈴木 花子"])
+        結果 = self.名簿.resolve(["山田 太郎", "存在 しない", "佐藤 次郎", "架空 花子"])
         self.assertEqual(結果.未解決, ["存在 しない", "佐藤 次郎"])
         self.assertFalse(結果.ok)
         self.assertEqual(
             結果.解決済み,
             [
                 {"name": "山田 太郎", "email": "taro@example.com"},
-                {"name": "鈴木 花子", "email": "hanako@example.com"},
+                {"name": "架空 花子", "email": "hanako@example.com"},
             ],
         )
 
     def test_全員解決できた場合は成功として返ること(self):
-        結果 = self.名簿.resolve(["山田 太郎", "鈴木 花子"])
+        結果 = self.名簿.resolve(["山田 太郎", "架空 花子"])
         self.assertTrue(結果.ok)
         self.assertEqual(結果.未解決, [])
 
@@ -123,10 +123,10 @@ class 表記のゆれを吸収した照合(unittest.TestCase):
             _名簿を書く(
                 self._tmp.name,
                 [
-                    {"name": "山崎　那旺", "email": "nao@example.com"},  # 区切りは全角スペース
-                    {"name": "鈴木 一郎", "email": "ichiro@example.com"},
-                    {"name": "鈴木 二郎", "email": "jiro@example.com"},
-                    {"name": "Avinc, Sebastien", "email": "seb@example.com"},
+                    {"name": "西園寺　彩", "email": "nao@example.com"},  # 区切りは全角スペース
+                    {"name": "架空 一郎", "email": "ichiro@example.com"},
+                    {"name": "架空 二郎", "email": "jiro@example.com"},
+                    {"name": "Dubois, Antoine", "email": "seb@example.com"},
                 ],
             )
         )
@@ -136,32 +136,32 @@ class 表記のゆれを吸収した照合(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
     def test_姓名の区切りが全角でも半角でも無くても同じ人物として解決すること(self):
-        for 打ち方 in ("山崎　那旺", "山崎 那旺", "山崎那旺"):
+        for 打ち方 in ("西園寺　彩", "西園寺 彩", "西園寺彩"):
             with self.subTest(打ち方=打ち方):
                 self.assertEqual(self.名簿.resolve_one(打ち方), "nao@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
     def test_敬称さんが付いていても解決すること(self):
-        self.assertEqual(self.名簿.resolve_one("山崎　那旺さん"), "nao@example.com")
-        self.assertEqual(self.名簿.resolve_one("山崎さん"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("西園寺　彩さん"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("西園寺さん"), "nao@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
     def test_姓だけの指定でも該当が1人なら解決すること(self):
-        self.assertEqual(self.名簿.resolve_one("山崎"), "nao@example.com")
-        self.assertEqual(self.名簿.resolve_one("Avinc"), "seb@example.com")
+        self.assertEqual(self.名簿.resolve_one("西園寺"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("Dubois"), "seb@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
     def test_名だけの指定でも該当が1人なら解決すること(self):
-        self.assertEqual(self.名簿.resolve_one("那旺"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("彩"), "nao@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2
     def test_姓だけで複数人が該当する場合は解決しないこと(self):
-        self.assertIsNone(self.名簿.resolve_one("鈴木"))
-        self.assertIsNone(self.名簿.resolve_one("鈴木さん"))
+        self.assertIsNone(self.名簿.resolve_one("架空"))
+        self.assertIsNone(self.名簿.resolve_one("架空さん"))
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
     def test_フルネームで指定すれば同姓でも解決すること(self):
-        self.assertEqual(self.名簿.resolve_one("鈴木 一郎"), "ichiro@example.com")
+        self.assertEqual(self.名簿.resolve_one("架空 一郎"), "ichiro@example.com")
 
 
 class 複数該当時の候補の提示(unittest.TestCase):
@@ -173,9 +173,9 @@ class 複数該当時の候補の提示(unittest.TestCase):
             _名簿を書く(
                 self._tmp.name,
                 [
-                    {"name": "鈴木 一郎", "email": "ichiro@example.com"},
-                    {"name": "鈴木 二郎", "email": "jiro@example.com"},
-                    {"name": "山崎　那旺", "email": "nao@example.com"},
+                    {"name": "架空 一郎", "email": "ichiro@example.com"},
+                    {"name": "架空 二郎", "email": "jiro@example.com"},
+                    {"name": "西園寺　彩", "email": "nao@example.com"},
                 ],
             )
         )
@@ -185,12 +185,12 @@ class 複数該当時の候補の提示(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
     def test_複数該当の名前について候補のフルネームとメールアドレスが返ること(self):
-        候補 = self.名簿.候補(" 鈴木さん ")
+        候補 = self.名簿.候補(" 架空さん ")
         self.assertEqual(
             候補,
             [
-                {"name": "鈴木 一郎", "email": "ichiro@example.com"},
-                {"name": "鈴木 二郎", "email": "jiro@example.com"},
+                {"name": "架空 一郎", "email": "ichiro@example.com"},
+                {"name": "架空 二郎", "email": "jiro@example.com"},
             ],
         )
 
@@ -200,14 +200,14 @@ class 複数該当時の候補の提示(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
     def test_一意に解決できる名前の候補は空であること(self):
-        self.assertEqual(self.名簿.候補("山崎"), [])
+        self.assertEqual(self.名簿.候補("西園寺"), [])
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
     def test_解決結果が未解決の名前ごとの候補を持つこと(self):
-        結果 = self.名簿.resolve(["山崎", "鈴木", "居ない人"])
+        結果 = self.名簿.resolve(["西園寺", "架空", "居ない人"])
         self.assertFalse(結果.ok)
-        self.assertEqual(結果.未解決, ["鈴木", "居ない人"])
-        self.assertEqual([c["name"] for c in 結果.候補一覧["鈴木"]], ["鈴木 一郎", "鈴木 二郎"])
+        self.assertEqual(結果.未解決, ["架空", "居ない人"])
+        self.assertEqual([c["name"] for c in 結果.候補一覧["架空"]], ["架空 一郎", "架空 二郎"])
         self.assertEqual(結果.候補一覧["居ない人"], [])
 
 

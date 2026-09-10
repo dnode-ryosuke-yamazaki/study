@@ -195,10 +195,15 @@ class 依頼の書き出し(unittest.TestCase):
         self.assertIn("「居ない人」は名簿に登録がありません", out)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
-    def test_姓だけの指定でも該当が1人なら依頼を書き出せること(self):
+    def test_姓だけの指定でも該当が1人なら名簿のフルネームで依頼を書き出すこと(self):
         code, out = self.e.run("submit", "--subject", "x", "--attendee", "A", "--attendee", "Bさん", "--duration", "30", "--request-id", "ID1")
         self.assertEqual(code, 0)
-        self.assertTrue(self.e.依頼("ID1").is_file())
+        依頼 = json.loads(self.e.依頼("ID1").read_text(encoding="utf-8"))
+        出席者 = [(a["emailAddress"]["name"], a["emailAddress"]["address"]) for a in 依頼["meeting"]["attendees"]]
+        # 打った文字列(A / Bさん)ではなく、名簿の登録名で招待する
+        self.assertEqual(sorted(出席者), [("A さん", A), ("B さん", B)])
+        # 送信前の確認提示にも名簿の登録名が出る(誤解決に気づけるようにするため)
+        self.assertIn("A さん, B さん", out)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#依頼内容の受け付け条件-7
     def test_受け付け条件を満たさない依頼は書き出さず項目を示すこと(self):
