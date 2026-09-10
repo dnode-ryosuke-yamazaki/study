@@ -174,6 +174,32 @@ class 依頼の書き出し(unittest.TestCase):
         self.assertIn("重複", out)
         self.assertFalse(self.e.依頼("ID1").exists())
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_複数人が該当する名前は候補のフルネームとメールアドレスを挙げて聞き返すこと(self):
+        code, out = self.e.run("submit", "--subject", "x", "--attendee", "重複", "--duration", "30", "--request-id", "ID1")
+        self.assertEqual(code, 2)
+        self.assertIn("「重複」は2人が該当します", out)
+        self.assertIn("重複 <x1@example.com>", out)
+        self.assertIn("重複 <x2@example.com>", out)
+        self.assertFalse(self.e.依頼("ID1").exists())
+        # 候補の氏名・メールアドレスはログファイルに残さない(design.md#セキュリティ)
+        ログ = self.e.設定.ログファイル.read_text(encoding="utf-8")
+        self.assertNotIn("x1@example.com", ログ)
+        self.assertNotIn("重複", ログ)
+        self.assertIn("複数該当=1件", ログ)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_名簿に登録が無い名前はその旨を伝えること(self):
+        code, out = self.e.run("submit", "--subject", "x", "--attendee", "居ない人", "--duration", "30", "--request-id", "ID1")
+        self.assertEqual(code, 2)
+        self.assertIn("「居ない人」は名簿に登録がありません", out)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_姓だけの指定でも該当が1人なら依頼を書き出せること(self):
+        code, out = self.e.run("submit", "--subject", "x", "--attendee", "A", "--attendee", "Bさん", "--duration", "30", "--request-id", "ID1")
+        self.assertEqual(code, 0)
+        self.assertTrue(self.e.依頼("ID1").is_file())
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#依頼内容の受け付け条件-7
     def test_受け付け条件を満たさない依頼は書き出さず項目を示すこと(self):
         code, out = self.e.submit(duration=3)

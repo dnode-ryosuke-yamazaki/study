@@ -112,5 +112,104 @@ class 名前の解決(unittest.TestCase):
         self.assertEqual(self.名簿.resolve_one("  山田 太郎 "), "taro@example.com")
 
 
+class 表記のゆれを吸収した照合(unittest.TestCase):
+    """数百人規模の名簿では、登録された表記どおりに打ち分けることを利用者に求められない。
+    姓名の区切り・敬称・姓だけ/名だけの指定を同じ人物への指定として扱う。
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.名簿 = roster.load(
+            _名簿を書く(
+                self._tmp.name,
+                [
+                    {"name": "山崎　那旺", "email": "nao@example.com"},  # 区切りは全角スペース
+                    {"name": "鈴木 一郎", "email": "ichiro@example.com"},
+                    {"name": "鈴木 二郎", "email": "jiro@example.com"},
+                    {"name": "Avinc, Sebastien", "email": "seb@example.com"},
+                ],
+            )
+        )
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_姓名の区切りが全角でも半角でも無くても同じ人物として解決すること(self):
+        for 打ち方 in ("山崎　那旺", "山崎 那旺", "山崎那旺"):
+            with self.subTest(打ち方=打ち方):
+                self.assertEqual(self.名簿.resolve_one(打ち方), "nao@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_敬称さんが付いていても解決すること(self):
+        self.assertEqual(self.名簿.resolve_one("山崎　那旺さん"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("山崎さん"), "nao@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_姓だけの指定でも該当が1人なら解決すること(self):
+        self.assertEqual(self.名簿.resolve_one("山崎"), "nao@example.com")
+        self.assertEqual(self.名簿.resolve_one("Avinc"), "seb@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_名だけの指定でも該当が1人なら解決すること(self):
+        self.assertEqual(self.名簿.resolve_one("那旺"), "nao@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2
+    def test_姓だけで複数人が該当する場合は解決しないこと(self):
+        self.assertIsNone(self.名簿.resolve_one("鈴木"))
+        self.assertIsNone(self.名簿.resolve_one("鈴木さん"))
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_フルネームで指定すれば同姓でも解決すること(self):
+        self.assertEqual(self.名簿.resolve_one("鈴木 一郎"), "ichiro@example.com")
+
+
+class 複数該当時の候補の提示(unittest.TestCase):
+    """誰を指定し直せばよいか分からないと、利用者が名簿を自分で開いて調べることになる。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.名簿 = roster.load(
+            _名簿を書く(
+                self._tmp.name,
+                [
+                    {"name": "鈴木 一郎", "email": "ichiro@example.com"},
+                    {"name": "鈴木 二郎", "email": "jiro@example.com"},
+                    {"name": "山崎　那旺", "email": "nao@example.com"},
+                ],
+            )
+        )
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_複数該当の名前について候補のフルネームとメールアドレスが返ること(self):
+        候補 = self.名簿.候補(" 鈴木さん ")
+        self.assertEqual(
+            候補,
+            [
+                {"name": "鈴木 一郎", "email": "ichiro@example.com"},
+                {"name": "鈴木 二郎", "email": "jiro@example.com"},
+            ],
+        )
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_登録が無い名前の候補は空であること(self):
+        self.assertEqual(self.名簿.候補("居ない人"), [])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_一意に解決できる名前の候補は空であること(self):
+        self.assertEqual(self.名簿.候補("山崎"), [])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_解決結果が未解決の名前ごとの候補を持つこと(self):
+        結果 = self.名簿.resolve(["山崎", "鈴木", "居ない人"])
+        self.assertFalse(結果.ok)
+        self.assertEqual(結果.未解決, ["鈴木", "居ない人"])
+        self.assertEqual([c["name"] for c in 結果.候補一覧["鈴木"]], ["鈴木 一郎", "鈴木 二郎"])
+        self.assertEqual(結果.候補一覧["居ない人"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
