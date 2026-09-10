@@ -238,9 +238,18 @@ def cmd_submit(args, env: 実行環境) -> int:
         return 2
     解決 = 名簿.resolve(args.attendee)
     if not 解決.ok:
-        logger.warning("名前の解決に失敗: %d件", len(解決.未解決))
+        複数該当 = [n for n in 解決.未解決 if 解決.候補一覧.get(n)]
+        # 候補の氏名・メールアドレスはチャットにだけ出す(design.md#セキュリティ)
+        logger.warning("名前の解決に失敗: %d件(うち複数該当=%d件)", len(解決.未解決), len(複数該当))
         env.出力("名簿で解決できない名前があるため依頼を送りません: " + ", ".join(解決.未解決))
-        env.出力("名簿に登録されている表記で指定し直してください(同じ名前が複数ある場合も解決できません)")
+        for 名前 in 解決.未解決:
+            候補 = 解決.候補一覧.get(名前) or []
+            if 候補:
+                env.出力(f"「{名前}」は{len(候補)}人が該当します。フルネームで指定し直してください:")
+                for c in 候補:
+                    env.出力(f"    {c['name']} <{c['email']}>")
+            else:
+                env.出力(f"「{名前}」は名簿に登録がありません。")
         return 2
 
     アジェンダ = args.agenda or ""
