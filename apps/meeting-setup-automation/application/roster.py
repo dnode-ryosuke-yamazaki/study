@@ -29,6 +29,8 @@ from typing import Dict, List, Optional, Tuple
 
 _敬称 = ("さん", "サン")
 _空白 = re.compile(r"[\s\u3000]+")
+#: 「姓, 名」形式の登録を空白区切りで打っても同じ名前として扱うため、照合キーから落とす
+_読点 = re.compile(r"[,、]")
 
 
 class 名簿エラー(Exception):
@@ -41,7 +43,7 @@ def _照合キー(名前: str) -> str:
     敬称はここでは外さない。名簿の登録名が敬称で終わる場合(「ハッサン」など)に、
     索引側で外すと別人と潰れてしまうため、外すのは問い合わせ側だけにする。
     """
-    return _空白.sub("", 名前.strip()).casefold()
+    return _読点.sub("", _空白.sub("", 名前.strip())).casefold()
 
 
 def _敬称を外した照合キー(名前: str) -> Optional[str]:
@@ -88,17 +90,23 @@ class 名簿:
     organizer_name: Optional[str] = None
 
     def _該当(self, 名前: str) -> List[dict]:
-        """フルネームでの一致を、姓だけ・名だけの一致より先に見る。
+        """打たれた文字列に該当する人を集める。打たれたとおりの照合を、敬称を外した照合より先に見る。
 
-        こうしないと、区切りの無い登録名(「田中」)が同姓の別人(「田中 太郎」)の
-        姓と潰れ、登録どおりに打っても解決できなくなる。
+        同じ照合キーではフルネームでの一致と姓・名での一致を**統合**して数える。
+        片方を優先して打ち切ると、区切りの無い登録名(「大西」)が同姓の別人
+        (「大西 潤哉」)を隠して1人に確定してしまい、同姓の別人を黙って招待する
+        (requirements.md#参加者の解決 [2])。
         """
-        キー = _照合キー(名前)
-        敬称なし = _敬称を外した照合キー(名前)
-        for 索引 in (self._フルネーム, self._姓名):
-            for k in (キー, 敬称なし):
-                if k and 索引.get(k):
-                    return 索引[k]
+        for キー in (_照合キー(名前), _敬称を外した照合キー(名前)):
+            if not キー:
+                continue
+            該当: List[dict] = []
+            for 索引 in (self._フルネーム, self._姓名):
+                for 人 in 索引.get(キー, []):
+                    if not any(x["email"].casefold() == 人["email"].casefold() for x in 該当):
+                        該当.append(人)
+            if 該当:
+                return 該当
         return []
 
     def resolve_one(self, 名前: str) -> Optional[str]:
@@ -126,9 +134,10 @@ class 名簿:
                 if 表示 not in 結果.候補一覧:
                     結果.未解決.append(表示)
                     結果.候補一覧[表示] = self.候補(名前)
-            else:
+            elif not any(x["email"].casefold() == 人["email"].casefold() for x in 結果.解決済み):
                 # 打たれた文字列ではなく名簿のフルネームを返す。姓だけ・敬称付きの指定を
-                # 許した以上、確認提示が入力の反響になっていると誤解決に気づけない
+                # 許した以上、確認提示が入力の反響になっていると誤解決に気づけない。
+                # 同じ人を姓だけとフルネームで二重に挙げても1人として扱う
                 結果.解決済み.append(人)
         return 結果
 

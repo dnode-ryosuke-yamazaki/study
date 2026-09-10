@@ -164,6 +164,86 @@ class 表記のゆれを吸収した照合(unittest.TestCase):
         self.assertEqual(self.名簿.resolve_one("架空 一郎"), "ichiro@example.com")
 
 
+class 照合を緩めても取り違えないこと(unittest.TestCase):
+    """照合を緩めた分、別人が1人に潰れる経路が増えていないことを固定する。"""
+
+    def _名簿(self, members):
+        return roster.load(_名簿を書く(self._tmp.name, members))
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-6
+    def test_区切りの無い登録名が同姓の別人を隠して解決されないこと(self):
+        名簿 = self._名簿(
+            [
+                {"name": "架空", "email": "one@example.com"},  # 区切りの無い1語の登録
+                {"name": "架空 一郎", "email": "ichiro@example.com"},
+            ]
+        )
+        self.assertIsNone(名簿.resolve_one("架空"))
+        self.assertEqual(
+            [c["email"] for c in 名簿.候補("架空")], ["one@example.com", "ichiro@example.com"]
+        )
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-6
+    def test_登録名が敬称で終わる人を登録どおりに指定できること(self):
+        名簿 = self._名簿([{"name": "ハッサン", "email": "hassan@example.com"}])
+        # 索引側で「さん」を外すと「ハッ」に潰れて登録どおり打っても解決できなくなる
+        self.assertEqual(名簿.resolve_one("ハッサン"), "hassan@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-6
+    def test_敬称で終わる登録名が別人の名と重なる場合は解決せず候補を示すこと(self):
+        名簿 = self._名簿(
+            [
+                {"name": "ハッサン", "email": "hassan@example.com"},
+                {"name": "アリ ハッサン", "email": "ali@example.com"},  # 名が「ハッサン」
+            ]
+        )
+        self.assertIsNone(名簿.resolve_one("ハッサン"))
+        self.assertEqual(
+            [c["email"] for c in 名簿.候補("ハッサン")], ["hassan@example.com", "ali@example.com"]
+        )
+        self.assertEqual(名簿.resolve_one("アリ"), "ali@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-4
+    def test_姓と名を読点で区切った登録名を空白区切りで打っても解決すること(self):
+        名簿 = self._名簿([{"name": "Dubois, Antoine", "email": "antoine@example.com"}])
+        for 打ち方 in ("Dubois, Antoine", "Dubois Antoine", "DuboisAntoine", "dubois antoine"):
+            with self.subTest(打ち方=打ち方):
+                self.assertEqual(名簿.resolve_one(打ち方), "antoine@example.com")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-2
+    def test_nameやemailが空白だけの行は名簿エラーになること(self):
+        for 行 in ({"name": "  ", "email": "a@example.com"}, {"name": "A", "email": "  "}):
+            with self.subTest(行=行):
+                with self.assertRaises(roster.名簿エラー) as cm:
+                    self._名簿([行])
+                self.assertIn("空白だけ", str(cm.exception))
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-7
+    def test_同じ人を姓だけとフルネームで挙げても出席者は1人になること(self):
+        名簿 = self._名簿([{"name": "架空 一郎", "email": "ichiro@example.com"}])
+        結果 = 名簿.resolve(["架空", "架空 一郎", "架空さん"])
+        self.assertTrue(結果.ok)
+        self.assertEqual(結果.解決済み, [{"name": "架空 一郎", "email": "ichiro@example.com"}])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
+    def test_同じ名前を複数回指定しても聞き返しが重複しないこと(self):
+        名簿 = self._名簿(
+            [
+                {"name": "架空 一郎", "email": "ichiro@example.com"},
+                {"name": "架空 二郎", "email": "jiro@example.com"},
+            ]
+        )
+        結果 = 名簿.resolve(["架空", "架空", "居ない人", "居ない人"])
+        self.assertEqual(結果.未解決, ["架空", "居ない人"])
+        self.assertEqual(len(結果.候補一覧["架空"]), 2)
+
+
 class 複数該当時の候補の提示(unittest.TestCase):
     """誰を指定し直せばよいか分からないと、利用者が名簿を自分で開いて調べることになる。"""
 
