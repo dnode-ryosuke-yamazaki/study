@@ -365,7 +365,6 @@ def _候補を処理(env: 実行環境, 依頼: dict, 候補内容: dict) -> int
 def _代替案を開始(env: 実行環境, 依頼: dict, 読み: candidates.候補の読み取り) -> int:
     設定値 = env.設定
     依頼id = 依頼["requestId"]
-    名簿 = _名簿を読む(env)
     条件 = candidates.絞り込み条件.依頼から(依頼)
     代替1 = request.代替案1を組み立てる(読み, 条件, 要求件数=int(依頼["search"]["maxCandidates"]))
     待ち対象: Dict[str, tuple] = {}
