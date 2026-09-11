@@ -13,7 +13,7 @@
 |---|---|
 | 実行環境 | macOS。Python 3.11以降(標準ライブラリのみ。追加ライブラリなし)。チャット(Claude Code)のセッションから `main.py` を呼ぶ |
 | 必要な権限 | OneDrive同期クライアントにサインイン済みであること。M365への認証はすべて同期クライアントとPower Automateのコネクタに委ねるため、このアプリは資格情報を一切持たない |
-| 前提となる稼働 | Power Automateフロー4本(探索・作成・予定詳細・会議設定通知)がオンで、下記の台帳フォルダを監視していること |
+| 前提となる稼働 | Power Automateフロー3本(探索・作成・会議設定通知)がオンで、下記の台帳フォルダを監視していること |
 | 実行場所 | `apps/meeting-setup-automation/application/` |
 
 **定期実行・無人実行の仕組みは持たない。** チャットからの明示起動のみで、launchdジョブは作らない。
@@ -38,7 +38,7 @@ MEETING_SETUP_LEDGER_ROOT=/tmp/ms-test/ledger MEETING_SETUP_NOTICE_DIR=/tmp/ms-t
 | `MEETING_SETUP_LEDGER_ROOT` | `~/Library/CloudStorage/OneDrive-.../00_root/auto/meetingSetting` | 台帳フォルダのルート |
 | `MEETING_SETUP_NOTICE_DIR` | `.../00_root/auto/teamsNotice/meetingSetting` | Teams通知の書き出し先 |
 | `MEETING_SETUP_WORK_DIR` | `~/Library/Application Support/meeting-setup-automation` | 名簿・設定・ログ |
-| `MEETING_SETUP_CANDIDATES_TIMEOUT_SEC` / `MEETING_SETUP_DETAIL_TIMEOUT_SEC` / `MEETING_SETUP_RESULT_TIMEOUT_SEC` | 300 | 候補・予定詳細・作成結果の待ち上限(秒)。3つは別々 |
+| `MEETING_SETUP_CANDIDATES_TIMEOUT_SEC` / `MEETING_SETUP_RESULT_TIMEOUT_SEC` | 300 | 候補・作成結果の待ち上限(秒)。2つは別々 |
 | `MEETING_SETUP_POLL_INTERVAL_SEC` | 5 | 到着確認の間隔(秒) |
 | `MEETING_SETUP_SYNC_GRACE_SEC` | 30 | 選択画面を書いた後にOneDrive同期を待つ猶予(秒) |
 | `MEETING_SETUP_WEB_VIEWER` / `MEETING_SETUP_WEB_DIR` | (settings.json) | ビューアURLとサーバー相対パスの上書き |
@@ -54,8 +54,6 @@ auto/
 ├── meetingSetting/
 │   ├── request/         # 依頼(Skillが書く → 探索フローが読む)
 │   ├── candidates/      # 候補(探索フローが書く → Skillが読む)
-│   ├── detailRequest/   # 予定詳細の依頼(Skillが書く → 予定詳細フローが読む)
-│   ├── detail/          # 予定詳細(予定詳細フローが書く → Skillが読む。選択後にSkillが削除)
 │   ├── selection/       # 選択結果(Skillが書く → 作成フローが読む)
 │   ├── result/          # 作成結果(作成フローが書く → Skillが読む)
 │   └── html/            # 候補選択画面(Skillが書く → ブラウザで開く)
@@ -70,7 +68,7 @@ auto/
 [application/roster.example.json](application/roster.example.json) を写して `~/Library/Application Support/meeting-setup-automation/roster.json` を作る。**氏名とメールアドレスの対応表は個人情報なので、リポジトリには置かない**(`.gitignore` で守る形にすると書き忘れ1つでコミットされるため、リポジトリの外に置く)。
 
 - `members`: 参加者として指定できる人。`name` は依頼時にチャットで使う表記そのもの。**同じ名前が2人いると解決できない**(黙ってどちらかを選ばない)ので、区別できる表記にする
-- `organizer`(任意): 自分。候補が0件のときの代替案1で、自分の仮の予定の件名を取りに行くために使う。無くても動く(その場合は「ご自身のカレンダーを確認してください」と示す)
+- `organizer`(任意): 自分。候補が0件のときの代替案1で、自分に仮の予定があることを名前つきで示すために使う。無くても動く(その場合は「開催者(あなた)」と示す)
 
 ### 3. ビューアURLの設定値を置く
 
@@ -86,7 +84,7 @@ auto/
 
 ### 4. Power Automateフローを作る
 
-[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・作成フロー・予定詳細フロー・会議設定通知フローの4本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。
+[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・作成フロー・会議設定通知フローの3本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。
 
 ### 5. Teams通知の投稿先を登録する
 
@@ -105,14 +103,14 @@ auto/
 
 進捗と結果は標準出力に出る(チャットへそのまま貼れる)。ログは標準エラーと `~/Library/Application Support/meeting-setup-automation/meeting-setup.log`(5世代ローテーション)に出る。ログにはメールアドレス・アジェンダ・参加URL・会議本文・他人の予定の件名を出さない。
 
-## 候補が0件のときの代替案と、仮の予定の件名が出る条件
+## 候補が0件のときの代替案
 
 既定の条件(当日から2週間・9:30〜17:30・月〜金・全員空き)で候補が0件のとき、確認を挟まず2つの代替案を調べて1枚の選択画面にまとめる。
 
-- **代替案1(仮の予定を含める)**: 同じ候補ファイルを、仮の予定が入っている参加者を空いているものとみなして絞り直す(探索の依頼は出し直さない)。枠ごとに、仮の予定を持つ参加者と予定の件名を添える
+- **代替案1(仮の予定を含める)**: 同じ候補ファイルを、仮の予定が入っている参加者を空いているものとみなして絞り直す(探索の依頼は出し直さない)。枠ごとに、仮の予定を持つ参加者(開催者自身を含む)を添える
 - **代替案2(期間と時間帯を広げる)**: 期間を当日から3週間、時間帯を9:30〜18:30に広げた依頼を出し直す。依頼時に期間・時間帯を明示的に指定していた項目は広げない。両方指定されていれば代替案2は作らない
 
-**代替案1で件名が出るのは、その参加者がカレンダーを共有していて、開催者(自分)のカレンダー一覧に入っている場合だけ。** 入っていなければ「件名を取得できません(カレンダーが共有されていない)」と表示されるが、候補の提示自体は動く。いま一覧に何が入っているかは、Power Automateで「カレンダーの取得 (V2)」を1回テスト実行すれば確認できる。繰り返し予定と非公開の予定も件名は出ない。予定詳細ファイル(他人の予定の件名を含む)は、選択結果を書き出した時点で削除する。
+**予定の件名は扱わない。** 代替案1で示すのは「誰に仮の予定があるか」までで、その人に重ねてよいかは直接確認して判断する(理由は[requirements.md#スコープ外](specs/meeting-scheduling/requirements.md#スコープ外))。
 
 代替案の依頼は既定の依頼の直後に続くため、フォルダ監視トリガーの検知間隔が絞られて往復が伸び、待ち上限(5分)で打ち切られることがある。打ち切られても台帳は残るので、`resume <依頼ID>` で続きから再開できる。
 
@@ -124,7 +122,6 @@ auto/
 | 候補が届くが失敗理由が入っている | `candidates/candidates-<依頼ID>-a1.json` の `error` と探索フローの実行履歴 |
 | 会議が作られない | `selection/` に選択結果があり `result/` に無い → 作成フローの実行履歴 |
 | 作成結果に失敗理由が入っている | `result/result-<依頼ID>.json` の `error`。**再試行の前にTeamsのカレンダーでその枠に会議が既に無いか確かめる**(作成後の処理で失敗した場合は会議だけが残っている) |
-| 仮の予定の件名が出ない | `detailRequest/` に依頼があり `detail/` に無い → 予定詳細フローの実行履歴。カレンダー共有の有無 |
 | Teamsに通知が来ない | `teamsNotice/meetingSetting/` にファイルが残っている → 会議設定通知フローがオフか監視先違い。消えている → 投稿先チャネルの指定 |
 | 選択画面のURLが開けない | 同期の完了を数十秒待って再読込。`settings.json` のビューア設定 |
 

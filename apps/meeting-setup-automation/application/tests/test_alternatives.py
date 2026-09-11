@@ -87,7 +87,7 @@ class 代替案1の絞り直し(unittest.TestCase):
         読み = self._読み([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative"))])
         結果 = request.代替案1を組み立てる(読み, candidates.絞り込み条件.依頼から(_依頼()), 要求件数=50)
         self.assertEqual(len(結果.採用), 1)
-        self.assertEqual(結果.件名を取りに行く対象, ["p1@example.com"])
+        self.assertEqual(結果.採用[0].仮の参加者, ["p1@example.com"])
         self.assertFalse(結果.打ち切りの可能性)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-7
@@ -99,13 +99,13 @@ class 代替案1の絞り直し(unittest.TestCase):
         結果2 = request.代替案1を組み立てる(self._読み(枠一覧), candidates.絞り込み条件.依頼から(_依頼()), 要求件数=50)
         self.assertFalse(結果2.打ち切りの可能性)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2
-    def test_開催者が仮の枠では開催者のメールアドレスが分かる場合だけ件名を取りに行く対象に含めること(self):
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-3
+    def test_開催者が仮の枠も代替案1の候補として採用すること(self):
         読み = self._読み([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="tentative")])
         条件 = candidates.絞り込み条件.依頼から(_依頼())
-        self.assertEqual(request.代替案1を組み立てる(読み, 条件, 要求件数=50).件名を取りに行く対象, [])
-        結果 = request.代替案1を組み立てる(読み, 条件, 要求件数=50, 開催者メール="me@example.com")
-        self.assertEqual(結果.件名を取りに行く対象, ["me@example.com"])
+        結果 = request.代替案1を組み立てる(読み, 条件, 要求件数=50)
+        self.assertEqual(len(結果.採用), 1)
+        self.assertTrue(結果.採用[0].開催者が仮)
 
 
 class 試した条件の報告(unittest.TestCase):

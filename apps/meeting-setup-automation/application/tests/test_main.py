@@ -1,7 +1,7 @@
 """コマンドの入口と台帳フォルダの取り扱いの通し確認(tasks.md 18・19)のテスト。
 
 一時ディレクトリを台帳のルートに差し替え、`main.py` のサブコマンド経由で依頼の書き出しから
-完了の通知までを通す。フローが書くファイル(候補・予定詳細・作成結果)はテストが待ちの途中で
+完了の通知までを通す。フローが書くファイル(候補・作成結果)はテストが待ちの途中で
 置く。時計は偽物で、待ち関数が呼ばれるたびに進める(実時間を使わない)。
 """
 
@@ -66,7 +66,6 @@ class 通し環境:
                 config.同期猶予環境変数: "0",
                 config.確認間隔環境変数: "5",
                 config.候補待ち上限環境変数: "30",
-                config.予定詳細待ち上限環境変数: "30",
                 config.作成結果待ち上限環境変数: "30",
             }
         )
@@ -421,30 +420,15 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
             _空き枠(datetime(2026, 9, 10, 13, 0, tzinfo=JST), 開催者="tentative"),
             _空き枠(datetime(2026, 9, 10, 15, 0, tzinfo=JST), 出席者=("busy", "free")),
         ]
-        self.詳細 = {
-            "requestId": "ID1", "error": "",
-            "attendees": [
-                {"address": B, "calendarFound": True, "events": [self._予定(datetime(2026, 9, 10, 10, 0, tzinfo=JST), "顧客MTG")]},
-                {"address": ME, "calendarFound": True, "events": [self._予定(datetime(2026, 9, 10, 13, 0, tzinfo=JST), "自分の仮予定")]},
-            ],
-        }
         self.代替2枠 = [_空き枠(datetime(2026, 9, 25, 17, 30, tzinfo=JST))]  # 広げた時間帯・期間にだけある枠
 
     def tearDown(self):
         self.e.close()
 
-    @staticmethod
-    def _予定(開始, 件名):
-        u = lambda d: d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.0000000")
-        return {"subject": 件名, "showAs": "tentative", "sensitivity": "normal",
-                "start": {"dateTime": u(開始), "timeZone": "UTC"}, "end": {"dateTime": u(開始 + timedelta(hours=1)), "timeZone": "UTC"}}
-
-    def _代替案を提示させる(self, 詳細到着=True, 代替2到着=True, 代替2内容=None):
+    def _代替案を提示させる(self, 代替2到着=True, 代替2内容=None):
         self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
-        if 詳細到着:
-            self.e.到着させる(2, ledger.予定詳細ファイル(self.e.設定, "ID1"), self.詳細)
         if 代替2到着:
-            self.e.到着させる(3, self.e.候補("ID1", 2), 代替2内容 if 代替2内容 is not None else _候補ファイル(self.代替2枠, 試行=2))
+            self.e.到着させる(2, self.e.候補("ID1", 2), 代替2内容 if 代替2内容 is not None else _候補ファイル(self.代替2枠, 試行=2))
         return self.e.run("resume", "ID1")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-7、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-5
@@ -452,9 +436,7 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         code, out = self._代替案を提示させる()
         self.assertEqual(code, 0)
         self.assertIn("確認を挟まず", out)
-        # 代替案1は依頼を出し直さず、予定詳細の依頼と代替案2(試行2)の依頼が書かれる
-        詳細依頼 = json.loads(ledger.予定詳細依頼ファイル(self.e.設定, "ID1").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(詳細依頼["attendees"]), sorted([B, ME]))
+        # 代替案1は依頼を出し直さず、代替案2(試行2)の依頼だけが書かれる
         代替2依頼 = json.loads(self.e.依頼("ID1", 2).read_text(encoding="utf-8"))
         self.assertEqual(代替2依頼["filter"]["timeWindowEnd"], "18:30")
         self.assertEqual(代替2依頼["search"]["end"][:10], "2026-09-30")
@@ -462,22 +444,21 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         html, p = self.e.画面("ID1")
         self.assertEqual(p.見出し, [main.見出し_代替案1, main.見出し_代替案2])
         self.assertEqual([r["data-attempt"] for r in p.ラジオ], ["1", "1", "2"])
-        self.assertIn("B さん: 顧客MTG", html)
-        self.assertIn("私(開催者): 自分の仮予定", html)
+        self.assertIn("B さん", html)
+        self.assertIn("私(開催者)", html)
+        self.assertNotIn("顧客MTG", html)  # 予定の件名は扱わない
         self.assertIn("既定の条件では候補が0件", out)
-        self.assertIn("B さん: 顧客MTG", out)
+        self.assertIn("仮の予定あり", out)
         self.assertIn("18:30", out)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2、apps/meeting-setup-automation/specs/meeting-scheduling/design.md#セキュリティ
-    def test_代替案1の枠を貼った選択結果が突き合わせを通り予定詳細ファイルが削除されること(self):
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2
+    def test_代替案1の枠を貼った選択結果が突き合わせを通ること(self):
         self._代替案を提示させる()
         _, p = self.e.画面("ID1")
         self.e.到着させる(1, self.e.作成結果("ID1"), _作成結果(""))
         code, out = self.e.run("select", _選択行(p.ラジオ[0]))  # 代替案1(試行1)の枠
         self.assertEqual(code, 0)
         self.assertIn("Teams会議を作成しました", out)
-        self.assertFalse(ledger.予定詳細ファイル(self.e.設定, "ID1").exists())
-        self.assertTrue(ledger.予定詳細依頼ファイル(self.e.設定, "ID1").exists())  # 依頼側の台帳は残す
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#依頼ファイルの区分
     def test_候補ファイルに試行番号が書かれていなくても読んだファイルの試行番号で扱うこと(self):
@@ -490,18 +471,6 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         code, out = self.e.run("select", _選択行(p.ラジオ[2]))
         self.assertEqual(code, 0)
         self.assertIn("Teams会議を作成しました", out)
-
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#ログ
-    def test_予定詳細の取得ログに対象の人数と件名を取得できた件数が残ること(self):
-        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
-        self.e.到着させる(2, ledger.予定詳細ファイル(self.e.設定, "ID1"), self.詳細)
-        self.e.到着させる(3, self.e.候補("ID1", 2), _候補ファイル(self.代替2枠, 試行=2))
-        with self.assertLogs(main.logger, level="INFO") as 記録:
-            self.e.run("resume", "ID1")
-        行 = [r for r in 記録.output if "予定詳細の取得" in r]
-        self.assertTrue(行)
-        self.assertIn("対象=2人", 行[0])
-        self.assertIn("件名取得=2人", 行[0])
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#19-台帳フォルダの取り扱いの通し確認結合テスト
     def test_代替案2の枠を貼った場合も突き合わせが通ること(self):
@@ -524,21 +493,22 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#19-台帳フォルダの取り扱いの通し確認結合テスト
     def test_代替案2の依頼を書いた直後の再開は依頼済みではなく代替案の提示中として扱われること(self):
-        code, out = self._代替案を提示させる(詳細到着=False, 代替2到着=False)
+        code, out = self._代替案を提示させる(代替2到着=False)
         self.assertIn("打ち切り", out)
         self.assertEqual(progress.判定(self.e.設定, "ID1").状態, progress.代替案の提示中)
         code, out = self.e.run("resume", "ID1")
         self.assertIn("代替案の提示中", out)
         self.assertNotIn("状態: 依頼済み", out)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち合わせ-5
-    def test_予定詳細だけが届かなかった場合も代替案1の枠を件名なしで並べたうえで打ち切りを伝えること(self):
-        code, out = self._代替案を提示させる(詳細到着=False)
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-3
+    def test_代替案1の枠に仮の予定を持つ参加者が開催者を含めて示されること(self):
+        code, out = self._代替案を提示させる()
         self.assertEqual(code, 0)
         html, p = self.e.画面("ID1")
         self.assertEqual(len(p.ラジオ), 3)
-        self.assertIn("件名を取得できません", html)
-        self.assertIn("予定詳細)は待ち上限内に届かなかった", out)
+        self.assertIn("仮の予定あり", html)
+        self.assertIn("B さん", html)          # 出席者の仮の予定
+        self.assertIn("私(開催者)", html)     # 開催者自身の仮の予定
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち合わせ-5、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-3
     def test_代替案2の候補が届かなくても代替案1の枠を提示し台帳が残って再開で続けられること(self):
@@ -560,7 +530,6 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         _, p = self.e.画面("ID1")
         code, out = self.e.run("select", _選択行(p.ラジオ[0]))  # 作成結果は来ない → 打ち切り
         self.assertIn("打ち切りました", out)
-        self.assertFalse(ledger.予定詳細ファイル(self.e.設定, "ID1").exists())
         code, out = self.e.run("resume", "ID1")
         self.assertIn("選択済み", out)
         self.assertNotIn("代替案2の候補の到着を待っています", out)
@@ -573,13 +542,38 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         self.assertEqual(len(p.ラジオ), 2)
         self.assertIn("Connector failed", out)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-2
+    def test_代替案2の候補の待ちに候補の待ち上限が適用されること(self):
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        code, out = self.e.run("resume", "ID1")  # 代替案2の候補は来ない → 上限で打ち切り
+        self.assertEqual(code, 0)
+        # 上限30秒・間隔5秒なので、経過が30秒に達した時点で打ち切られる
+        進捗 = [行 for 行 in out.splitlines() if "代替案2の候補の到着を待っています" in 行]
+        self.assertTrue(進捗)
+        self.assertIn("上限30秒", 進捗[0])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-8
+    def test_代替案2を作らない依頼を再開しても同じ選択画面に至ること(self):
+        self.e.close()
+        self.e = 通し環境()
+        self.e.submit(start_date="2026-09-09", end_date="2026-09-12", time_start="09:30", time_end="17:30")
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        code, _初回 = self.e.run("resume", "ID1")
+        self.assertEqual(code, 0)
+        _, p1 = self.e.画面("ID1")
+        code, 再開出力 = self.e.run("resume", "ID1")  # 代替案の台帳が増えないので既定の絞り込みからやり直す
+        self.assertEqual(code, 0)
+        _, p2 = self.e.画面("ID1")
+        self.assertEqual([r["data-start"] for r in p1.ラジオ], [r["data-start"] for r in p2.ラジオ])
+        self.assertEqual(p1.見出し, p2.見出し)
+        self.assertIn("代替案2は作りませんでした", 再開出力)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-4
     def test_期間と時間帯の両方を指定した依頼では代替案2が作られないこと(self):
         self.e.close()
         self.e = 通し環境()
         self.e.submit(start_date="2026-09-09", end_date="2026-09-12", time_start="09:30", time_end="17:30")
         self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
-        self.e.到着させる(2, ledger.予定詳細ファイル(self.e.設定, "ID1"), self.詳細)
         code, out = self.e.run("resume", "ID1")
         self.assertEqual(code, 0)
         self.assertFalse(self.e.依頼("ID1", 2).exists())
@@ -598,7 +592,6 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         self.assertIn("代替案2:", out)
         self.assertIn("submit", out)
         self.assertFalse(ledger.選択画面ファイル(self.e.設定, "ID1").exists())
-        self.assertFalse(ledger.予定詳細依頼ファイル(self.e.設定, "ID1").exists())  # 件名を取りに行く対象が無い
         self.assertEqual(len(list(self.e.設定.依頼フォルダ.iterdir())), 2)  # 試行3以降は作らない
         # 再開しても同じ結論に至る
         code, out = self.e.run("resume", "ID1")

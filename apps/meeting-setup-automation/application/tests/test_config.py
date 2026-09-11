@@ -23,12 +23,10 @@ class 台帳と通知と作業のフォルダ(unittest.TestCase):
         self.設定 = config.load(environ={})
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
-    def test_台帳の7種類のフォルダが台帳ルートの直下に用途別に分かれていること(self):
+    def test_台帳の5種類のフォルダが台帳ルートの直下に用途別に分かれていること(self):
         root = self.設定.台帳ルート
         self.assertEqual(self.設定.依頼フォルダ, root / "request")
         self.assertEqual(self.設定.候補フォルダ, root / "candidates")
-        self.assertEqual(self.設定.予定詳細依頼フォルダ, root / "detailRequest")
-        self.assertEqual(self.設定.予定詳細フォルダ, root / "detail")
         self.assertEqual(self.設定.選択結果フォルダ, root / "selection")
         self.assertEqual(self.設定.作成結果フォルダ, root / "result")
         self.assertEqual(self.設定.htmlフォルダ, root / "html")
@@ -78,22 +76,19 @@ class 待ち時間の上限と間隔(unittest.TestCase):
         self.設定 = config.load(environ={})
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-1
-    def test_候補と予定詳細と作成結果の待ち上限の既定がいずれも5分であること(self):
+    def test_候補と作成結果の待ち上限の既定がいずれも5分であること(self):
         self.assertEqual(self.設定.候補待ち上限秒, 300)
-        self.assertEqual(self.設定.予定詳細待ち上限秒, 300)
         self.assertEqual(self.設定.作成結果待ち上限秒, 300)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-2
-    def test_3つの待ち上限を環境変数で別々に上書きできること(self):
+    def test_2つの待ち上限を環境変数で別々に上書きできること(self):
         設定 = config.load(
             environ={
                 config.候補待ち上限環境変数: "10",
-                config.予定詳細待ち上限環境変数: "20",
                 config.作成結果待ち上限環境変数: "30",
             }
         )
         self.assertEqual(設定.候補待ち上限秒, 10)
-        self.assertEqual(設定.予定詳細待ち上限秒, 20)
         self.assertEqual(設定.作成結果待ち上限秒, 30)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#往復の待ち合わせと打ち切り

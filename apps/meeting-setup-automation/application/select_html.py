@@ -32,7 +32,7 @@ _テンプレート = Path(__file__).parent / "templates" / "select.html"
 @dataclass
 class カード:
     枠: 枠
-    #: 代替案1の枠にだけ入る「参加者名: 件名(または取得できない旨)」の一覧
+    #: 代替案1の枠にだけ入る「仮の予定あり: <参加者名>」の行
     仮の予定: List[str] = field(default_factory=list)
 
 

@@ -2,7 +2,7 @@
 
 依頼の進行状態は専用の状態ファイルではなく、その依頼IDを含む台帳ファイルの有無と中身から導く。
 design.mdの状態管理の表を上から順に当てはめ、最初に一致した行を状態にする。順序を守らないと
-選択後に削除される予定詳細ファイルを待ち続ける・代替案2の依頼を書いた直後に「依頼済み」へ
+代替案2の依頼を書いた直後に「依頼済み」へ
 戻るといった取り違えが起きるため、その順序を検証する。
 """
 
@@ -50,45 +50,23 @@ class 進行状態の判定(unittest.TestCase):
         self.assertEqual(self._判定().状態, progress.候補到着)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-8
-    def test_代替案の台帳があり対応する結果が揃っていなければ代替案の提示中であること(self):
+    def test_代替案2の依頼があり候補が届いていなければ代替案の提示中であること(self):
         self._置く(ledger.依頼ファイル(self.設定, self.id, 1))
         self._置く(ledger.候補ファイル(self.設定, self.id, 1))
-        self._置く(ledger.予定詳細依頼ファイル(self.設定, self.id))
         self._置く(ledger.依頼ファイル(self.設定, self.id, 2))
         状態 = self._判定()
         self.assertEqual(状態.状態, progress.代替案の提示中)
-        self.assertTrue(状態.予定詳細を待つ)
-        self.assertTrue(状態.代替案2の候補を待つ)
-        # 片方が届いてもまだ提示中
-        self._置く(ledger.予定詳細ファイル(self.設定, self.id))
-        状態 = self._判定()
-        self.assertEqual(状態.状態, progress.代替案の提示中)
-        self.assertFalse(状態.予定詳細を待つ)
         self.assertTrue(状態.代替案2の候補を待つ)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#状態管理
-    def test_代替案の台帳に対応する結果がすべて揃えば代替案の提示済みであること(self):
+    def test_代替案2の候補が届けば代替案の提示済みであること(self):
         self._置く(ledger.依頼ファイル(self.設定, self.id, 1))
         self._置く(ledger.候補ファイル(self.設定, self.id, 1))
-        self._置く(ledger.予定詳細依頼ファイル(self.設定, self.id))
-        self._置く(ledger.予定詳細ファイル(self.設定, self.id))
         self._置く(ledger.依頼ファイル(self.設定, self.id, 2))
         self._置く(ledger.候補ファイル(self.設定, self.id, 2))
         状態 = self._判定()
         self.assertEqual(状態.状態, progress.代替案の提示済み)
-        self.assertTrue(状態.予定詳細の依頼あり)
         self.assertTrue(状態.代替案2の依頼あり)
-
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#状態管理
-    def test_予定詳細の依頼だけを書いた場合はその結果だけで提示済みになること(self):
-        self._置く(ledger.依頼ファイル(self.設定, self.id, 1))
-        self._置く(ledger.候補ファイル(self.設定, self.id, 1))
-        self._置く(ledger.予定詳細依頼ファイル(self.設定, self.id))
-        self.assertEqual(self._判定().状態, progress.代替案の提示中)
-        self._置く(ledger.予定詳細ファイル(self.設定, self.id))
-        状態 = self._判定()
-        self.assertEqual(状態.状態, progress.代替案の提示済み)
-        self.assertFalse(状態.代替案2の依頼あり)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#6-進行状態の判定progresspy
     def test_代替案2の依頼を書いた直後でも依頼済みへ戻らないこと(self):
@@ -103,7 +81,6 @@ class 進行状態の判定(unittest.TestCase):
     def test_選択結果があれば代替案の台帳が揃っていなくても選択済みであること(self):
         self._置く(ledger.依頼ファイル(self.設定, self.id, 1))
         self._置く(ledger.候補ファイル(self.設定, self.id, 1))
-        self._置く(ledger.予定詳細依頼ファイル(self.設定, self.id))  # 予定詳細は選択後に削除済み
         self._置く(ledger.依頼ファイル(self.設定, self.id, 2))  # 代替案2の候補は届いていない
         self._置く(ledger.選択結果ファイル(self.設定, self.id, 0))
         状態 = self._判定()

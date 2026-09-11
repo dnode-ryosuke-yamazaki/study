@@ -104,7 +104,7 @@ class 到着待ち(unittest.TestCase):
 
 
 class 複数の到着待ち(unittest.TestCase):
-    """代替案の予定詳細と代替案2の候補のように、2つの待ちを同時に行い、それぞれに上限を適用する。"""
+    """複数の待ちを同時に行い、それぞれに別々の上限を適用する(wait_for自体は汎用)。"""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -125,31 +125,31 @@ class 複数の到着待ち(unittest.TestCase):
                 self.a.write_text('{"requestId": "X"}', encoding="utf-8")
 
         結果 = wait_for.wait_for_all(
-            {"予定詳細": (self.a, 10), "代替案2の候補": (self.b, 10)},
+            {"待ちA": (self.a, 10), "待ちB": (self.b, 10)},
             間隔秒=5, 進捗=lambda s: None, 時計=self.時計.time, 待つ=self.時計.sleep, 確認前=確認前,
         )
-        self.assertTrue(結果["予定詳細"].到着)
-        self.assertTrue(結果["代替案2の候補"].打ち切り)
+        self.assertTrue(結果["待ちA"].到着)
+        self.assertTrue(結果["待ちB"].打ち切り)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-2
     def test_待ちごとに別々の上限が適用されること(self):
         結果 = wait_for.wait_for_all(
-            {"予定詳細": (self.a, 5), "代替案2の候補": (self.b, 15)},
+            {"待ちA": (self.a, 5), "待ちB": (self.b, 15)},
             間隔秒=5, 進捗=lambda s: None, 時計=self.時計.time, 待つ=self.時計.sleep,
         )
-        self.assertTrue(結果["予定詳細"].打ち切り)
-        self.assertTrue(結果["代替案2の候補"].打ち切り)
-        self.assertLess(結果["予定詳細"].経過秒, 結果["代替案2の候補"].経過秒)
+        self.assertTrue(結果["待ちA"].打ち切り)
+        self.assertTrue(結果["待ちB"].打ち切り)
+        self.assertLess(結果["待ちA"].経過秒, 結果["待ちB"].経過秒)
 
     def test_両方が届けば両方の内容が返ること(self):
         self.a.write_text('{"a": 1}', encoding="utf-8")
         self.b.write_text('{"b": 2}', encoding="utf-8")
         結果 = wait_for.wait_for_all(
-            {"予定詳細": (self.a, 5), "代替案2の候補": (self.b, 5)},
+            {"待ちA": (self.a, 5), "待ちB": (self.b, 5)},
             間隔秒=5, 進捗=lambda s: None, 時計=self.時計.time, 待つ=self.時計.sleep,
         )
-        self.assertEqual(結果["予定詳細"].内容, {"a": 1})
-        self.assertEqual(結果["代替案2の候補"].内容, {"b": 2})
+        self.assertEqual(結果["待ちA"].内容, {"a": 1})
+        self.assertEqual(結果["待ちB"].内容, {"b": 2})
         self.assertEqual(self.時計.待った秒, [])
 
 
