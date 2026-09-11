@@ -1,6 +1,6 @@
 """台帳ファイルの名前と置き場所(design.md データ設計)のテスト。
 
-依頼・候補・選択結果・作成結果・予定詳細・選択画面は、依頼IDを唯一の共有点として
+依頼・候補・選択結果・作成結果・選択画面は、依頼IDを唯一の共有点として
 対応付ける。名前の決め方がSkillとフローで食い違うと、Skillは現れないファイルを
 待ち上限まで待つことになるため、名前の形をここで固定する。
 """
@@ -44,12 +44,7 @@ class 台帳ファイルの名前(unittest.TestCase):
         self.assertEqual(ledger.作成結果ファイル(self.設定, "X", 1), Path("/ledger/result/result-X-r1.json"))
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#データ設計台帳ファイル
-    def test_予定詳細の依頼と予定詳細と選択画面の名前(self):
-        self.assertEqual(
-            ledger.予定詳細依頼ファイル(self.設定, "X"),
-            Path("/ledger/detailRequest/detail-request-X.json"),
-        )
-        self.assertEqual(ledger.予定詳細ファイル(self.設定, "X"), Path("/ledger/detail/detail-X.json"))
+    def test_選択画面の名前(self):
         self.assertEqual(ledger.選択画面ファイル(self.設定, "X"), Path("/ledger/html/select-X.html"))
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#power-automateフローの役割
@@ -58,13 +53,11 @@ class 台帳ファイルの名前(unittest.TestCase):
         self.assertEqual(依頼.replace("request-", "candidates-"), ledger.候補ファイル(self.設定, "X", 1).name)
         選択 = ledger.選択結果ファイル(self.設定, "X", 1).name
         self.assertEqual(選択.replace("selection-", "result-"), ledger.作成結果ファイル(self.設定, "X", 1).name)
-        詳細依頼 = ledger.予定詳細依頼ファイル(self.設定, "X").name
-        self.assertEqual(詳細依頼.replace("detail-request-", "detail-"), ledger.予定詳細ファイル(self.設定, "X").name)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
     def test_Skillが書くフォルダとフローが書くフォルダが重ならないこと(self):
-        skill側 = {self.設定.依頼フォルダ, self.設定.選択結果フォルダ, self.設定.予定詳細依頼フォルダ, self.設定.htmlフォルダ}
-        フロー側 = {self.設定.候補フォルダ, self.設定.作成結果フォルダ, self.設定.予定詳細フォルダ}
+        skill側 = {self.設定.依頼フォルダ, self.設定.選択結果フォルダ, self.設定.htmlフォルダ}
+        フロー側 = {self.設定.候補フォルダ, self.設定.作成結果フォルダ}
         self.assertFalse(skill側 & フロー側)
 
 

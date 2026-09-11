@@ -21,7 +21,6 @@ from typing import Mapping, Optional
 通知フォルダ環境変数 = "MEETING_SETUP_NOTICE_DIR"
 作業フォルダ環境変数 = "MEETING_SETUP_WORK_DIR"
 候補待ち上限環境変数 = "MEETING_SETUP_CANDIDATES_TIMEOUT_SEC"
-予定詳細待ち上限環境変数 = "MEETING_SETUP_DETAIL_TIMEOUT_SEC"
 作成結果待ち上限環境変数 = "MEETING_SETUP_RESULT_TIMEOUT_SEC"
 確認間隔環境変数 = "MEETING_SETUP_POLL_INTERVAL_SEC"
 同期猶予環境変数 = "MEETING_SETUP_SYNC_GRACE_SEC"
@@ -53,7 +52,6 @@ class 設定:
     #: 3つの待ちの上限は別々に持つ(実測の結果、別の値になりうるため)。
     #: 仕様: requirements.md#往復の待ち時間の上限 [1][2]
     候補待ち上限秒: int
-    予定詳細待ち上限秒: int
     作成結果待ち上限秒: int
     確認間隔秒: int
     同期猶予秒: int
@@ -91,14 +89,6 @@ class 設定:
     @property
     def 候補フォルダ(self) -> Path:
         return self.台帳ルート / "candidates"
-
-    @property
-    def 予定詳細依頼フォルダ(self) -> Path:
-        return self.台帳ルート / "detailRequest"
-
-    @property
-    def 予定詳細フォルダ(self) -> Path:
-        return self.台帳ルート / "detail"
 
     @property
     def 選択結果フォルダ(self) -> Path:
@@ -163,7 +153,6 @@ def load(environ: Optional[Mapping[str, str]] = None) -> 設定:
         通知フォルダ=Path(env.get(通知フォルダ環境変数) or 既定の通知フォルダ),
         作業フォルダ=作業フォルダ,
         候補待ち上限秒=_整数(env, 候補待ち上限環境変数, 300),
-        予定詳細待ち上限秒=_整数(env, 予定詳細待ち上限環境変数, 300),
         作成結果待ち上限秒=_整数(env, 作成結果待ち上限環境変数, 300),
         # 0以下だと待ちが休みなく回り続けるため下限を置く(design.md#往復の待ち合わせと打ち切り)
         確認間隔秒=_整数(env, 確認間隔環境変数, 5, 下限=1),
