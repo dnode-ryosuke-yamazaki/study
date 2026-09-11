@@ -1,6 +1,6 @@
 # Skill一覧と遷移図
 
-このプロジェクトの開発工程は**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/`。/autopilot・/retrospective・/scan-sandbox-sessionsを含む)で行い、このリポジトリの `.claude/skills/` には**study固有の差分Skillだけ**を置く([parallel-work](parallel-work/SKILL.md)。git worktreeの基本手順は全プロジェクト共通の`~/.claude/skills/parallel-work/SKILL.md`を参照し、このファイルにはstudy固有の重複検出手順のみを書く)。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、グローバルSkillが「spec配置の例外リポジトリ」として参照する。
+このプロジェクトの開発工程は**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/`。/autopilot・/retrospective・/scan-sandbox-sessions・商用案件向けの任意工程 /test-design を含む)で行い、このリポジトリの `.claude/skills/` には**study固有の差分Skillだけ**を置く([parallel-work](parallel-work/SKILL.md)。git worktreeの基本手順は全プロジェクト共通の`~/.claude/skills/parallel-work/SKILL.md`を参照し、このファイルにはstudy固有の重複検出手順のみを書く)。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、グローバルSkillが「spec配置の例外リポジトリ」として参照する。
 
 各工程Skillは冒頭に「ワークフロー上の位置」(前工程の成果物が必要なものは「前提条件」も)を持ち、完了時に次のステップを案内する。
 
@@ -45,6 +45,7 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 | `/implementation-review` | 実装のコードレビュー(仕様整合・テスト・品質のチェックリスト付き)。実施はcode-reviewerエージェント | 実装・動作確認の完了後 | 指摘あり: /resolve / なし: /pr(実装PR) |
 | `/resolve` | レビュー指摘の修正。重要度順に対応し、対応結果を報告する | /spec-review・/implementation-review・PR上で指摘を受けたとき | 指摘元のレビューを再実行 → 元の工程の次ステップへ |
 | `/fix` | バグ修正・既存機能の小規模改修の入口。既存spec更新の影響洗い出しと承認要否の判断 | 不具合修正・文言修正・スコープ外項目への対応など | 仕様変更あり: /pr(仕様承認PR) / 純粋なバグ: 修正後 /implementation-review |
+| `/test-design` | 商用案件向けの任意工程。全specを横断する総合試験仕様書(`apps/<アプリ名>/specs/system-test.md`)を作成する。複数機能をまたぐ業務シナリオ試験(ST-001〜)・非機能試験(ST-101〜)・要件との対応表・合否判定基準。spec単位の網羅確認(design.mdのテスト戦略表とテストの仕様コメント)は既存のまま | 顧客への受入根拠が要る案件で、/implementation-review 通過後・リリース前 | /spec-review(system-test.mdのレビュー)→ 承認 → 試験実施・結果記録 → /pr(実装PR)またはリリース判定 |
 
 ### モードSkill(`~/.claude/skills/` のグローバルSkill)
 
