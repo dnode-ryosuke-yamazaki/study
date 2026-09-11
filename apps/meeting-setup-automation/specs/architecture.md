@@ -133,7 +133,7 @@ Skillは作成結果の到着を待ち、会議の日時・参加者・参加URL
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [meeting-scheduling](meeting-scheduling/requirements.md)([設計](meeting-scheduling/design.md)) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー3本(探索フロー・作成フロー・会議設定通知フロー)の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | 実装中 |
+| [meeting-scheduling](meeting-scheduling/requirements.md)([設計](meeting-scheduling/design.md)) | 参加者と所要時間を伝えるだけで候補が出て、選ぶだけでTeams会議が作られる | 空き時間から候補を提示し、選択された枠でTeams会議を作成して招待する | Power Automateフロー3本(探索フロー・作成フロー・会議設定通知フロー)の新設、会議設定通知の投稿先の登録、OneDrive同期クライアントの稼働 | リリース済み |
 
 ## ディレクトリ構成
 
