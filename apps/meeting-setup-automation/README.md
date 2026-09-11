@@ -84,7 +84,7 @@ auto/
 
 ### 4. Power Automateフローを作る
 
-[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・作成フロー・会議設定通知フローの4本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。
+[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・作成フロー・会議設定通知フローの3本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。
 
 ### 5. Teams通知の投稿先を登録する
 

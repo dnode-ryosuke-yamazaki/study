@@ -353,7 +353,10 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - 🔴🟢 `main.py` の代替案1の表示を「仮の予定あり: <参加者名>」に変える。開催者自身も対象に含める
 - 🟢 `detail.py` と `tests/test_detail.py` を削除し、`ledger.py`・`config.py` から予定詳細の依頼フォルダ・予定詳細フォルダを外す
 - 🟢 アプリREADME・`power-automate/README.md`・`architecture.md` から予定詳細フローを外す
-- 対応: [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [2][3] / [requirements.md#スコープ外](requirements.md#スコープ外) / [design.md#状態管理](design.md#状態管理)
+- 🟢 廃止に伴う後片付けを行う。**他人の予定の件名を含むファイルが残るため、コードの削除だけで終わらせない**
+  - Power Automateの予定詳細フローを停止して削除する
+  - OneDriveの `auto/meetingSetting/detailRequest/` と `auto/meetingSetting/detail/` の中身を消し、フォルダごと削除する
+- 対応: [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [2][3] / [requirements.md#スコープ外](requirements.md#スコープ外) / [design.md#状態管理](design.md#状態管理) / [design.md#セキュリティ](design.md#セキュリティ)
 
 
 ## 動作確認チェックリスト
@@ -378,6 +381,7 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
 - [ ] 待ちを打ち切った後、依頼IDを指定して起動すると続きから再開する
 - [ ] 時間帯を指定した依頼が0件になったとき、指定した時間帯の外の枠が候補として出てこない
 - [ ] 既定の条件で0件になったとき、確認を求められずに2つの代替案が調べられ、1枚の選択画面に「仮の予定を含める」と「期間と時間帯を広げる」の2つの見出しで候補が並ぶ
-- [ ] 代替案1の枠に、仮の予定を持つ参加者(開催者自身を含む)が表示される
+- [ ] 代替案1の枠に、仮の予定を持つ参加者(開催者自身を含む)が表示され、予定の件名は表示されない
+- [ ] 予定詳細フローが削除され、`detailRequest/`・`detail/` フォルダが残っていない
 - [ ] 選択画面からコピーした1行を貼ると、時差で弾かれずに選択結果が書き出される
 - [ ] 定期実行・無人実行の仕組みが登録されていない(launchdジョブを作っていない)

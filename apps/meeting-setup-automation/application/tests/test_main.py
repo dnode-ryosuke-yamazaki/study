@@ -542,6 +542,32 @@ class 候補が0件のときの代替案の通し(unittest.TestCase):
         self.assertEqual(len(p.ラジオ), 2)
         self.assertIn("Connector failed", out)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-2
+    def test_代替案2の候補の待ちに候補の待ち上限が適用されること(self):
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        code, out = self.e.run("resume", "ID1")  # 代替案2の候補は来ない → 上限で打ち切り
+        self.assertEqual(code, 0)
+        # 上限30秒・間隔5秒なので、経過が30秒に達した時点で打ち切られる
+        進捗 = [行 for 行 in out.splitlines() if "代替案2の候補の到着を待っています" in 行]
+        self.assertTrue(進捗)
+        self.assertIn("上限30秒", 進捗[0])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-8
+    def test_代替案2を作らない依頼を再開しても同じ選択画面に至ること(self):
+        self.e.close()
+        self.e = 通し環境()
+        self.e.submit(start_date="2026-09-09", end_date="2026-09-12", time_start="09:30", time_end="17:30")
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        code, _初回 = self.e.run("resume", "ID1")
+        self.assertEqual(code, 0)
+        _, p1 = self.e.画面("ID1")
+        code, 再開出力 = self.e.run("resume", "ID1")  # 代替案の台帳が増えないので既定の絞り込みからやり直す
+        self.assertEqual(code, 0)
+        _, p2 = self.e.画面("ID1")
+        self.assertEqual([r["data-start"] for r in p1.ラジオ], [r["data-start"] for r in p2.ラジオ])
+        self.assertEqual(p1.見出し, p2.見出し)
+        self.assertIn("代替案2は作りませんでした", 再開出力)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-4
     def test_期間と時間帯の両方を指定した依頼では代替案2が作られないこと(self):
         self.e.close()

@@ -12,7 +12,7 @@
 | 項目 | 内容 |
 |---|---|
 | ライセンス | Power Automate for Office 365(標準コネクタのみ)。プレミアムコネクタ・カスタムコネクタ・素のHTTPアクション・HTTP要求受信トリガーは使えない(DLPとライセンスの両方で塞がれている) |
-| コネクタ | OneDrive for Business(トリガーとファイル作成)、Office 365 Outlook(会議の時間を検索 (V2)・HTTP 要求を送信します・カレンダーの取得 (V2)・イベントの取得 (V4))、Microsoft Teams(メッセージを投稿する) |
+| コネクタ | OneDrive for Business(トリガーとファイル作成)、Office 365 Outlook(会議の時間を検索 (V2)・HTTP 要求を送信します)、Microsoft Teams(メッセージを投稿する) |
 | 接続 | 自分のアカウントで接続する。会議の開催者は接続アカウント本人になる |
 | フォルダ | 個人OneDriveの `00_root/auto/meetingSetting/` 配下と `00_root/auto/teamsNotice/meetingSetting/`。同期クライアントで同じフォルダをこのMacへ下ろしておく |
 

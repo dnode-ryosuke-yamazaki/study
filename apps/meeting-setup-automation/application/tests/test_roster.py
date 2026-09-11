@@ -48,7 +48,7 @@ class 名簿の読み込み(unittest.TestCase):
     def test_開催者の記載は任意で無くても読めること(self):
         with tempfile.TemporaryDirectory() as d:
             名簿 = roster.load(_名簿を書く(d, [{"name": "A", "email": "a@example.com"}]))
-            self.assertIsNone(名簿.organizer_email)
+            self.assertIsNone(名簿.organizer_name)
             名簿2 = roster.load(
                 _名簿を書く(
                     d,
@@ -56,7 +56,7 @@ class 名簿の読み込み(unittest.TestCase):
                     organizer={"name": "私", "email": "me@example.com"},
                 )
             )
-            self.assertEqual(名簿2.organizer_email, "me@example.com")
+            self.assertEqual(名簿2.organizer_name, "私")
 
 
 class 名前の解決(unittest.TestCase):

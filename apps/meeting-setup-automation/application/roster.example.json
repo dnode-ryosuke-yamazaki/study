@@ -1,5 +1,5 @@
 {
-  "_comment": "メンバー名簿の記入例。実体は ~/Library/Application Support/meeting-setup-automation/roster.json に置く(Git管理外。氏名とメールアドレスの対応表は個人情報のためリポジトリに含めない)。organizer は任意で、候補が0件のときの代替案1で自分の仮の予定の件名を取りに行くために使う。",
+  "_comment": "メンバー名簿の記入例。実体は ~/Library/Application Support/meeting-setup-automation/roster.json に置く(Git管理外。氏名とメールアドレスの対応表は個人情報のためリポジトリに含めない)。organizer は任意で、候補が0件のときの代替案1で自分に仮の予定があることを名前つきで示すために使う。",
   "organizer": {"name": "自分の名前", "email": "me@example.com"},
   "members": [
     {"name": "山田 太郎", "email": "taro.yamada@example.com"},

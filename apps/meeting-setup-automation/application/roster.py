@@ -15,8 +15,8 @@
       "members": [{"name": "山田 太郎", "email": "taro@example.com"}, ...]
     }
 
-`organizer` は候補が0件のときの代替案1で、開催者自身の仮の予定の件名を取りに行くために
-使う(無ければ開催者の予定は件名を取りに行かず、その旨を示す)。
+`organizer` は候補が0件のときの代替案1で、開催者自身に仮の予定があることを名前つきで
+示すために使う(無ければ「開催者(あなた)」と示す)。
 """
 
 from __future__ import annotations
@@ -86,7 +86,6 @@ class 名簿:
     _フルネーム: Dict[str, List[dict]]
     #: 姓だけ・名だけの照合キー -> 該当する人の一覧
     _姓名: Dict[str, List[dict]]
-    organizer_email: Optional[str] = None
     organizer_name: Optional[str] = None
 
     def _該当(self, 名前: str) -> List[dict]:
@@ -181,6 +180,5 @@ def load(path: Path) -> 名簿:
     return 名簿(
         _フルネーム=フルネーム索引,
         _姓名=姓名索引,
-        organizer_email=(str(開催者["email"]).strip() if 開催者.get("email") else None),
         organizer_name=(str(開催者["name"]).strip() if 開催者.get("name") else None),
     )

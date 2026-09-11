@@ -145,7 +145,6 @@ def _仮の予定の表示(w: candidates.枠, 名前表: Dict[str, str], 名簿:
     予定の件名は扱わない(requirements.md#候補が0件のときの代替案の提示 [2])。開催者自身の
     仮の予定も同じ行に含める(同 [3])。
     """
-    開催者メール = 名簿.organizer_email.lower() if (名簿 and 名簿.organizer_email) else None
     名前一覧 = [名前表.get(アドレス, アドレス) for アドレス in w.仮の参加者]
     if w.開催者が仮:
         名前一覧.append(f"{名簿.organizer_name or '開催者'}(開催者)" if (名簿 and 名簿.organizer_name) else "開催者(あなた)")
@@ -368,10 +367,7 @@ def _代替案を開始(env: 実行環境, 依頼: dict, 読み: candidates.候�
     依頼id = 依頼["requestId"]
     名簿 = _名簿を読む(env)
     条件 = candidates.絞り込み条件.依頼から(依頼)
-    代替1 = request.代替案1を組み立てる(
-        読み, 条件, 要求件数=int(依頼["search"]["maxCandidates"]),
-        開催者メール=名簿.organizer_email if 名簿 else None,
-    )
+    代替1 = request.代替案1を組み立てる(読み, 条件, 要求件数=int(依頼["search"]["maxCandidates"]))
     待ち対象: Dict[str, tuple] = {}
     伝える: List[str] = []
 
@@ -424,7 +420,6 @@ def _代替案をまとめる(env: 実行環境, 依頼: dict, 伝える: Option
     読み1 = candidates.読む(候補1, 試行番号=1) if 候補1 is not None else candidates.候補の読み取り(依頼id, 1, [], "", "")
     代替1 = request.代替案1を組み立てる(
         読み1, 条件, 要求件数=int(依頼["search"]["maxCandidates"]),
-        開催者メール=名簿.organizer_email if 名簿 else None,
     )
 
     仮の予定の行: List[str] = []
