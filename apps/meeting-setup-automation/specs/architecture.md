@@ -162,6 +162,7 @@ apps/meeting-setup-automation/
 ## 関連ADR
 
 - [adr/0001-manual-recording-and-facilitator.md](adr/0001-manual-recording-and-facilitator.md) — 録画とファシリテーターを手動運用にし、会議テンプレートを使わない判断
+- [adr/0002-availability-interpretation-in-skill.md](adr/0002-availability-interpretation-in-skill.md) — 空き時間探索の応答解釈と待ち時間の決め方をSkill側に置く判断
 - [0001-multi-app-monorepo-layout.md](../../../doc/adr/0001-multi-app-monorepo-layout.md) — モノレポ構成の方針
 
 ## セキュリティ
