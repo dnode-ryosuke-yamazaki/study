@@ -7,6 +7,7 @@ import unittest
 import urllib.error
 from unittest import mock
 
+import ca_bundle_tls
 import downloader
 
 許可する接尾辞 = (".sharepoint.com", ".svc.ms")
@@ -222,7 +223,7 @@ class 証明書バンドルの自動解決(unittest.TestCase):
             return 本来のimport(名前, *引数, **キーワード引数)
 
         with mock.patch.object(builtins, "__import__", certifiだけ失敗させる):
-            見つかったもの = downloader._証明書バンドルを探す()
+            見つかったもの = ca_bundle_tls.証明書バンドルを探す()
         # この環境で見つかるかはOS依存なので、例外にならないことを固定する。
         self.assertTrue(見つかったもの is None or isinstance(見つかったもの, str))
 
@@ -234,10 +235,10 @@ class 証明書バンドルの自動解決(unittest.TestCase):
         チェーンを検証できず「self-signed certificate in certificate chain」で
         落ちる(2026-09-10にトランスクリプトの取得が全滅して判明)。
         """
-        運用者のバンドル = os.path.expanduser(downloader._運用者が置く証明書バンドル)
-        with mock.patch.object(downloader.os.path, "isfile", return_value=True):
-            with mock.patch.object(downloader.os, "access", return_value=True):
-                self.assertEqual(downloader._証明書バンドルを探す(), 運用者のバンドル)
+        運用者のバンドル = os.path.expanduser(ca_bundle_tls.運用者が置く証明書バンドル)
+        with mock.patch.object(ca_bundle_tls.os.path, "isfile", return_value=True):
+            with mock.patch.object(ca_bundle_tls.os, "access", return_value=True):
+                self.assertEqual(ca_bundle_tls.証明書バンドルを探す(), 運用者のバンドル)
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#外部ライブラリの方針
     def test_ca証明書の拡張フィールドの厳格チェックだけを外すこと(self):
@@ -255,14 +256,29 @@ class 証明書バンドルの自動解決(unittest.TestCase):
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4-2
     def test_バンドルが見つからない場合にエラーログを出すこと(self):
         """黙って失敗させない。何をすればよいかをログに残す。"""
-        with mock.patch.object(downloader, "_証明書バンドルを探す", return_value=None):
+        with mock.patch.object(ca_bundle_tls, "証明書バンドルを探す", return_value=None):
             with mock.patch.object(
-                downloader.ssl, "create_default_context"
+                ca_bundle_tls.ssl, "create_default_context"
             ) as 文脈を作る:
                 文脈を作る.return_value.cert_store_stats.return_value = {"x509_ca": 0}
                 with self.assertLogs(level="ERROR") as ログ:
                     downloader.ssl文脈を用意する()
         self.assertIn("証明書のセットアップ", "\n".join(ログ.output))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#tls検証文脈の置き場所
+    def test_文脈の組み立てをca_bundle_tlsに任せていること(self):
+        """探索順・検証フラグの判断が2箇所に戻らないことを固定する。
+
+        同じ判断が運用者の個人環境にもあり、片方だけを直して取り残された
+        ことがある。`downloader` が自前で組み立て直すと、写しを直しても
+        効かない状態に戻ってしまう。
+        """
+        番兵 = ssl.create_default_context()
+        with mock.patch.object(
+            ca_bundle_tls, "ssl文脈を組み立てる", return_value=番兵
+        ) as 組み立てる:
+            self.assertIs(downloader.ssl文脈を用意する(), 番兵)
+        組み立てる.assert_called_once()
 
 
 class 待っても直らない失敗の区別(unittest.TestCase):

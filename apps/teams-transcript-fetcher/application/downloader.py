@@ -17,12 +17,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+
+import ca_bundle_tls
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +36,6 @@ _bom = b"\xef\xbb\xbf"
 #: 期限切れと判断するステータス。同じURLでは二度と成功しない。
 恒久的とみなすステータス = (401, 403, 404)
 
-#: 運用者が置く証明書バンドル。**候補の中で最優先で使う。**
-#: 会社のセキュリティプロキシ(Netskope)はTLSを差し替えるため、その中間CAを
-#: 信頼していないと検証に失敗する。このCAはmacOSのシステムキーチェーンにしか
-#: 無く、`/etc/ssl/cert.pem` にも certifi にも入っていない。運用者が次の2行で
-#: 「システムのバンドル + キーチェーンのCA」を1つにまとめて置く。
-#:   cat /etc/ssl/cert.pem > "~/Library/Application Support/ca-bundle/ca-bundle.pem"
-#:   security find-certificate -a -p /Library/Keychains/System.keychain >> (同じファイル)
-_運用者が置く証明書バンドル = "~/Library/Application Support/ca-bundle/ca-bundle.pem"
-
-#: 運用者のバンドルが無いときに探す証明書バンドルの候補。
-#: macOSでpython.org版のPythonを使うと、既定の信頼ストアが空になる。
-#: `SSL_CERT_FILE` を手で設定させると「ターミナルでは動くのにlaunchdでは
-#: 動かない」という分かりにくい状態を招くため、バッチ自身で探す。
-_証明書バンドルの候補 = ("/etc/ssl/cert.pem", "/usr/local/etc/openssl/cert.pem")
 
 _ssl文脈: ssl.SSLContext | None = None
 
@@ -125,60 +112,19 @@ def _許可されたホストか(ホスト: str, 許可するホスト接尾辞:
     return False
 
 
-def _証明書バンドルを探す() -> str | None:
-    """使える証明書バンドルのパスを返す。見つからなければ None。
-
-    certifi があれば使うが、**依存はしていない**。無くても動くようにするため
-    「あれば使う」だけの扱いにしてある(design.md#外部ライブラリの方針)。
-    """
-    # 運用者が置くバンドルを先頭に置く。certifi やOS標準のバンドルには会社の
-    # セキュリティプロキシのCAが入っておらず、そちらを先に採用すると
-    # 「self-signed certificate in certificate chain」で検証に失敗する。
-    候補: list[str] = [os.path.expanduser(_運用者が置く証明書バンドル)]
-    try:
-        import certifi  # noqa: PLC0415 — 無くてもよい任意の候補
-    except ImportError:
-        pass
-    else:
-        候補.append(certifi.where())
-    候補.extend(_証明書バンドルの候補)
-
-    for パス in 候補:
-        if os.path.isfile(パス) and os.access(パス, os.R_OK):
-            return パス
-    return None
-
-
 def ssl文脈を用意する() -> ssl.SSLContext:
-    """TLSの検証に使う文脈を組み立てる(初回のみ)。
+    """TLSの検証に使う文脈を用意する(初回のみ組み立てる)。
 
-    既定の信頼ストアが空の場合(macOSのpython.org版Pythonで起きる)だけ、
-    バンドルを探して読み込む。見つからなければ空のまま返し、実際の失敗は
-    「設定の問題」として記録される。
+    **探索順・検証フラグの判断はこのファイルに持たない。** 同じ判断が
+    運用者の個人環境にもあり、片方だけを直して取り残されたことがあるため、
+    組み立ては `ca_bundle_tls` に集約してある(design.md#TLS検証文脈の置き場所)。
+
+    組み立てた文脈は使い回す。実行ごとに証明書を読み直す必要はない。
     """
     global _ssl文脈
-    if _ssl文脈 is not None:
-        return _ssl文脈
-
-    文脈 = ssl.create_default_context()
-    # Python 3.13以降は VERIFY_X509_STRICT が既定で有効になり、keyUsage拡張を
-    # 持たないCA証明書(会社のセキュリティプロキシのCA)がチェーンに居ると
-    # 「CA cert does not include key usage extension」で検証に失敗する。
-    # ホスト名・有効期限・チェーンの検証は維持したまま、CA証明書の拡張フィールドの
-    # 厳格チェックだけを外す。
-    文脈.verify_flags &= ~ssl.VERIFY_X509_STRICT
-    if 文脈.cert_store_stats()["x509_ca"] == 0:
-        バンドル = _証明書バンドルを探す()
-        if バンドル:
-            文脈.load_verify_locations(cafile=バンドル)
-            logger.info("既定の信頼ストアが空のため証明書バンドルを読み込んだ: %s", バンドル)
-        else:
-            logger.error(
-                "証明書バンドルが見つからない。TLSの検証に失敗する見込み。"
-                "READMEの「証明書のセットアップ」を確認すること"
-            )
-    _ssl文脈 = 文脈
-    return 文脈
+    if _ssl文脈 is None:
+        _ssl文脈 = ca_bundle_tls.ssl文脈を組み立てる(logger)
+    return _ssl文脈
 
 
 def _証明書の検証に失敗したか(例外: BaseException) -> bool:
