@@ -181,7 +181,9 @@ def load(作業フォルダ: Path | None = None) -> 設定:
         #  短いと復旧しつつある状態を復旧失敗として通知してしまう)
         復旧確認しきい値分=45,
         # 仕様: sync-stall-recovery/requirements.md#再起動の回数制限 [3]
-        再起動の24時間上限=2,
+        # (再起動のループは防ぎたいが、1日のうちに互いに独立した停滞が複数回
+        #  起きることは実際にあり、小さすぎると2回目以降で自動復旧できない)
+        再起動の24時間上限=4,
         # 仕様: sync-stall-recovery/requirements.md#通知の抑止と限界 [1]
         再通知間隔時間=24,
         # 仕様: sync-stall-recovery/design.md#同期停滞の判定(手順5)

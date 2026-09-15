@@ -45,7 +45,7 @@ class 監視記録の読み書き(unittest.TestCase):
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/design.md#エラーハンドリング
     def test_壊れたjsonは空の記録として扱い例外にしないこと(self):
-        """記録が失われても、上限は24時間2回と安全側のため続行が許容されている。"""
+        """記録が失われても、上限は24時間4回に限られるため続行が許容されている。"""
         self.パス.write_text("{ こわれた", encoding="utf-8")
         記録 = sync_monitor.読み込む(self.パス)
         self.assertIsNone(記録.前回実行時刻)
@@ -400,6 +400,15 @@ class 停滞判定とイベント管理(unittest.TestCase):
             前回実行時刻=基準時刻 - timedelta(minutes=5), **引数
         )
 
+    def _直近24時間の再起動履歴(self, 回数: int) -> list[datetime]:
+        """直近24時間に収まる再起動履歴を指定の回数ぶん作る。
+
+        上限の値を各テストに直書きすると、上限を変えるたびにテストが
+        意味を失う(「2回で上限」のつもりの履歴が上限4回では上限に届かない)。
+        回数は設定から導く。
+        """
+        return [基準時刻 - timedelta(hours=時間 + 1) for 時間 in range(回数)]
+
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#停滞判定の閾値-1
     def test_鮮度が閾値内なら何も起きないこと(self):
         self._ハートビートを書く(基準時刻 - timedelta(minutes=15))
@@ -549,18 +558,30 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self.assertTrue(記録.停滞イベント.復旧失敗判定済み)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
-    def test_直近24時間で2回再起動済みなら再起動せず復旧失敗になること(self):
+    def test_直近24時間で上限まで再起動済みなら再起動せず復旧失敗になること(self):
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
         記録 = self._稼働中の記録(
-            再起動履歴=[
-                基準時刻 - timedelta(hours=3),
-                基準時刻 - timedelta(hours=1),
-            ]
+            再起動履歴=self._直近24時間の再起動履歴(self.設定.再起動の24時間上限)
         )
         事象たち = self._判定する(記録)
         self.assertEqual(self.再起動の呼び出し, 0)
         self.assertEqual(len(事象たち), 1)
         self.assertEqual(事象たち[0].種別, sync_monitor.事象_復旧失敗)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
+    def test_上限の1つ手前までは再起動すること(self):
+        """上限に達するまでは自動復旧を試みる。
+
+        上限を引き上げた意味は、2回目以降の独立した停滞でも再起動できること
+        にある。手前で止まっていないことを上限の値に依らず固定する。
+        """
+        self._ハートビートを書く(基準時刻 - timedelta(hours=2))
+        記録 = self._稼働中の記録(
+            再起動履歴=self._直近24時間の再起動履歴(self.設定.再起動の24時間上限 - 1)
+        )
+        事象たち = self._判定する(記録)
+        self.assertEqual(self.再起動の呼び出し, 1)
+        self.assertEqual(事象たち[0].種別, sync_monitor.事象_同期停滞)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
     def test_24時間より前の再起動は回数制限に数えないこと(self):
@@ -752,10 +773,7 @@ class 停滞判定とイベント管理(unittest.TestCase):
         self._ハートビートを書く(基準時刻 - timedelta(hours=2))
         保留中 = self._保留中の通知(検知時刻=基準時刻 - timedelta(hours=3))
         記録 = self._稼働中の記録(
-            再起動履歴=[
-                基準時刻 - timedelta(hours=3),
-                基準時刻 - timedelta(hours=1),
-            ],
+            再起動履歴=self._直近24時間の再起動履歴(self.設定.再起動の24時間上限),
             保留中の再起動通知=保留中,
         )
         事象たち = self._判定する(記録)

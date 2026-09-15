@@ -204,8 +204,8 @@ class 監視のしきい値(unittest.TestCase):
         self.assertEqual(self.設定.復旧確認しきい値分, 45)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#再起動の回数制限-3
-    def test_再起動が直近24時間で2回までであること(self):
-        self.assertEqual(self.設定.再起動の24時間上限, 2)
+    def test_再起動が直近24時間で4回までであること(self):
+        self.assertEqual(self.設定.再起動の24時間上限, 4)
 
     # 仕様: apps/teams-transcript-fetcher/specs/sync-stall-recovery/requirements.md#通知の抑止と限界-1
     def test_再通知の間隔が24時間であること(self):
