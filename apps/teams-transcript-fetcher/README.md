@@ -88,7 +88,9 @@ security find-certificate -a -p /Library/Keychains/System.keychain >> ~/Library/
 
 このCAは `keyUsage` 拡張を持たないため、Python 3.13以降の既定の厳格チェックのままでは「CA cert does not include key usage extension」で弾かれます。バッチはその1項目だけを外し、ホスト名・有効期限・チェーンの検証は維持しています。
 
-同じバンドルを `~/.claude/lib/atlassian_rest/client.py` も読みます。**置き場所を変えるときは両方を直してください。**
+この組み立ては `application/ca_bundle_tls.py` の1ファイルにまとまっていて、`downloader.py` はそれを呼ぶだけです。
+
+**このファイルは正本(`~/.claude/lib/ca_bundle_tls.py`)の写しで、内容が1バイトでも違うと正本側のテストが落ちます。** 直すときは必ず両方を同じ内容にしてください。同じ組み立てを運用者の個人環境の自動化バッチ群も使っており、片方だけを直して取り残されたことがあります(理由は [specs/adr/0001-tls-context-single-source.md](specs/adr/0001-tls-context-single-source.md))。
 
 #### 証明書が見つからない場合
 
