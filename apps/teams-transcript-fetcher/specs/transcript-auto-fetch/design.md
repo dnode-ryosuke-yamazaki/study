@@ -437,6 +437,12 @@ apps/teams-transcript-fetcher/README.md                            (新規・セ
 | テスト | 標準ライブラリの `unittest` | pytestも検討したが、このサンドボックスからPyPIへ到達できずインストールも実行もできないため、TDDのRed/Greenを確認できない。`unittest` なら追加作業なしで `python3 -m unittest` が動く |
 | HTTPアクセス | 標準ライブラリの `urllib.request` | 必要なのはGET1種類と、ステータスコード・本文・タイムアウトの扱いだけ。`requests` の利点(セッション管理・リトライ・認証方式の抽象化)をどれも使わない。定期実行される常駐バッチの実行時依存は少ないほど壊れにくい |
 
+### TLS検証文脈の置き場所
+
+会社のセキュリティプロキシ配下で通信するには、運用者が置くバンドル(`~/Library/Application Support/ca-bundle/ca-bundle.pem`)を最優先で読み、`VERIFY_X509_STRICT` を外した文脈が要る。**この組み立ては `ca_bundle_tls.py` の1ファイルにまとめ、同じ内容を運用者の個人環境(`~/.claude/lib/ca_bundle_tls.py`)にも置く。** 一致することは個人環境側のテストが検査する。
+
+`downloader.py` はこのファイルを呼ぶだけで、探索順や検証フラグの判断を自分では持たない。ファイルは標準ライブラリだけで完結させ、他のモジュールをimportしない(importすると写しが単独で動かなくなる)。理由は [adr/0001-tls-context-single-source.md](../adr/0001-tls-context-single-source.md) を参照。
+
 ## 状態管理
 
 | 保持するもの | 置き場所 | 内容 |

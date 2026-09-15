@@ -175,6 +175,7 @@ apps/teams-transcript-fetcher/
 ## 関連ADR
 
 - [0001-multi-app-monorepo-layout.md](../../../doc/adr/0001-multi-app-monorepo-layout.md) — モノレポ構成の方針
+- [adr/0001-tls-context-single-source.md](adr/0001-tls-context-single-source.md) — TLS検証文脈を正本と写しで持ち、照合テストでズレを防ぐ
 
 ## セキュリティ
 

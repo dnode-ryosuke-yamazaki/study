@@ -429,3 +429,17 @@ T17で「処理対象から除外」まで実装した挙動に、発行要求�
 - テスト: `test_launchd_plist.py` に、`WatchPaths` に2つのパスが含まれること・`StartInterval` が300のまま残ること・置換前のパスに `__ホームディレクトリ__` が使われていることを追加
 - README(`apps/teams-transcript-fetcher/README.md`)の「定期実行に登録する」に、`WatchPaths` の対象フォルダが登録前に存在している必要があることを追記する(存在しないパスを監視するとイベントが飛ばない)
 - 仕様: [requirements.md#実行環境](requirements.md#実行環境) [7] / [design.md#バッチの起動launchd](design.md#バッチの起動launchd)
+
+---
+
+## TLS検証文脈を1ファイルにまとめ、写しとして持つ
+
+同じ処理が `downloader.py` と運用者の個人環境(`~/.claude/lib/atlassian_rest/client.py`)に別々に書かれており、片方だけを直したためトランスクリプトの取得が5日間止まった。組み立てを1ファイルにまとめ、正本の写しとしてこのリポジトリに持つ。判断の理由は [adr/0001-tls-context-single-source.md](../adr/0001-tls-context-single-source.md)。
+
+- 🟢 `application/ca_bundle_tls.py` を新設する。内容は正本(`~/.claude/lib/ca_bundle_tls.py`)と**1バイトも違わないこと**。冒頭に正本・写しの場所と「両方を同じ内容にすること」を書く。**標準ライブラリだけで完結させ、他のモジュールをimportしない**(importすると写しが単独で動かなくなる)
+- 🔴🟢 `downloader.py` の `ssl文脈を用意する` を、`ca_bundle_tls` を呼ぶだけに変える。組み立てた文脈をモジュール内で使い回す扱いは今のまま残す(実行ごとに証明書を読み直さない)
+- 🟢 `downloader.py` から探索順・検証フラグの判断を取り除く。`_証明書バンドルの候補`・`_運用者が置く証明書バンドル`・`_証明書バンドルを探す` は `ca_bundle_tls` 側へ移す
+- テスト: 既存の証明書関連のテストが `ca_bundle_tls` を参照する形になっても通ること(この環境でバンドルを読み込めること・2回目は組み立て直さないこと・運用者のバンドルを最優先で使うこと・厳格チェックだけを外すこと・certifiが無くても候補を探すこと・バンドルが見つからない場合にエラーログを出すこと)
+- テスト: `downloader.py` が `ca_bundle_tls` 以外の経路でSSL文脈を組み立てていないこと(探索順の判断が2箇所に戻らないことを固定する)
+- README(`apps/teams-transcript-fetcher/README.md`)の「証明書について」に、実装が `ca_bundle_tls.py` にあることと、正本と同じ内容に保つ必要があることを書く
+- 仕様: [design.md#TLS検証文脈の置き場所](design.md#tls検証文脈の置き場所) / [adr/0001-tls-context-single-source.md](../adr/0001-tls-context-single-source.md)
