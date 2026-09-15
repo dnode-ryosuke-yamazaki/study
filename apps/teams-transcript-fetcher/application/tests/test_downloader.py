@@ -1,6 +1,8 @@
 """URLの検証(T10)と応答の分類(T11)のテスト。"""
 
 import builtins
+import os
+import ssl
 import unittest
 import urllib.error
 from unittest import mock
@@ -223,6 +225,32 @@ class 証明書バンドルの自動解決(unittest.TestCase):
             見つかったもの = downloader._証明書バンドルを探す()
         # この環境で見つかるかはOS依存なので、例外にならないことを固定する。
         self.assertTrue(見つかったもの is None or isinstance(見つかったもの, str))
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#外部ライブラリの方針
+    def test_運用者が置くバンドルを最優先で使うこと(self):
+        """会社のセキュリティプロキシのCAは、このバンドルにしか入っていない。
+
+        certifi やOS標準のバンドルを先に採用すると、差し替えられた証明書の
+        チェーンを検証できず「self-signed certificate in certificate chain」で
+        落ちる(2026-09-10にトランスクリプトの取得が全滅して判明)。
+        """
+        運用者のバンドル = os.path.expanduser(downloader._運用者が置く証明書バンドル)
+        with mock.patch.object(downloader.os.path, "isfile", return_value=True):
+            with mock.patch.object(downloader.os, "access", return_value=True):
+                self.assertEqual(downloader._証明書バンドルを探す(), 運用者のバンドル)
+
+    # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/design.md#外部ライブラリの方針
+    def test_ca証明書の拡張フィールドの厳格チェックだけを外すこと(self):
+        """会社のセキュリティプロキシのCAはkeyUsage拡張を持たない。
+
+        Python 3.13以降の既定のままだと、そのCAがチェーンに居るだけで
+        「CA cert does not include key usage extension」で検証に失敗する。
+        外すのはこの1つだけで、ホスト名・有効期限・チェーンの検証は維持する。
+        """
+        文脈 = downloader.ssl文脈を用意する()
+        self.assertFalse(文脈.verify_flags & ssl.VERIFY_X509_STRICT)
+        self.assertEqual(文脈.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(文脈.check_hostname)
 
     # 仕様: apps/teams-transcript-fetcher/specs/transcript-auto-fetch/requirements.md#エラー時の挙動-4-2
     def test_バンドルが見つからない場合にエラーログを出すこと(self):

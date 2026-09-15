@@ -35,7 +35,16 @@ _bom = b"\xef\xbb\xbf"
 #: 期限切れと判断するステータス。同じURLでは二度と成功しない。
 恒久的とみなすステータス = (401, 403, 404)
 
-#: 既定の信頼ストアが空だったときに探す証明書バンドルの候補。
+#: 運用者が置く証明書バンドル。**候補の中で最優先で使う。**
+#: 会社のセキュリティプロキシ(Netskope)はTLSを差し替えるため、その中間CAを
+#: 信頼していないと検証に失敗する。このCAはmacOSのシステムキーチェーンにしか
+#: 無く、`/etc/ssl/cert.pem` にも certifi にも入っていない。運用者が次の2行で
+#: 「システムのバンドル + キーチェーンのCA」を1つにまとめて置く。
+#:   cat /etc/ssl/cert.pem > "~/Library/Application Support/ca-bundle/ca-bundle.pem"
+#:   security find-certificate -a -p /Library/Keychains/System.keychain >> (同じファイル)
+_運用者が置く証明書バンドル = "~/Library/Application Support/ca-bundle/ca-bundle.pem"
+
+#: 運用者のバンドルが無いときに探す証明書バンドルの候補。
 #: macOSでpython.org版のPythonを使うと、既定の信頼ストアが空になる。
 #: `SSL_CERT_FILE` を手で設定させると「ターミナルでは動くのにlaunchdでは
 #: 動かない」という分かりにくい状態を招くため、バッチ自身で探す。
@@ -122,7 +131,10 @@ def _証明書バンドルを探す() -> str | None:
     certifi があれば使うが、**依存はしていない**。無くても動くようにするため
     「あれば使う」だけの扱いにしてある(design.md#外部ライブラリの方針)。
     """
-    候補: list[str] = []
+    # 運用者が置くバンドルを先頭に置く。certifi やOS標準のバンドルには会社の
+    # セキュリティプロキシのCAが入っておらず、そちらを先に採用すると
+    # 「self-signed certificate in certificate chain」で検証に失敗する。
+    候補: list[str] = [os.path.expanduser(_運用者が置く証明書バンドル)]
     try:
         import certifi  # noqa: PLC0415 — 無くてもよい任意の候補
     except ImportError:
@@ -149,6 +161,12 @@ def ssl文脈を用意する() -> ssl.SSLContext:
         return _ssl文脈
 
     文脈 = ssl.create_default_context()
+    # Python 3.13以降は VERIFY_X509_STRICT が既定で有効になり、keyUsage拡張を
+    # 持たないCA証明書(会社のセキュリティプロキシのCA)がチェーンに居ると
+    # 「CA cert does not include key usage extension」で検証に失敗する。
+    # ホスト名・有効期限・チェーンの検証は維持したまま、CA証明書の拡張フィールドの
+    # 厳格チェックだけを外す。
+    文脈.verify_flags &= ~ssl.VERIFY_X509_STRICT
     if 文脈.cert_store_stats()["x509_ca"] == 0:
         バンドル = _証明書バンドルを探す()
         if バンドル:
