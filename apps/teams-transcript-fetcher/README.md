@@ -65,10 +65,30 @@ lint・buildコマンドは未整備です。
 python.org からインストールしたPythonは、macOSのシステム証明書ストアを使いません。**バッチは既定の信頼ストアが空だった場合に証明書バンドルを自分で探すため、通常は設定不要です。** 何を読み込んだかは実行ログに残ります。
 
 ```
-既定の信頼ストアが空のため証明書バンドルを読み込んだ: /Users/.../certifi/cacert.pem
+既定の信頼ストアが空のため証明書バンドルを読み込んだ: /Users/.../ca-bundle/ca-bundle.pem
 ```
 
-探す順番は「`certifi`(あれば)→ `/etc/ssl/cert.pem` → `/usr/local/etc/openssl/cert.pem`」です。**`certifi` に依存はしていません**(あれば使うだけで、無くても動きます)。
+探す順番は「`~/Library/Application Support/ca-bundle/ca-bundle.pem` → `certifi`(あれば)→ `/etc/ssl/cert.pem` → `/usr/local/etc/openssl/cert.pem`」です。**`certifi` に依存はしていません**(あれば使うだけで、無くても動きます)。
+
+#### 社内ネットワークで使う場合(先頭のバンドルが要る理由)
+
+会社のセキュリティプロキシはTLSを差し替えます。その中間CAは**macOSのシステムキーチェーンにしかなく、`certifi` にも `/etc/ssl/cert.pem` にも入っていません。** そのため先頭のバンドルが無いと、ダウンロードが必ず次で失敗します。
+
+```
+接続できない: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain
+```
+
+バンドルは「システムのバンドル + キーチェーンのCA」を1つにまとめたものです。作り直しは次の2行です(macOSの更新やCAの入れ替えのあとに実行します)。
+
+```
+mkdir -p ~/Library/Application\ Support/ca-bundle
+cat /etc/ssl/cert.pem > ~/Library/Application\ Support/ca-bundle/ca-bundle.pem
+security find-certificate -a -p /Library/Keychains/System.keychain >> ~/Library/Application\ Support/ca-bundle/ca-bundle.pem
+```
+
+このCAは `keyUsage` 拡張を持たないため、Python 3.13以降の既定の厳格チェックのままでは「CA cert does not include key usage extension」で弾かれます。バッチはその1項目だけを外し、ホスト名・有効期限・チェーンの検証は維持しています。
+
+同じバンドルを `~/.claude/lib/atlassian_rest/client.py` も読みます。**置き場所を変えるときは両方を直してください。**
 
 #### 証明書が見つからない場合
 
