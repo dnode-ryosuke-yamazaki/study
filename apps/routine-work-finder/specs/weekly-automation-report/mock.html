@@ -1,0 +1,335 @@
+<title>定型業務レポート 2026-W41</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --ground: #f2f5f4;
+    --surface: #ffffff;
+    --ink: #17262a;
+    --muted: #5e6e70;
+    --line: #d8e0df;
+    --accent: #0e6e66;
+    --accent-soft: #e1efed;
+    --bar: #8fbfb8;
+    --big: #b4521c;
+    --mid: #8a6a00;
+    --small: #5e6e70;
+    --danger: #a3312b;
+    --note: #fff6d6;
+    --font: "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
+      --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+      --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
+    --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+    --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
+  }
+  body { background: var(--ground); color: var(--ink); font-family: var(--font); line-height: 1.7; }
+  .wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 20px; }
+  .mocknote { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); padding: 6px 10px; border-radius: 6px; }
+  header { display: grid; gap: 4px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); }
+  h1 { margin: 0; font-size: 26px; line-height: 1.3; text-wrap: balance; }
+  .period { color: var(--muted); font-size: 14px; }
+  .totals { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 8px; font-size: 14px; }
+  .totals b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 18px; margin-right: 2px; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 14px; }
+  h2 { margin: 0; font-size: 17px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2 small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .proposals { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .proposal { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; padding-block: 14px; border-top: 1px solid var(--line); }
+  .proposal:first-child { border-top: 0; padding-top: 0; }
+  .proposal input { margin-top: 6px; width: 18px; height: 18px; accent-color: var(--accent); }
+  .ptitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-weight: 700; }
+  .ptitle label { cursor: pointer; }
+  .hours { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
+  .effect { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .effect.big { color: var(--big); } .effect.mid { color: var(--mid); } .effect.small { color: var(--small); }
+  .pbody { grid-column: 2; display: grid; gap: 2px; font-size: 14px; }
+  .pbody dt { color: var(--muted); font-size: 12px; }
+  .pbody dd { margin: 0 0 4px; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  button { font: inherit; font-size: 14px; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: var(--accent); font-weight: 700; }
+  .manual { display: grid; gap: 6px; }
+  .manual textarea { width: 100%; box-sizing: border-box; min-height: 72px; font-family: var(--mono); font-size: 13px; background: var(--ground); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .empty, .error { font-size: 14px; padding: 12px 14px; border-radius: 8px; }
+  .empty { background: var(--accent-soft); }
+  .error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--ink); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); }
+  .error b { color: var(--danger); }
+  .split { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--line); }
+  .split span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .bars { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .bars li { font-size: 13px; }
+  .bars summary { display: grid; grid-template-columns: 1em minmax(0, 15em) 1fr 4.5em; align-items: center; gap: 10px; cursor: pointer; list-style: none; padding-block: 2px; border-radius: 4px; }
+  .bars summary::-webkit-details-marker { display: none; }
+  .bars summary::before { content: "▸"; color: var(--muted); font-size: 11px; }
+  .bars details[open] summary::before { content: "▾"; }
+  .bars summary:hover { background: var(--accent-soft); }
+  .bars summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .bardetail { margin: 6px 0 10px 1.6em; padding: 10px 12px; border-left: 2px solid var(--bar); background: color-mix(in srgb, var(--accent-soft) 50%, transparent); display: grid; gap: 6px; }
+  .bsum { margin: 0; font-size: 14px; }
+  .ex { margin: 0; padding-left: 1.2em; }
+  .bardetail a { color: var(--accent); }
+  .bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .name small { color: var(--muted); }
+  .bars .track { height: 10px; background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 3px; }
+  .bars .fill { height: 100%; background: var(--bar); border-radius: 3px; }
+  .bars .h { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .pill { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .pill.off { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+  .warnline { background: var(--note); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  .mockctl { border-style: dashed; background: transparent; }
+  .mockctl .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mockctl button { background: transparent; color: var(--ink); border-color: var(--line); font-size: 13px; padding: 6px 10px; }
+  .mockctl button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  footer { font-size: 12px; color: var(--muted); }
+  @media (max-width: 520px) {
+    .bars summary { grid-template-columns: 1em 1fr 4em; }
+    .bars .track { grid-column: 2 / -1; order: 3; }
+    .bardetail { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="mocknote">画面モック: routine-work-finder / weekly-automation-report の週次レポート画面です。表示しているのはダミーのデータで、コピー以外の実処理(分析・保存・通知)は行いません。</p>
+
+  <header>
+    <span class="eyebrow">2026-W41 ・ 定型業務レポート</span>
+    <h1>今週の定型業務と自動化案</h1>
+    <span class="period">対象: 2026年10月5日(月)〜10月9日(金) ／ 作成: 10月9日(金) 17:00</span>
+    <div class="totals" id="totals">
+      <span>作業 <b>31.5</b>時間</span>
+      <span>会議 <b>6.0</b>時間</span>
+      <span>離席 <b>4.2</b>時間</span>
+      <span>記録しないアプリ <b>0.3</b>時間</span>
+    </div>
+  </header>
+
+  <section aria-labelledby="h-proposals">
+    <h2 id="h-proposals">自動化案 <small>週に使った時間が長い順・最大5件</small></h2>
+    <div id="proposals-area"></div>
+  </section>
+
+  <section aria-labelledby="h-time">
+    <h2 id="h-time">時間の使い方 <small>作業時間の上位10件・行を押すと中身が開きます</small></h2>
+    <div class="split" aria-hidden="true">
+      <span style="width:75.2%;background:var(--accent)"></span>
+      <span style="width:14.3%;background:var(--mid)"></span>
+      <span style="width:10%;background:var(--muted)"></span>
+      <span style="width:0.5%;background:var(--danger)"></span>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>作業 31.5h</span>
+      <span><i style="background:var(--mid)"></i>会議 6.0h</span>
+      <span><i style="background:var(--muted)"></i>離席 4.2h</span>
+      <span><i style="background:var(--danger)"></i>記録しないアプリ 0.3h</span>
+    </div>
+    <ul class="bars" id="bars"></ul>
+  </section>
+
+  <section aria-labelledby="h-rec">
+    <h2 id="h-rec">記録の状態</h2>
+    <dl class="kv" id="rec"></dl>
+  </section>
+
+  <section class="mockctl" aria-labelledby="h-mock">
+    <h2 id="h-mock">モック用の操作 <small>この欄は実際の画面にはありません</small></h2>
+    <div class="btns" role="group" aria-label="表示する状態">
+      <button type="button" id="st-normal" data-state="normal" aria-pressed="true">通常</button>
+      <button type="button" id="st-empty" data-state="empty" aria-pressed="false">自動化案が0件</button>
+      <button type="button" id="st-short" data-state="short" aria-pressed="false">記録が足りない週</button>
+      <button type="button" id="st-fail" data-state="fail" aria-pressed="false">自動化案の作成に失敗</button>
+      <button type="button" id="st-ended" data-state="ended" aria-pressed="false">記録が終了した週</button>
+      <button type="button" id="st-copyfail" data-state="copyfail" aria-pressed="false">コピーが使えない環境</button>
+    </div>
+  </section>
+
+  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、画面から文字に起こした内容を使っています(画像そのものは送っていません)。</footer>
+</div>
+
+<script>
+  const PROPOSALS = [
+    { id: 1, title: "JIRAの状態を進捗表へ転記する作業", hours: 2.1, effect: "big",
+      seen: "毎朝9時台に Chrome(Jira)と Excel(進捗表.xlsx)を1日平均15回往復。Excel側ではC列(状態)とD列(期日)だけを書き換えている",
+      idea: "JQLで担当チケットを取り、進捗表.xlsx の該当行を書き換えるバッチを毎朝8:30に動かす",
+      reuse: "jira-progress Skill のチケット取得" },
+    { id: 2, title: "会議の前に同じ3つの資料を開く準備", hours: 1.2, effect: "mid",
+      seen: "定例の5分前に Confluence の日次ページ・内部線表・JIRAボードを毎回同じ順に開いている(週4回)",
+      idea: "会議の10分前に3つのリンクをまとめたTeams通知を送る",
+      reuse: "teams-post Skill・カレンダーの予定" },
+    { id: 3, title: "ダウンロードしたCSVの列の並べ替え", hours: 0.9, effect: "mid",
+      seen: "勤怠システムからCSVを保存したあと、Numbersで毎回同じ4列を削除して並べ替えている(週3回)",
+      idea: "ダウンロードフォルダを見張り、決まった列だけを残したCSVを自動で作る",
+      reuse: "create-automation-batch のフォルダ監視" },
+    { id: 4, title: "日報の下書き", hours: 0.6, effect: "small",
+      seen: "18時台にTeamsへ投稿する前、JIRAの担当チケットを1件ずつ開いて内容を書き写している",
+      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
+      reuse: "daily-report-to-teams Skill" },
+    { id: 5, title: "共有フォルダのファイル名の付け直し", hours: 0.4, effect: "small",
+      seen: "OneDriveの議事録フォルダで、日付の書式をそろえるためにファイル名を手で変えている(週2回)",
+      idea: "フォルダに置かれたファイルの名前を決まった書式に自動でそろえる",
+      reuse: "なし(新しく作る)" }
+  ];
+  const BARS = [
+    ["Excel", "進捗表.xlsx", 5.2, "担当チケットの状態と期日を進捗表に書き写し、遅れている行に色を付けている", "毎朝 9:00〜10:00(5日とも)", ["C列(状態)を「レビュー中」から「完了」へ書き換え(10/6 9:12)", "D列(期日)を10/15から10/20へ変更(10/7 9:20)", "遅延の行を黄色で塗りつぶし(10/8 9:31)"], 1],
+    ["Chrome", "Jira ボード", 4.0, "担当チケットを1件ずつ開き、状態・期日・コメントを確認している。進捗表への転記の前段", "毎朝 9:00〜10:00、夕方 17:30〜18:00", ["NMBM-123 の詳細画面で期日を確認(10/6 9:10)", "ボードのフィルタで自分の担当だけに絞る(毎朝)", "コメント欄に作業結果を追記(10/8 17:45)"], 1],
+    ["Teams", "チャット", 3.1, "チームのチャットへの返信と、会議前のリンク共有。決まった作業というより都度の連絡が中心", "1日中に分散(1回あたり平均4分)", ["定例の前に資料3件のリンクを貼る(10/6・10/8)", "レビュー依頼への返信(10/7 14:02)", "日報の投稿(毎日 18:00 前後)"], 2],
+    ["VS Code", "study", 2.8, "Claude Code とのやり取りとコードの確認。毎回内容が違うため自動化の候補にはしていない", "火・木の午後", ["requirements.md の編集(10/6 15:10)", "テスト結果の確認(10/8 16:40)"], null],
+    ["Chrome", "Confluence 日次ページ", 2.4, "日次ページの進捗表を見て、自分の行の状況を確認・更新している", "毎朝 10:00 前後", ["マイルストーン表の自分の行を確認(毎朝)", "状況列に一言を追記(10/7 10:05)"], 2],
+    ["Outlook", "受信トレイ", 2.0, "メールの確認と仕分け。決まった送信元のメールをフォルダに移す操作が多い", "朝と昼休み明け", ["勤怠システムからの通知をフォルダへ移動(週3回)", "会議招待への返信(10/6 11:20)"], null],
+    ["Terminal", "claude", 1.7, "Claude Code の実行と、引き継ぎ用コマンドの貼り付け", "午後に分散", ["git push のコマンドブロックを貼って実行(10/7 17:10)"], null],
+    ["Numbers", "勤怠.csv", 0.9, "勤怠システムから保存したCSVの列を削除・並べ替えて、提出用の形に整えている", "月・水・金の 17:00 前後", ["4列(社員番号・部署・備考・承認者)を削除(10/5 17:02)", "日付の昇順に並べ替え(10/7 17:05)"], 3],
+    ["Finder", "議事録", 0.6, "OneDrive の議事録フォルダで、ファイル名の日付の書き方をそろえている", "火・金", ["「議事録1006.md」を「2026-10-06_議事録.md」に変更(10/6 16:30)"], 5],
+    ["PowerPoint", "定例資料.pptx", 0.5, "定例資料の数値の欄を、進捗表の値で書き換えている", "金曜 11:00 前後", ["スライド3の完了件数を 12 から 15 に更新(10/9 11:04)"], null]
+  ];
+  let state = "normal";
+  const selected = new Set();
+
+  function promptText() {
+    const ids = [...selected].sort((a, b) => a - b);
+    const names = ids.map(i => `案${i}「${PROPOSALS[i - 1].title}」`).join("、");
+    return `/backlog 定型業務レポート 2026-W41 の自動化案から ${names} をバックログに積んで(PJ: study(個人))`;
+  }
+
+  function renderProposals() {
+    const area = document.getElementById("proposals-area");
+    if (state === "empty") {
+      area.innerHTML = '<p class="empty">今週は自動化案になる繰り返しが見つかりませんでした。同じ操作が週2回以上あると候補になります。</p>';
+      return;
+    }
+    if (state === "short") {
+      area.innerHTML = '<p class="empty">今週の作業の記録が1.5時間しかないため、自動化案は作っていません。作業の記録が5時間以上ある週に作ります。</p>';
+      return;
+    }
+    if (state === "fail") {
+      area.innerHTML = '<p class="error"><b>自動化案を作れませんでした。</b> 分析の途中でClaudeの呼び出しが3回続けて時間切れになりました。時間の使い方と記録の状態は下に出ています。チャットで「定型業務レポートを作り直して」と頼むと、今週の分を作り直せます。</p>';
+      return;
+    }
+    const items = PROPOSALS.map(p => `
+      <li class="proposal">
+        <input type="checkbox" id="pick-${p.id}" data-id="${p.id}" ${selected.has(p.id) ? "checked" : ""}>
+        <div class="ptitle">
+          <label for="pick-${p.id}">${p.id}. ${p.title}</label>
+          <span class="hours">週 ${p.hours.toFixed(1)}h</span>
+          <span class="effect ${p.effect}">効果 ${{ big: "大", mid: "中", small: "小" }[p.effect]}</span>
+        </div>
+        <dl class="pbody">
+          <dt>見えた繰り返し</dt><dd>${p.seen}</dd>
+          <dt>自動化の案</dt><dd>${p.idea}</dd>
+          <dt>使える仕組み</dt><dd>${p.reuse}</dd>
+        </dl>
+      </li>`).join("");
+    area.innerHTML = `
+      <ul class="proposals">${items}</ul>
+      <div class="actions">
+        <button type="button" id="copy-btn" ${selected.size ? "" : "disabled"}>選んだ案をバックログに積む依頼文をコピー</button>
+        <span class="status" id="copy-status">${selected.size ? `${selected.size}件を選択中` : "積みたい案にチェックを入れてください"}</span>
+      </div>
+      <div class="manual" id="manual" hidden>
+        <span class="status">この画面ではコピーが使えませんでした。下の文を選んでコピーし、Claude Code のチャット欄に貼ってください。</span>
+        <textarea id="manual-text" readonly></textarea>
+      </div>`;
+    area.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.addEventListener("change", e => {
+      const id = Number(e.target.dataset.id);
+      e.target.checked ? selected.add(id) : selected.delete(id);
+      renderProposals();
+    }));
+    document.getElementById("copy-btn").addEventListener("click", copyPrompt);
+  }
+
+  async function copyPrompt() {
+    const text = promptText();
+    const status = document.getElementById("copy-status");
+    let ok = false;
+    if (state !== "copyfail") {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        ok = document.execCommand("copy"); ta.remove();
+      } catch (e) { ok = false; }
+      if (!ok && navigator.clipboard) {
+        try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = false; }
+      }
+    }
+    if (ok) {
+      status.textContent = "コピーしました。Claude Code のチャット欄に貼ってください";
+      status.className = "status ok";
+    } else {
+      const manual = document.getElementById("manual");
+      const mt = document.getElementById("manual-text");
+      manual.hidden = false; mt.value = text; mt.focus(); mt.select();
+      status.textContent = "コピーできませんでした";
+      status.className = "status";
+    }
+  }
+
+  function renderBars() {
+    const max = BARS[0][2];
+    const noAI = state === "fail" || state === "short";
+    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail";
+    document.getElementById("bars").innerHTML = BARS.map(([app, t, h, summary0, when, examples0, link0], i) => {
+      const summary = noAI ? '<span class="status">この週は作業の要約を作っていません(自動化案の欄の理由と同じ)。時間帯だけを出しています。</span>' : summary0;
+      const examples = noAI ? ["(要約を作っていないため出していません)"] : examples0;
+      const link = noProposals ? null : link0;
+      return `
+      <li><details id="bar-${i}">
+        <summary>
+          <span class="name">${app} <small>${t}</small></span>
+          <span class="track"><span class="fill" style="width:${(h / max * 100).toFixed(1)}%"></span></span>
+          <span class="h">${h.toFixed(1)}h</span>
+        </summary>
+        <div class="bardetail">
+          <p class="bsum">${summary}</p>
+          <dl class="kv">
+            <dt>主な時間帯</dt><dd>${when}</dd>
+            <dt>具体例</dt><dd><ul class="ex">${examples.map(e => `<li>${e}</li>`).join("")}</ul></dd>
+            <dt>自動化案</dt><dd>${link ? `<a href="#pick-${link}">案${link}「${PROPOSALS[link - 1].title}」</a>` : "なし"}</dd>
+          </dl>
+        </div>
+      </details></li>`;
+    }).join("");
+  }
+
+  function renderRec() {
+    const ended = state === "ended";
+    const short = state === "short";
+    document.getElementById("rec").innerHTML = `
+      <dt>状態</dt><dd>${ended ? '<span class="pill off">終了</span> 10月9日(金) 18:00 に終わりました' : '<span class="pill">記録中</span> 10月31日(金) 18:00 に終わります'}</dd>
+      <dt>この週の記録</dt><dd>${short ? "1.5時間(10月9日のみ)" : "42.0時間(5日間)"}</dd>
+      <dt>撮った画面</dt><dd>${short ? "180枚(ほぼ同じで捨てた 141枚)" : "4,820枚(ほぼ同じで捨てた 3,377枚)"}</dd>
+      <dt>記録しないアプリ</dt><dd>パスワード管理・キーチェーンアクセス・システム設定</dd>
+      <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">10月7日(水) 13:10〜13:40 ウィンドウのタイトルが取れませんでした(アプリ名だけ記録)</span>'}</dd>
+      <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>`;
+  }
+
+  function render() {
+    renderProposals(); renderBars(); renderRec();
+    document.querySelectorAll(".mockctl button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.state === state)));
+  }
+
+  document.querySelectorAll(".mockctl button").forEach(b => b.addEventListener("click", () => {
+    state = b.dataset.state; render();
+  }));
+  render();
+</script>
