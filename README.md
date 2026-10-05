@@ -41,7 +41,7 @@ specs/ の詳しい配置規約は [CLAUDE.md](CLAUDE.md#specs-フォルダ規�
 | teams-transcript-fetcher | Teams会議のトランスクリプト自動収集バッチ (Python + launchd + Power Automate連携) | [apps/teams-transcript-fetcher/README.md](apps/teams-transcript-fetcher/README.md) | [apps/teams-transcript-fetcher/specs/architecture.md](apps/teams-transcript-fetcher/specs/architecture.md) |
 | meeting-minutes-generator | 会議トランスクリプトからの議事録自動生成バッチ (Python + launchd + claude CLI + Power Automate連携) | [apps/meeting-minutes-generator/README.md](apps/meeting-minutes-generator/README.md) | [apps/meeting-minutes-generator/specs/architecture.md](apps/meeting-minutes-generator/specs/architecture.md) |
 | meeting-setup-automation | 空き時間からの会議候補提示とTeams会議の自動作成 (Claude Code Skill + Power Automate連携) | [apps/meeting-setup-automation/README.md](apps/meeting-setup-automation/README.md) | [apps/meeting-setup-automation/specs/architecture.md](apps/meeting-setup-automation/specs/architecture.md) |
-| routine-work-finder | 画面の操作記録から定型業務を洗い出し、自動化案を週次でレポート (Python + launchd + claude CLI) ※仕様のみ(未実装) | - | [apps/routine-work-finder/specs/architecture.md](apps/routine-work-finder/specs/architecture.md) |
+| routine-work-finder | 使ったアプリとその中身の記録から定型業務を洗い出し、自動化案を週次でレポート (launchd + macOSのオートメーション + claude CLI) ※仕様のみ(未実装) | - | [apps/routine-work-finder/specs/architecture.md](apps/routine-work-finder/specs/architecture.md) |
 
 ## 新しいアプリを追加するときは
 
