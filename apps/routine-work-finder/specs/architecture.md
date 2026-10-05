@@ -34,6 +34,7 @@ flowchart TB
     skill["記録の操作Skill"]
     config["記録の設定 終わりの日時と除外の一覧"]
     memo["面倒だった作業のメモ"]
+    request["週次レポートの作り直しの依頼"]
     recorder["記録係 launchdで常駐"]
     store["記録の保存先 このMacのローカルフォルダ"]
     reporter["週次レポート係 launchdで金曜17時"]
@@ -42,10 +43,12 @@ flowchart TB
     notify["Teams通知 teams-post"]
     skill --> config
     skill --> memo
+    skill --> request
     recorder --> config
     recorder --> store
     reporter --> store
     reporter --> memo
+    reporter --> request
     reporter --> claude
     reporter --> html
     reporter --> notify
@@ -68,13 +71,14 @@ flowchart TB
 
 | 技術 | 用途 |
 |---|---|
-| Python 3 / Swift | 記録係と週次レポート係の本体(どちらで書くかは design.md で決める) |
+| Swift(標準のフレームワークだけ) | 記録係。自己署名の証明書で署名し、作り直してもオートメーションの許可が残るようにする |
+| Python 3(標準ライブラリだけ) | 週次レポート係と、記録の操作Skillから呼ぶ操作スクリプト |
 | launchd | 記録係の常駐と、金曜17時の週次レポート係の起動 |
 | macOS のオートメーション(Apple Events) | Chrome・Excel・PowerPoint・Finder に開いているページやファイルを尋ねる |
-| `claude -p` | 作業の要約と自動化案の作成 |
+| `claude -p`(`~/.claude/lib/claude_headless.py`) | 作業の要約と自動化案の作成 |
 | `~/.claude/lib/atlassian_rest` | JIRA の更新履歴と Confluence の編集の読み込み |
 | teams-post Skill の投稿の仕組み | Teamsへの通知 |
-| Claude Code Skill | チャットからの記録の開始・停止・状態確認・メモ |
+| Claude Code Skill | チャットからの記録の開始・停止・状態確認・メモと、週次レポートの作り直しの依頼 |
 
 </details>
 
@@ -86,8 +90,9 @@ flowchart TB
 
 - 画面収録・アクセシビリティの許可は、会社の端末管理で本人は入れられない。画面の撮影と、どのアプリでもウィンドウの題名を取ることはできない
 - アプリの中身を取れるのは、オートメーションに対応した Chrome・Excel・PowerPoint・Finder。初回はアプリごとに許可のダイアログが出る。Chrome の本文には「Apple Events からの JavaScript を許可」が要る
-- このMacで作るプログラムは作り直すと別物として扱われ、オートメーションの許可がもう一度聞かれる
-- `claude -p` からはMCPが使えないため、JIRA・Confluence は REST で、カレンダーの予定は Power Automate 経由で読む
+- このMacで作るプログラムは、署名が無いと作り直すたびに別物として扱われ、オートメーションの許可がもう一度聞かれる。記録係は自己署名の証明書で署名する
+- Claude Code から `launchctl` は使えない。記録係は常駐させたままにし、Skillは設定ファイルと依頼ファイルを書くだけにする
+- `claude -p` からはMCPが使えないため、JIRA・Confluence は REST で読む。カレンダーの予定は読まない
 - launchd から OneDrive へ書くと `Resource deadlock avoided` で失敗する例がある。既存アプリで対処済みの書き方に従う
 
 </details>
