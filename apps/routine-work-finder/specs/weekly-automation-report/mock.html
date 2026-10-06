@@ -165,7 +165,7 @@
     </div>
   </section>
 
-  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、Chromeのページの本文・Excelのシートと選んだセルの位置・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像は撮っていません。</footer>
+  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、前面ウィンドウの題名・Excelのシート名・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像・画面の中身は取っていません。</footer>
 </div>
 
 <script>
@@ -177,7 +177,7 @@
     { id: 2, title: "会議の前に同じ3つの資料を開く準備", hours: 1.2, effect: "mid",
       seen: "定例の5分前に Confluence の日次ページ・内部線表・JIRAボードを毎回同じ順に開いている(週4回)",
       idea: "会議の10分前に3つのリンクをまとめたTeams通知を送る",
-      reuse: "teams-post Skill・カレンダーの予定" },
+      reuse: "teams-post Skill" },
     { id: 3, title: "ダウンロードしたCSVの列の並べ替え", hours: 0.9, effect: "mid",
       seen: "Chrome の勤怠システムからCSVを保存した直後に毎回 Numbers を開いている(週3回)。面倒だった作業のメモに「CSVの列を毎回手で消している」とある",
       idea: "ダウンロードフォルダを見張り、決まった列だけを残したCSVを自動で作る",
@@ -317,11 +317,10 @@
     document.getElementById("rec").innerHTML = `
       <dt>状態</dt><dd>${ended ? '<span class="pill off">終了</span> 10月9日(金) 18:00 に終わりました' : '<span class="pill">記録中</span> 10月31日(金) 18:00 に終わります'}</dd>
       <dt>この週の記録</dt><dd>${short ? "1.5時間(10月9日のみ)" : "42.0時間(5日間)"}</dd>
-      <dt>取ったページの本文</dt><dd>${short ? "12件" : "318件(同じページの開きっぱなしは数えていません)"}</dd>
       <dt>面倒だった作業のメモ</dt><dd>${short ? "なし" : "2件(10月6日・10月8日)"}</dd>
       <dt>記録しないアプリ</dt><dd>パスワード管理・キーチェーンアクセス・システム設定</dd>
-      <dt>記録しないサイト</dt><dd>なし</dd>
-      <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">10月7日(水) 13:10〜13:40 Chromeから応答がなく、題名と本文が取れませんでした(アプリ名だけ記録)</span>'}</dd>
+      <dt>記録しないことば</dt><dd>なし</dd>
+      <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">10月7日(水) 13:10〜13:40 Chromeから応答がなく、題名が取れませんでした(アプリ名だけ記録)</span>'}</dd>
       <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>`;
   }
 

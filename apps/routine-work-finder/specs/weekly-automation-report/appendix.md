@@ -1,6 +1,6 @@
 # 定型業務の週次レポート 付録
 
-design.md の処理フローが使う書式だけを置く。手順・分岐は design.md が正。記録・本文・メモ・設定のファイルの形は [操作の記録の付録](../activity-recording/appendix.md) が正。
+design.md の処理フローが使う書式だけを置く。手順・分岐は design.md が正。記録・メモ・設定のファイルの形は [操作の記録の付録](../activity-recording/appendix.md) が正。
 
 ## 週次レポート係が使うファイル
 
@@ -125,12 +125,12 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-05" AND
     {
       "id": "c1",
       "app": "Microsoft Excel",
-      "label": "進捗表.xlsx",
+      "title": "進捗表.xlsx",
+      "sheet": "集計",
+      "focusRole": "AXLayoutArea",
       "sessions": 5,
       "totalMinutes": 126,
       "when": ["月 09:05-09:40", "火 09:10-09:35"],
-      "cells": ["進捗!$C$5", "進捗!$D$5"],
-      "pageExcerpts": [{ "title": "…", "url": "https://…", "text": "…" }],
       "overlappingRecords": [{ "source": "jira", "t": "2026-10-05T09:12:00+09:00", "text": "SAG-123 状態: 対応中 → レビュー中" }]
     }
   ],
@@ -148,12 +148,12 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-05" AND
     {
       "id": "w1",
       "app": "Google Chrome",
-      "label": "BL-057 - Confluence",
+      "title": "BL-057 - Confluence",
+      "sheet": null,
+      "focusRole": "AXWebArea",
       "totalMinutes": 214,
       "mainTimes": ["月 13:00-14:20", "水 10:05-11:00"],
-      "contentKnown": true,
-      "pageExcerpts": [],
-      "cells": [],
+      "titleKnown": true,
       "neighborApps": ["Microsoft Excel", "Microsoft Teams"],
       "overlappingRecords": [],
       "memos": []
