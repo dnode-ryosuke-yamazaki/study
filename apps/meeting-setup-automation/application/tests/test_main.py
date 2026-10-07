@@ -215,8 +215,18 @@ class 依頼の書き出し(unittest.TestCase):
         # 番号を外さずに解決した参加者にはメールアドレスを添えない(提示を名簿の氏名のまま保つ)
         self.assertIn("A さん", out)
         self.assertNotIn(f"<{A}>", out)
-        # 添えたメールアドレスはチャットへの表示にとどめ、ログには残さない(design.md#セキュリティ)
-        ログ = self.e.設定.ログファイル.read_text(encoding="utf-8") if self.e.設定.ログファイル.exists() else ""
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
+    def test_末尾の番号を外して解決した参加者のメールアドレスはログに残さないこと(self):
+        """否定確認: 依頼を書き出したときのログに確認の提示と同じ参加者の表記を出すようにすると落ちる。
+
+        --dry-run ではログを1行も書かないので、書き出しまで進めてログが書かれたことを確かめたうえで見る。
+        """
+        code, out = self.e.run("submit", "--subject", "x", "--attendee", "Ei, Taro 1", "--duration", "30", "--request-id", "ID1")
+        self.assertEqual(code, 0)
+        self.assertIn(f"E さん <{E}>", out)
+        ログ = self.e.設定.ログファイル.read_text(encoding="utf-8")
+        self.assertIn("ID1", ログ)
         self.assertNotIn(E, ログ)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#依頼内容の受け付け条件-7

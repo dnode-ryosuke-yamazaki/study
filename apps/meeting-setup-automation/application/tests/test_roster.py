@@ -331,16 +331,19 @@ class ローマ字表記での照合(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-8
     def test_ローマ字の姓だけ名だけでも該当が1人なら解決すること(self):
+        """否定確認: ローマ字の姓・名を姓だけ・名だけの照合に載せないようにすると落ちる。"""
         self.assertEqual(self.名簿.resolve_one("Kamei"), "kamei@example.com")
         self.assertEqual(self.名簿.resolve_one("motohiko"), "kamei@example.com")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-8
     def test_ローマ字で解決しても名簿の氏名で返ること(self):
+        """否定確認: 解決した人にローマ字表記を持たせたまま返すようにすると落ちる。"""
         結果 = self.名簿.resolve(["Kaku, Masahiro"])
         self.assertEqual(結果.解決済み, [{"name": "架空　雅寛", "email": "kaku@example.com"}])
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-8
     def test_3語以上のローマ字は先頭を名末尾を姓とし間の語は照合に使わないこと(self):
+        """否定確認: ローマ字のすべての語を姓だけ・名だけの照合に載せるようにすると落ちる。"""
         for 打ち方 in ("Taro Nagana", "Nagana, Taro", "Nagana"):
             with self.subTest(打ち方=打ち方):
                 self.assertEqual(self.名簿.resolve_one(打ち方), "nagana@example.com")
@@ -348,12 +351,21 @@ class ローマ字表記での照合(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-8
     def test_ローマ字表記が無い空空白だけの人は氏名だけで照合されること(self):
+        """否定確認: 空白だけのローマ字を「持たない」扱いにせず照合に使うようにすると落ちる。
+
+        空白だけのローマ字を照合に使うと、空の照合用表記が名簿に載る。空の表記は照合の手前で
+        読み飛ばすので解決の結果には表れないが、ローマ字を持たない人として扱われていないことになる。
+        そのため、照合用の表記に空のものが無いことも確かめる。
+        """
         self.assertEqual(self.名簿.resolve_one("見本 花子"), "mihon@example.com")
         self.assertEqual(self.名簿.resolve_one("試験"), "shiken@example.com")
         self.assertEqual(self.名簿.resolve_one("例示 三郎"), "reiji@example.com")
+        self.assertNotIn("", self.名簿._フルネーム)
+        self.assertNotIn("", self.名簿._姓名)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-8
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#27-ローマ字表記での照合と末尾の番号を外した照合rosterpymainpy担当-claude
     def test_ローマ字が文字列でない行は名簿エラーになること(self):
+        """否定確認: ローマ字の型の検査を外すと、名簿エラーではない例外になって落ちる。"""
         with self.assertRaises(roster.名簿エラー) as cm:
             roster.load(_名簿を書く(self._tmp.name, [{"name": "A", "email": "a@example.com", "romaji": 1}]))
         self.assertIn("romaji", str(cm.exception))
@@ -364,6 +376,7 @@ class 氏名とローマ字の該当の合算(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-6、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-5
     def test_氏名で該当する人とローマ字で該当する別人がいれば解決せず両方を候補に示すこと(self):
+        """否定確認: 氏名で該当した人が見つかったらローマ字の該当を見ずに打ち切るようにすると落ちる。"""
         with tempfile.TemporaryDirectory() as d:
             名簿 = roster.load(
                 _名簿を書く(
@@ -397,6 +410,7 @@ class 末尾の番号を外した照合(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
     def test_末尾の番号は直前の空白の有無や全角半角を問わず外して照合すること(self):
+        """否定確認: 末尾の番号を外した照合の段を無くすと落ちる。"""
         名簿 = self._名簿([{"name": "架空 雅寛", "email": "kaku@example.com", "romaji": "Masahiro Kaku"}])
         for 打ち方 in ("Kaku, Masahiro 1", "Kaku, Masahiro1", "Kaku, Masahiro １２", "Kaku 2"):
             with self.subTest(打ち方=打ち方):
@@ -446,12 +460,31 @@ class 末尾の番号を外した照合(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
     def test_数字だけの名前は照合しないこと(self):
+        """否定確認: 番号を外すと空になる名前でも、外した結果(空)を照合に使うようにすると落ちる。
+
+        空の照合用表記は照合の手前でも読み飛ばすため、解決の結果だけでは壊れたことが分からない。
+        番号を外した照合の表記が作られないことも確かめる。
+        """
         名簿 = self._名簿([{"name": "架空 雅寛", "email": "kaku@example.com", "romaji": "Masahiro Kaku"}])
         self.assertIsNone(名簿.resolve_one("1"))
         self.assertEqual(名簿.候補("１２"), [])
+        for 打ち方 in ("1", "１２", " 3 "):
+            with self.subTest(打ち方=打ち方):
+                self.assertIsNone(roster._番号を外した照合キー(打ち方))
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-7、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
+    def test_同じ人を番号付きの表示名と番号なしの表記で挙げても出席者は1人で番号を外した旨は残ること(self):
+        """否定確認: 既に解決済みの人なら番号を外した段で解決したことを記録しないようにすると落ちる。"""
+        名簿 = self._名簿([{"name": "架空 雅寛", "email": "kaku@example.com", "romaji": "Masahiro Kaku"}])
+        for 並び in (["架空", "Kaku, Masahiro 1"], ["Kaku, Masahiro 1", "架空"]):
+            with self.subTest(並び=並び):
+                結果 = 名簿.resolve(並び)
+                self.assertEqual(結果.解決済み, [{"name": "架空 雅寛", "email": "kaku@example.com"}])
+                self.assertEqual(結果.番号を外して解決, {"kaku@example.com"})
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
     def test_敬称と番号の両方が付いた名前は一方だけしか外さないため解決しないこと(self):
+        """否定確認: 敬称と番号を両方外す照合の段を足すと落ちる。"""
         名簿 = self._名簿([{"name": "架空 雅寛", "email": "kaku@example.com", "romaji": "Masahiro Kaku"}])
         self.assertIsNone(名簿.resolve_one("Kakuさん 1"))
         self.assertIsNone(名簿.resolve_one("Kaku 1さん"))
