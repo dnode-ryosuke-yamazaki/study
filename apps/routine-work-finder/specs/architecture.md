@@ -57,7 +57,7 @@ flowchart TB
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
 | [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | 仕様のみ(未実装) |
-| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む | 集計・レポート | activity-recording | 仕様のみ(未実装) |
+| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | 仕様のみ(未実装) |
 
 ## 採用技術
 
@@ -71,16 +71,16 @@ flowchart TB
 | Python 3(標準ライブラリだけ) | 週次レポート係と、記録の操作Skillから呼ぶ操作スクリプト |
 | launchd | 記録係の常駐と、週次レポート係の起動(金曜17時と、作り直しの依頼のフォルダが変わったとき) |
 | macOS のアクセシビリティ(AX API) | 前面ウィンドウの題名・Excelのシート名・カーソルのある部品の種類を読む |
-| `claude -p`(`~/.claude/lib/claude_headless.py`) | 作業の要約と自動化案の作成 |
+| `claude -p`(`~/.claude/lib/claude_headless.py`) | 自動化案・作業の要約・記録しない候補の作成 |
 | `~/.claude/lib/atlassian_rest` | JIRA の更新履歴と Confluence の編集の読み込み |
 | `notify_teams`(`~/.claude/lib/atlassian_rest/teams_notify.py`。他のバッチと共通の Teams 通知の部品で、通知先を設定ファイルで切り替える) | Teamsへの通知 |
-| Claude Code Skill | チャットからの記録の開始・停止・状態確認・記録しないアプリ・ことばの追加と削除・メモと、週次レポートの作り直しの依頼 |
+| Claude Code Skill | チャットからの記録の開始・停止・状態確認・記録しないアプリ・ことばの追加と削除・週次レポートの記録しない候補の受け入れ・メモと、週次レポートの作り直しの依頼 |
 
 </details>
 
 ## 非機能要件への対応
 
-記録係の負荷と1回分の時間は「別のコマンドを起動しない・アクセシビリティの問い合わせを前面ウィンドウだけに絞り、1秒で打ち切る」で、週次レポートの時間と呼び出し回数は「Claude の呼び出しを2回にまとめる」で担保する 〔提案〕
+記録係の負荷と1回分の時間は「別のコマンドを起動しない・アクセシビリティの問い合わせを前面ウィンドウだけに絞り、1秒で打ち切る」で、週次レポートの時間と呼び出し回数は「Claude の呼び出しを1週あたり3回にまとめる」で担保する 〔提案〕
 
 <details><summary>詳細を開く</summary>
 
@@ -89,8 +89,8 @@ flowchart TB
 | 記録係のCPU使用率 | 5秒ごとに別のコマンドを起動せず macOS の関数を直接呼ぶ。設定ファイルは更新日時が変わったときだけ読み直す | activity-recording/requirements.md#非機能要件-1 |
 | 1回分の記録の時間 | アクセシビリティの問い合わせを前面ウィンドウの題名・選択シート名・カーソルの部品に絞り、合わせて1秒で打ち切る | activity-recording/requirements.md#非機能要件-2 |
 | 1日の記録の大きさ | 題名を1,000字で切り詰め、1行1件の JSON で書き足す | activity-recording/requirements.md#非機能要件-3 |
-| 週次レポートの作成時間 | 集計は Python の標準ライブラリだけで行い、Claude の呼び出しを2回(自動化案・作業の要約)にまとめる | weekly-automation-report/requirements.md#非機能要件-1 |
-| Claude の呼び出し回数 | 呼び出しを2回にまとめ、再試行は回数に含めない | weekly-automation-report/requirements.md#非機能要件-2 |
+| 週次レポートの作成時間 | 集計は Python の標準ライブラリだけで行い、Claude の呼び出しを3回(自動化案・作業の要約・記録しない候補)にまとめる | weekly-automation-report/requirements.md#非機能要件-1 |
+| Claude の呼び出し回数 | 呼び出しを3回(自動化案・作業の要約・記録しない候補)にまとめ、再試行は回数に含めない | weekly-automation-report/requirements.md#非機能要件-2 |
 
 </details>
 
@@ -105,7 +105,7 @@ flowchart TB
 | JIRA・Confluence(`~/.claude/lib/atlassian_rest` の REST。サイトは PJプロファイルで決まる) | 受ける | JIRA は JQL で選んだチケットの変更履歴、Confluence は CQL で選んだページの最後の版の作者と日時を JSON で読む。自分の分だけを残す | 週次レポートの作成ごと | 認証の失敗・通信の失敗・形の違いが起きた記録は使わず、名前と理由をレポートの記録の状態に出す。サイトが複数ある場合は読めたサイトの分だけを使う | 週次レポート係の契約テスト(実応答由来の fixture)と環境スモーク |
 | OneDrive(本人の自動化フォルダ `00_root/auto/routineWorkFinder/`) | 送る | ローカルの控えを先に書き、`.part` に書いてから `<YYYY-Www>.html` へ名前を付け替える | 金曜17時を過ぎて最初の起動・作り直しの依頼 | 10秒あけて3回まで書き直す。それでも失敗したらローカルの控えを残し、Teams で失敗と控えの場所・作り直しの頼み方を知らせる。自動では作り直さない | 週次レポート係の環境スモークで、launchd から保存先にHTMLが書かれること |
 | Teams(notify_teams。通知先は設定ファイルで決まり、本人宛て) | 送る | `notify_teams("routine-work-finder", "weekly-report", 本文)`。本文はHTML断片で、レポートのビューア形式のリンクを含む | レポートの保存のあと・保存の失敗時 | 10秒あけて3回まで送り直す。それでも失敗したらログに書き、定期の作成では週次レポート係の状態のファイルにも通知の失敗を書く(作り直しでは状態のファイルに書かない)。自動では送り直さない | 週次レポート係の環境スモークで通知が届くこと |
-| Claude(`claude -p`、`~/.claude/lib/claude_headless.py`) | 送る・受ける | 材料を標準入力の JSON で渡し、JSON の答えを受け取って形を検査する。送るものは `weekly-automation-report/requirements.md#社外へ送るもの` に限る | 週次レポートの作成ごとに2回 | 検査を通らない・時間切れも失敗の1回と数え、3回続けて失敗したらその部分を除いてレポートを出す | 週次レポート係の環境スモーク |
+| Claude(`claude -p`、`~/.claude/lib/claude_headless.py`) | 送る・受ける | 材料を標準入力の JSON で渡し、JSON の答えを受け取って形を検査する。送るものは `weekly-automation-report/requirements.md#社外へ送るもの` に限る | 週次レポートの作成ごとに3回(自動化案・作業の要約・記録しない候補) | 検査を通らない・時間切れも失敗の1回と数え、3回続けて失敗したらその部分を除いてレポートを出す | 週次レポート係の環境スモーク |
 
 - 認証情報(JIRA・Confluence・OneDrive・Teams の通知先・Claude)の置き場所は既存の共通部品の設定に従い、ここには書かない
 - 記録係と操作スクリプトは外と何もやり取りしない
@@ -140,7 +140,7 @@ flowchart TB
 <details><summary>詳細を開く</summary>
 
 - **保護対象**: ウィンドウの題名に入る業務の情報(ファイル名・チケット番号・メールの件名など)と、面倒だった作業のメモ
-- **社外へ送るもの**: 週次レポート係が `claude -p` で Claude へ送るのは、`weekly-automation-report/requirements.md#社外へ送るもの` に挙げたもの(操作の記録の集計・ウィンドウの題名・Excelのシート名・部品の種類・既存の作業の記録・メモ・Skill とアプリの名前と説明)だけ。記録しないアプリ・ことばに当たる時間は、時刻と「除外中」の印だけ
+- **社外へ送るもの**: 週次レポート係が `claude -p` で Claude へ送るのは、`weekly-automation-report/requirements.md#社外へ送るもの` に挙げたもの(操作の記録の集計・ウィンドウの題名・Excelのシート名・部品の種類・既存の作業の記録・メモ・Skill とアプリの名前と説明)だけで、正は `weekly-automation-report/requirements.md#社外へ送るもの`。記録しない候補を作るために、その週のアプリ名とウィンドウの題名の組を重複なく全部、字数の上限内で送る。今の記録しないアプリ・ことばの一覧は、社外秘の固有名が入りうるため送らない(候補のうちすでに一覧にあるものはプログラムが捨てる)。一覧に当たった時間の記録も、アプリ名も題名も送らず、時刻と「除外中」の印だけを送る
 - **置く場所**: 生の記録はこのMacのローカル(権限700・ファイル600)に置き、同期フォルダには置かない。レポートは本人の OneDrive の自動化フォルダにだけ置き、共有しない
 - **取らないもの**: 画面の撮影、Apple Events(ほかのアプリへ命令を送る仕組み)、ブラウザのファイルの読み取り、ページ本文・URL・セル位置、キーボードで打った文字の中身、カメラは使わない
 - **会社のセキュリティ監視**: 実機で確かめたのは、記録係が launchd からアクセシビリティで題名を取れることだけで、その動きが監視に検知されないかは未確定。検知された場合は記録係を止めて launchd から外す(activity-recording/tasks.md タスク18)

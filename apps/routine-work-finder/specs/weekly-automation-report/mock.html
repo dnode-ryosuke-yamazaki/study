@@ -133,6 +133,11 @@
     <ul class="bars" id="bars"></ul>
   </section>
 
+  <section aria-labelledby="h-excl">
+    <h2 id="h-excl">記録しない候補 <small>次の記録から外すかどうかを選べます・残っている記録は書き換えません</small></h2>
+    <div id="excl-area"></div>
+  </section>
+
   <section aria-labelledby="h-rec">
     <h2 id="h-rec">記録の状態</h2>
     <dl class="kv" id="rec"></dl>
@@ -150,6 +155,8 @@
       <button type="button" id="st-partial" data-state="partial" aria-pressed="false">今週を途中で作り直したレポート</button>
       <button type="button" id="st-pastcont" data-state="pastcont" aria-pressed="false">過去の週で記録を続けていた</button>
       <button type="button" id="st-cfgbad" data-state="cfgbad" aria-pressed="false">操作の記録の設定ファイルが読めない</button>
+      <button type="button" id="st-exclnone" data-state="exclnone" aria-pressed="false">記録しない候補が0件</button>
+      <button type="button" id="st-exclfail" data-state="exclfail" aria-pressed="false">記録しない候補を作れなかった</button>
       <button type="button" id="st-copyfail" data-state="copyfail" aria-pressed="false">コピーが使えない環境</button>
     </div>
   </section>
@@ -262,6 +269,60 @@
   };
   let state = "normal";
   const selected = new Set();
+  const EXCLUSIONS = [
+    { id: 1, target: "word", value: "給与明細", kind: "給与・賞与",
+      example: "2026年10月分 給与明細 - 勤怠システム(Google Chrome)", reason: "給与の明細を表示している画面の題名です" },
+    { id: 2, target: "app", value: "家計簿", kind: "私用",
+      example: "10月の支出(家計簿)", reason: "個人の家計を管理するアプリで、中身がほぼ私用です" }
+  ];
+  const selectedEx = new Set();
+
+  function exclusionText() {
+    const lines = EXCLUSIONS.filter(x => selectedEx.has(x.id))
+      .map(x => `${x.target === "word" ? "ことば" : "アプリ"}: ${x.value}`).join("\n");
+    return `/routine-work-finder 記録しないものに次を足してください。\n${lines}\n`;
+  }
+
+  function renderExclusions() {
+    const area = document.getElementById("excl-area");
+    if (state === "exclfail") {
+      area.innerHTML = '<p class="error"><b>記録しない候補を作れませんでした。</b> Claudeの呼び出しが3回続けて時間切れになりました。ほかの欄はそのまま出ています。</p>';
+      return;
+    }
+    if (state === "exclnone") {
+      area.innerHTML = '<p class="empty">今週は記録しない候補はありません。</p>';
+      return;
+    }
+    const items = EXCLUSIONS.map(x => `
+      <li class="proposal">
+        <input type="checkbox" id="ex-${x.id}" data-id="${x.id}" ${selectedEx.has(x.id) ? "checked" : ""}>
+        <div class="ptitle">
+          <label for="ex-${x.id}">${x.target === "word" ? "ことば" : "アプリ"}「${x.value}」</label>
+          <span class="effect small">種類 ${x.kind}</span>
+        </div>
+        <dl class="pbody">
+          <dt>当たった題名の例</dt><dd>${x.example}</dd>
+          <dt>理由</dt><dd>${x.reason}</dd>
+        </dl>
+      </li>`).join("");
+    area.innerHTML = `
+      <ul class="proposals">${items}</ul>
+      <div class="actions">
+        <button type="button" id="ex-copy-btn" ${selectedEx.size ? "" : "disabled"}>選んだ候補を記録しないものに足す依頼文をコピー</button>
+        <span class="status" id="ex-copy-status">${selectedEx.size ? `${selectedEx.size}件を選択中` : "外したい候補にチェックを入れてください"}</span>
+      </div>
+      <div class="manual" id="ex-manual" hidden>
+        <span class="status">この画面ではコピーが使えませんでした。下の文を選んでコピーし、Claude Code のチャット欄に貼ってください。</span>
+        <textarea id="ex-manual-text" readonly></textarea>
+      </div>`;
+    area.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.addEventListener("change", e => {
+      const id = Number(e.target.dataset.id);
+      e.target.checked ? selectedEx.add(id) : selectedEx.delete(id);
+      renderExclusions();
+    }));
+    document.getElementById("ex-copy-btn").addEventListener("click", () =>
+      copyWithFallback(exclusionText(), "ex-copy-status", "ex-manual", "ex-manual-text"));
+  }
 
   function promptText() {
     const ids = [...selected].sort((a, b) => a - b);
@@ -315,9 +376,12 @@
     document.getElementById("copy-btn").addEventListener("click", copyPrompt);
   }
 
-  async function copyPrompt() {
-    const text = promptText();
-    const status = document.getElementById("copy-status");
+  function copyPrompt() {
+    return copyWithFallback(promptText(), "copy-status", "manual", "manual-text");
+  }
+
+  async function copyWithFallback(text, statusId, manualId, manualTextId) {
+    const status = document.getElementById(statusId);
     let ok = false;
     if (state !== "copyfail") {
       try {
@@ -333,8 +397,8 @@
       status.textContent = "コピーしました。Claude Code のチャット欄に貼ってください";
       status.className = "status ok";
     } else {
-      const manual = document.getElementById("manual");
-      const mt = document.getElementById("manual-text");
+      const manual = document.getElementById(manualId);
+      const mt = document.getElementById(manualTextId);
       manual.hidden = false; mt.value = text; mt.focus(); mt.select();
       status.textContent = "コピーできませんでした";
       status.className = "status";
@@ -362,7 +426,7 @@
     const rows = state === "short" ? SHORT_BARS : state === "ended" ? BARS_ENDED : state === "partial" ? BARS_PARTIAL : BARS;
     const max = rows[0][2];
     const noAI = state === "fail" || state === "short";
-    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail" && state !== "readfail" && state !== "partial" && state !== "pastcont" && state !== "cfgbad";
+    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail" && state !== "readfail" && state !== "partial" && state !== "pastcont" && state !== "cfgbad" && state !== "exclfail" && state !== "exclnone";
     document.getElementById("bars").innerHTML = rows.map(([app, t, h, summary0, when, examples0, link0], i) => {
       const summary = noAI ? '<span class="status">この週は作業の要約を作っていません(自動化案の欄の理由と同じ)。時間帯だけを出しています。</span>' : summary0;
       const examples = noAI ? ["(要約を作っていないため出していません)"] : examples0;
@@ -394,7 +458,7 @@
       <dt>状態</dt><dd>${ended ? '<span class="pill off">終了</span> 10月8日(木) 18:00 に終わりました' : state === "pastcont" ? '<span class="pill">記録中</span>(この週のあとも記録を続けていました)' : state === "cfgbad" ? '<span class="pill">記録中</span> <span class="warnline">設定ファイルが読めないため、終わりの予定は出していません</span>' : '<span class="pill">記録中</span> 10月31日(金) 18:00 に終わります'}</dd>
       <dt>この週の記録</dt><dd>${short ? "1.5時間(10月9日のみ)" : ended ? "34.0時間(10月5日〜8日の4日間)" : partial ? "21.7時間(10月5日〜10月7日 14:30)" : "42.0時間(5日間)"}</dd>
       <dt>面倒だった作業のメモ</dt><dd>${short ? "なし" : partial ? "1件(10月6日)" : "2件(10月6日・10月7日)"}</dd>
-      <dt>記録しないアプリ</dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "パスワード管理・キーチェーンアクセス・システム設定"}</dd>
+      <dt>記録しないアプリ</dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "パスワード・キーチェーンアクセス・システム設定"}</dd>
       <dt>記録しないことば<br><small>(題名に含まれると記録しない)</small></dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "なし"}</dd>
       <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">記録が取れなかった時間: 10月7日(水) 12:05〜12:55(Macのスリープなど)</span><br><span class="warnline">題名が取れなかった時間: Chrome 0.5時間(10月7日(水) 13:10〜13:40、アプリから応答なし。アプリ名だけ記録)</span>'}</dd>
       <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>
@@ -402,7 +466,7 @@
   }
 
   function render() {
-    renderTotals(); renderProposals(); renderBars(); renderRec();
+    renderTotals(); renderProposals(); renderBars(); renderExclusions(); renderRec();
     document.querySelectorAll(".mockctl button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.state === state)));
   }
 

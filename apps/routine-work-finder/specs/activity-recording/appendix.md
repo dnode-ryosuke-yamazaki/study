@@ -215,15 +215,32 @@ cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application
 python3 -m routine_work_finder.control start --until 2026-10-31T18:00:00+09:00
 python3 -m routine_work_finder.control stop
 python3 -m routine_work_finder.control status
-python3 -m routine_work_finder.control exclude-app add --name "1Password" --bundle-id com.1password.1password
-python3 -m routine_work_finder.control exclude-app remove --name "1Password"
-python3 -m routine_work_finder.control exclude-word add --word 給与
-python3 -m routine_work_finder.control exclude-word remove --word 給与
+python3 -m routine_work_finder.control exclude-app add --input-file "$TMPDIR/rwf-input-20261009-174012.json"
+python3 -m routine_work_finder.control exclude-app remove --input-file "$TMPDIR/rwf-input-20261009-174013.json"
+python3 -m routine_work_finder.control exclude-word add --input-file "$TMPDIR/rwf-input-20261009-174014.json"
+python3 -m routine_work_finder.control exclude-word remove --input-file "$TMPDIR/rwf-input-20261009-174015.json"
 python3 -m routine_work_finder.control exclude-list
-python3 -m routine_work_finder.control memo add --text "勤怠の通知メールを毎回手でフォルダに移している"
+python3 -m routine_work_finder.control exclude-add --request-file "$TMPDIR/rwf-request-20261009-174016.txt" --bundle-ids-file "$TMPDIR/rwf-input-20261009-174016.json"
+python3 -m routine_work_finder.control memo add --input-file "$TMPDIR/rwf-input-20261009-174017.json"
 python3 -m routine_work_finder.control memo list
 python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 ```
+
+入力ファイルの決まり:
+
+- 自由に書かれた文(依頼文・メモの文・ことば・アプリ名)は、どれもシェルのコマンド文字列に入れない。Skill は Bash で `echo $TMPDIR` などで実際の値を確かめ、Write ツールにその絶対パスを渡して、ユーザー単位の一時フォルダ(`$TMPDIR`)に入力ファイルを書き、操作スクリプトにはサブコマンド名とファイルのパスだけを渡す。権限は `$TMPDIR` に任せる
+- 終わりの日時(`--until`)・メモの番号(`--id`)など形の決まった値は、操作スクリプトが形を確かめる前提で引数で渡す
+- 操作スクリプトは入力ファイルを読み終えたら自分で消す。`$TMPDIR` はユーザー単位の一時フォルダで、セッションをまたいで残り、再起動や OS の定期掃除で消える。データフォルダに書けない(`dataFolderUnwritable`)ときだけは消さずに残し、手元のターミナルでそのまま使えるようにする
+- 入力ファイルの中身:
+
+| サブコマンド | 引数 | 入力ファイルの中身 |
+|---|---|---|
+| `exclude-app add` | `--input-file` | `{"name": "1Password", "bundleId": "com.1password.1password"}`(`bundleId` は分からなければ `null`) |
+| `exclude-app remove` | `--input-file` | `{"name": "1Password"}` |
+| `exclude-word add` / `remove` | `--input-file` | `{"word": "給与"}` |
+| `memo add` | `--input-file` | `{"text": "勤怠の通知メールを毎回手でフォルダに移している"}` |
+| `exclude-add` | `--request-file` | 週次レポートからコピーされた依頼文そのもの(下の「依頼文の形」。JSON にしない) |
+| `exclude-add` | `--bundle-ids-file`(任意) | `{"家計簿": "com.example.kakeibo"}`(Skill が `/Applications` で分かったアプリだけ) |
 
 結果の形:
 
@@ -231,8 +248,23 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 {"ok": true, "message": "10月31日 18:00 まで記録します", "notices": ["システム設定のアクセシビリティで記録係をオンにしてください"], "data": {}}
 ```
 
-- 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong" / "configUnreadable", "message": "…"}`
+- 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong" / "configUnreadable" / "badRequest" / "dataFolderUnwritable" / "badInputFile", "message": "…"}`
+- `dataFolderUnwritable`: その操作が書く場所(設定・メモのファイル、weekly-automation-report の作り直しで書く `requests/`)と `control.log` に書けない(データフォルダがまだ無いときは作れない。`Operation not permitted` など)ため、何も書かずに返したとき。入力ファイルを読む前に確かめ、入力ファイルは消さずに残し、結果に `"inputFile": "<入力ファイルの絶対パス>"`(`exclude-add` で `--bundle-ids-file` もあれば `"bundleIdsFile"` も)を入れる。`control.log` が書けないときもこの返し方にする。Skill は `cd <application の絶対パス>` と、同じサブコマンドにそのパスを渡す行だけのコマンドブロックを渡す(自由な文を書かず、ブロックの中で入力ファイルを作らない)。weekly-automation-report の作り直しの依頼もこの返し方に従う(作り直しは入力ファイルが無く、週は `data.week` で返す。weekly-automation-report の付録)
+- `badInputFile`: 入力ファイルが無い・読めない、または `--input-file`・`--bundle-ids-file` の JSON の形が違うとき。`--request-file` の依頼文の1行目が決まり文句でないときは `badRequest`
 - `configUnreadable`: `config.json` があるが読めない・形が違うため、設定ファイルの書き換え(始める・止める・除外の追加と削除)を断ったとき
+- `exclude-add --request-file`(記録しない候補のまとめての追加)は、依頼文をファイルから読む。Skill は依頼文を分けずに入力ファイルに書く。手を加えるのは、1行目が決まり文句で始まらない(スラッシュコマンドの引数として渡り、コマンド名が外れた)ときに `/routine-work-finder ` を前に戻すことだけ。`--bundle-ids-file` には Skill が `/Applications` で分かったアプリのバンドルIDだけを書く。分からないアプリは名前だけで足し、`bundleId` は `null`
+- 結果の `data`: `{"added": {"words": ["給与明細"], "apps": ["家計簿"]}, "alreadyExists": {"words": [], "apps": []}, "skippedLines": ["サイト: 給与システム"], "excludedApps": [...], "excludedTitleWords": [...]}`。`skippedLines` は「ことば: 」「アプリ: 」で始まらないなどで除いた行(空の行は含めない)。足したあとの一覧を `excludedApps`・`excludedTitleWords` で返す
+- `badRequest`: 1行目が決まり文句 `/routine-work-finder 記録しないものに次を足してください。` でないため、何も足さずに断ったとき
+
+週次レポートからコピーされる依頼文の形(操作スクリプトが受け取り、1行目を確かめて残りの行を分ける)。weekly-automation-report と共有する fixture `application/tests/fixtures/exclusion_request.txt` がこの形の正で、週次レポート側の組み立てと突き合わせ、操作スクリプトの契約テストが `exclude-add --request-file <fixture のパス>` で fixture をそのまま読む:
+
+```
+/routine-work-finder 記録しないものに次を足してください。
+ことば: 給与明細
+アプリ: 家計簿
+```
+
+- fixture の中身はこの3行で、末尾に改行を1つ置く。fixture は activity-recording のタスク14で作り、weekly-automation-report の週次レポート側のテストもこれを使う
 
 ## ログの書式
 
@@ -240,7 +272,8 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 2026-10-06T10:15:05+09:00 INFO recording started
 2026-10-06T10:20:10+09:00 WARN title unavailable reason=denied
 2026-10-07T00:00:05+09:00 INFO purge removed=3
+2026-10-09T17:40:12+09:00 INFO exclude added words=2 apps=1 alreadyExists=1 skipped=0
 ```
 
 - 1行に1件。日時・レベル(INFO / WARN / ERROR)・英語の短い文と `キー=値`
-- 題名・シート名・メモの文は書かない
+- 題名・シート名・メモの文は書かない。記録しないアプリ・ことばの追加・削除は件数だけを書き、値(ことば・アプリ名)は書かない
