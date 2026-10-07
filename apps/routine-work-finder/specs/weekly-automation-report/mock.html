@@ -117,13 +117,8 @@
   <header>
     <span class="eyebrow">2026-W41 ・ 定型業務レポート</span>
     <h1>今週の定型業務と自動化案</h1>
-    <span class="period">対象: 2026年10月5日(月)〜10月9日(金) ／ 作成: 10月9日(金) 17:00</span>
-    <div class="totals" id="totals">
-      <span>作業 <b>31.5</b>時間</span>
-      <span>会議 <b>6.0</b>時間</span>
-      <span>離席 <b>4.2</b>時間</span>
-      <span>記録しないアプリ <b>0.3</b>時間</span>
-    </div>
+    <span class="period" id="period">対象: 2026年10月5日(月)〜10月9日(金) ／ 作成: 10月9日(金) 17:00</span>
+    <div class="totals" id="totals"></div>
   </header>
 
   <section aria-labelledby="h-proposals">
@@ -133,18 +128,8 @@
 
   <section aria-labelledby="h-time">
     <h2 id="h-time">時間の使い方 <small>作業時間の上位10件・行を押すと中身が開きます</small></h2>
-    <div class="split" aria-hidden="true">
-      <span style="width:75.2%;background:var(--accent)"></span>
-      <span style="width:14.3%;background:var(--mid)"></span>
-      <span style="width:10%;background:var(--muted)"></span>
-      <span style="width:0.5%;background:var(--danger)"></span>
-    </div>
-    <div class="legend">
-      <span><i style="background:var(--accent)"></i>作業 31.5h</span>
-      <span><i style="background:var(--mid)"></i>会議 6.0h</span>
-      <span><i style="background:var(--muted)"></i>離席 4.2h</span>
-      <span><i style="background:var(--danger)"></i>記録しないアプリ 0.3h</span>
-    </div>
+    <div class="split" id="split" aria-hidden="true"></div>
+    <div class="legend" id="legend"></div>
     <ul class="bars" id="bars"></ul>
   </section>
 
@@ -159,57 +144,129 @@
       <button type="button" id="st-normal" data-state="normal" aria-pressed="true">通常</button>
       <button type="button" id="st-empty" data-state="empty" aria-pressed="false">自動化案が0件</button>
       <button type="button" id="st-short" data-state="short" aria-pressed="false">記録が足りない週</button>
-      <button type="button" id="st-fail" data-state="fail" aria-pressed="false">自動化案の作成に失敗</button>
+      <button type="button" id="st-fail" data-state="fail" aria-pressed="false">作成に失敗</button>
       <button type="button" id="st-ended" data-state="ended" aria-pressed="false">記録が終了した週</button>
+      <button type="button" id="st-readfail" data-state="readfail" aria-pressed="false">既存の作業の記録が読めなかった週</button>
+      <button type="button" id="st-partial" data-state="partial" aria-pressed="false">今週を途中で作り直したレポート</button>
+      <button type="button" id="st-pastcont" data-state="pastcont" aria-pressed="false">過去の週で記録を続けていた</button>
+      <button type="button" id="st-cfgbad" data-state="cfgbad" aria-pressed="false">操作の記録の設定ファイルが読めない</button>
       <button type="button" id="st-copyfail" data-state="copyfail" aria-pressed="false">コピーが使えない環境</button>
     </div>
   </section>
 
-  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、前面ウィンドウの題名・Excelのシート名・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像・画面の中身は取っていません。</footer>
+  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、前面ウィンドウの題名・Excelのシート名・カーソルのある部品の種類・時間帯・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像・ページの本文・URL・セルの位置や値は記録していません。</footer>
 </div>
 
 <script>
   const PROPOSALS = [
-    { id: 1, title: "JIRAの状態を進捗表へ転記する作業", hours: 2.1, effect: "big",
-      seen: "毎朝9時台に Chrome(Jira)と Excel(進捗表.xlsx)を1日平均15回往復。Excel側ではC列(状態)とD列(期日)だけを書き換えている",
-      idea: "JQLで担当チケットを取り、進捗表.xlsx の該当行を書き換えるバッチを毎朝8:30に動かす",
+    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 5.2, effect: "big",
+      seen: "「進捗管理.xlsx — 案件一覧」シートで表の中にカーソルがある時間が、毎朝9時台に毎回20〜30分(週5回)。毎回同じ時間帯に JIRA の SAG-123・SAG-131 などの状態・期日の更新が続いている",
+      idea: "JQLで担当チケットの状態と期日を取り、進捗管理.xlsx の案件一覧へ書き込むバッチを毎朝8:30に動かす",
       reuse: "jira-progress Skill のチケット取得" },
-    { id: 2, title: "会議の前に同じ3つの資料を開く準備", hours: 1.2, effect: "mid",
-      seen: "定例の5分前に Confluence の日次ページ・内部線表・JIRAボードを毎回同じ順に開いている(週4回)",
-      idea: "会議の10分前に3つのリンクをまとめたTeams通知を送る",
-      reuse: "teams-post Skill" },
-    { id: 3, title: "ダウンロードしたCSVの列の並べ替え", hours: 0.9, effect: "mid",
-      seen: "Chrome の勤怠システムからCSVを保存した直後に毎回 Numbers を開いている(週3回)。面倒だった作業のメモに「CSVの列を毎回手で消している」とある",
+    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 2.4, effect: "mid",
+      seen: "Chrome の「マイルストーン進捗 - Confluence」でページの中にカーソルがある時間が、月・火・木・金の9:50〜10:00に毎回8分ほど(週4回)。同じ時間帯に Confluence の編集の記録は無く、見ているだけ",
+      idea: "毎朝9:45に、マイルストーン進捗の表の要点をTeamsの自分宛てに送る",
+      reuse: "confluence-progress-update Skill の進捗表の読み取り" },
+    { id: 3, title: "勤怠のCSVの列の手直し", hours: 0.9, effect: "mid",
+      seen: "Numbers の「勤怠_202610.csv」で表の中にカーソルがある時間が、月・水・金の17時台に毎回15〜20分(週3回)。面倒だった作業のメモに「CSVの列を毎回手で消している」(10/7 17:15)とある",
       idea: "ダウンロードフォルダを見張り、決まった列だけを残したCSVを自動で作る",
       reuse: "create-automation-batch のフォルダ監視" },
-    { id: 4, title: "日報の下書き", hours: 0.6, effect: "small",
-      seen: "18時台にTeamsへ投稿する前、JIRAの担当チケットを1件ずつ開いて内容を書き写している",
+    { id: 4, title: "日報の投稿", hours: 0.5, effect: "small",
+      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月〜木の18時台に7分ほど(週4回)",
       idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
       reuse: "daily-report-to-teams Skill" },
-    { id: 5, title: "共有フォルダのファイル名の付け直し", hours: 0.4, effect: "small",
-      seen: "Finder で OneDrive の議事録フォルダを開き、数分とどまる操作が週2回ある。議事録の題名と保存されたファイル名の日付の書き方がそろっていない",
-      idea: "フォルダに置かれたファイルの名前を決まった書式に自動でそろえる",
+    { id: 5, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small",
+      seen: "面倒だった作業のメモに「勤怠の通知メールを毎回手でフォルダに移している」(10/6)とある。Outlook の題名はメールごとに変わるため、記録の繰り返しとしてはまとまらない",
+      idea: "Outlook の仕分けルールで勤怠の通知メールを決まったフォルダへ自動で移す設定の手順を作る",
       reuse: "なし(新しく作る)" }
   ];
   const BARS = [
-    ["Excel", "進捗表.xlsx", 5.2, "担当チケットの状態と期日を進捗表に書き写し、遅れている行に色を付けている", "毎朝 9:00〜10:00(5日とも)", ["C列(状態)を「レビュー中」から「完了」へ書き換え(10/6 9:12)", "D列(期日)を10/15から10/20へ変更(10/7 9:20)", "遅延の行を黄色で塗りつぶし(10/8 9:31)"], 1],
-    ["Chrome", "Jira ボード", 4.0, "担当チケットを1件ずつ開き、状態・期日・コメントを確認している。進捗表への転記の前段", "毎朝 9:00〜10:00、夕方 17:30〜18:00", ["NMBM-123 の詳細画面で期日を確認(10/6 9:10)", "ボードのフィルタで自分の担当だけに絞る(毎朝)", "コメント欄に作業結果を追記(10/8 17:45)"], 1],
-    ["Teams", "(題名は取れないアプリ)", 3.1, "中身は記録していません。会議前の同じ時間帯に Chrome で Confluence と内部線表を開いた直後に Teams へ切り替えているため、リンクの共有と推定しています", "1日中に分散(1回あたり平均4分)", ["定例の5分前に Confluence・内部線表・Jira を開いた直後に Teams へ(10/6・10/8)", "18:00 前後に毎日10分ほど(日報の投稿とメモに記載)"], 2],
-    ["VS Code", "(題名は取れないアプリ)", 2.8, "Claude Code への依頼から、study リポジトリの仕様作成とレビューが中心と分かります。毎回内容が違うため自動化の候補にはしていません", "火・木の午後", ["Claude Code へ「/requirement BL-057 …」を依頼(10/6 15:10)", "Claude Code へ「/spec-review …」を依頼(10/8 16:40)"], null],
-    ["Chrome", "Confluence 日次ページ", 2.4, "日次ページの進捗表を見て、自分の行の状況を確認・更新している", "毎朝 10:00 前後", ["マイルストーン表の自分の行を確認(毎朝)", "状況列に一言を追記(10/7 10:05)"], 2],
-    ["Outlook", "(題名は取れないアプリ)", 2.0, "中身は記録していません。朝と昼休み明けに15分ほどずつ使っています", "朝と昼休み明け", ["毎朝 8:50〜9:05(5日とも)", "面倒だった作業のメモ:「勤怠の通知メールを毎回手でフォルダに移している」(10/6)"], null],
-    ["ターミナル", "(題名は取れないアプリ)", 1.7, "中身は記録していません。Claude Code への依頼の直後に使うことが多く、引き継ぎのコマンドの実行と推定しています", "午後に分散", ["Claude Code が引き継ぎのコマンドを出した直後に5分ほど(10/7 17:10)"], null],
-    ["Numbers", "(題名は取れないアプリ)", 0.9, "中身は記録していません。Chrome で勤怠システムからCSVを保存した直後に毎回開いています。メモに「CSVの列を毎回手で消している」とあります", "月・水・金の 17:00 前後", ["Chrome の勤怠システム→ Numbers の順に開く(月・水・金の17:00前後)", "面倒だった作業のメモ:「CSVの列を毎回手で消している」(10/8)"], 3],
-    ["Finder", "議事録", 0.6, "OneDrive の議事録フォルダを開き、数分とどまっている", "火・金", ["議事録フォルダを開いて4分(10/6 16:30)", "議事録フォルダを開いて3分(10/9 16:10)"], 5],
-    ["PowerPoint", "定例資料.pptx", 0.5, "定例資料.pptx と 進捗表.xlsx を交互に開いている。進捗表の値を資料へ写していると推定しています", "金曜 11:00 前後", ["定例資料.pptx と 進捗表.xlsx の「サマリ」シートを8回往復(10/9 11:00〜11:20)"], null]
+    ["Excel", "進捗管理.xlsx — 案件一覧", 5.2, "案件一覧シートの表で作業していた。毎朝 JIRA のチケットの更新と同じ時間帯に使っており、チケットの状態や期日を表に反映していたと推定しています", "毎朝 9:00〜10:00(5日とも)", ["表の中にカーソルがある時間が 9:05〜9:32。同じ時間帯に JIRA の SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6)", "表の中にカーソルがある時間が 9:10〜9:35。同じ時間帯に SAG-131 の期日を10/15→10/20に変更(10/7)", "表の中にカーソルがある時間が 9:08〜9:30(10/8)"], 1],
+    ["Chrome", "SAG ボード - Jira", 4.0, "JIRA のボードでチケットを確認・更新していた。JIRA の更新履歴に、同じ時間帯の状態・期日の変更が12件あります", "毎朝 9:00〜10:00、夕方 17:30〜18:00", ["SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6 9:12)", "SAG-131 の期日を10/15→10/20に変更(10/7 9:20)", "SAG-140 の状態を「レビュー中」→「完了」に更新(10/8 17:45)"], null],
+    ["Teams", "チャット | Microsoft Teams", 3.1, "チャットの入力欄にカーソルがある時間が1日中に分散しています。題名からは相手ややり取りの内容は分かりません", "1日中に分散(1回あたり平均4分)", ["入力欄にカーソルがある時間が 10:40〜10:52(10/6)", "入力欄にカーソルがある時間が 14:05〜14:12(10/8)"], null],
+    ["VS Code", "requirements.md — study-routine-work-finder", 2.8, "study リポジトリの仕様書を編集していた。同じ時間帯の Claude Code への依頼から、BL-057 の仕様作成と分かります","火・木の午後", ["エディタにカーソルがある時間が 15:10〜16:05。同じ時間帯に Claude Code へ「/requirement BL-057 …」を依頼(10/6)", "エディタにカーソルがある時間が 16:40〜17:20。同じ時間帯に Claude Code へ「/spec-review …」を依頼(10/8)"], null],
+    ["Chrome", "マイルストーン進捗 - Confluence", 2.4, "Confluence のマイルストーン進捗のページを見ていた。同じ時間帯に Confluence の編集の記録は無く、読んでいただけと推定しています", "月・火・木・金 9:50〜10:00", ["ページの中にカーソルがある時間が 9:51〜9:59(10/6)", "ページの中にカーソルがある時間が 9:52〜10:00(10/8)"], 2],
+    ["Outlook", "受信トレイ - Outlook", 2.0, "受信トレイのメッセージの一覧を見ていた。朝と昼休み明けに15分ほどずつ使っています", "毎朝 8:50〜9:05、13:00〜13:15", ["メッセージの一覧にカーソルがある時間が 8:50〜9:06(10/6)", "面倒だった作業のメモ:「勤怠の通知メールを毎回手でフォルダに移している」(10/6 9:02)"], null],
+    ["ターミナル", "study-routine-work-finder — zsh", 1.7, "study リポジトリのフォルダでターミナルを使っていた。Claude Code への依頼と同じ時間帯が多く、引き継ぎのコマンドを実行していたと推定しています", "午後に分散", ["17:10〜17:16。同じ時間帯に Claude Code へ「/pr …」を依頼(10/7)"], null],
+    ["Numbers", "勤怠_202610.csv", 0.9, "勤怠のCSVの表で作業していた。メモに「CSVの列を毎回手で消している」とあり、列の手直しと推定しています", "月・水・金 17:00〜17:20", ["表の中にカーソルがある時間が 17:02〜17:18(10/5)", "面倒だった作業のメモ:「CSVの列を毎回手で消している」(10/7 17:15)"], 3],
+    ["Chrome", "(題名が取れませんでした)", 0.5, "題名が取れなかったため推定です。前後に使ったアプリが Excel と Chrome で、同じ時間帯に JIRA の更新があるため、チケットの確認の続きと推定しています", "水曜 13:10〜13:40", ["題名が取れなかった時間 13:10〜13:40。同じ時間帯に SAG-131 の状態を更新(10/7)"], null],
+    ["PowerPoint", "定例資料.pptx", 0.4, "定例資料.pptx のスライドを編集していた", "金曜 11:00〜11:25", ["スライドの編集欄にカーソルがある時間が 11:00〜11:25(10/9)"], null]
   ];
+  // 「記録が終了した週」(10月8日(木) 18:00 に終了)用。月〜木の4日分に合わせて上書きする
+  const ENDED_PROPOSAL_PATCH = {
+    1: { hours: 4.2, seen: "「進捗管理.xlsx — 案件一覧」シートで表の中にカーソルがある時間が、月〜木の9時台に毎回20〜30分(週4回)。毎回同じ時間帯に JIRA の SAG-123・SAG-131 などの状態・期日の更新が続いている" },
+    2: { hours: 1.8, seen: "Chrome の「マイルストーン進捗 - Confluence」でページの中にカーソルがある時間が、月・火・木の9:50〜10:00に毎回8分ほど(週3回)。同じ時間帯に Confluence の編集の記録は無く、見ているだけ" },
+    3: { hours: 0.6, seen: "Numbers の「勤怠_202610.csv」で表の中にカーソルがある時間が、月・水の17時台に毎回15〜20分(週2回)。面倒だった作業のメモに「CSVの列を毎回手で消している」(10/7 17:15)とある" }
+  };
+  const PROPOSALS_ENDED = PROPOSALS.map(p => Object.assign({}, p, ENDED_PROPOSAL_PATCH[p.id] || {}));
+  const ENDED_BAR_PATCH = {
+    "進捗管理.xlsx — 案件一覧": { h: 4.2, when: "毎朝 9:00〜10:00(月〜木の4日とも)" },
+    "SAG ボード - Jira": { h: 3.2 },
+    "チャット | Microsoft Teams": { h: 2.5 },
+    "マイルストーン進捗 - Confluence": { h: 1.8, when: "月・火・木 9:50〜10:00" },
+    "受信トレイ - Outlook": { h: 1.6 },
+    "study-routine-work-finder — zsh": { h: 1.4 },
+    "勤怠_202610.csv": { h: 0.6, when: "月・水 17:00〜17:20" }
+  };
+  const BARS_ENDED = BARS
+    .filter(r => r[0] !== "PowerPoint")
+    .map(r => {
+      const p = ENDED_BAR_PATCH[r[1]];
+      if (!p) return r;
+      const c = r.slice();
+      if (p.h != null) c[2] = p.h;
+      if (p.when) c[4] = p.when;
+      return c;
+    })
+    .sort((a, b) => b[2] - a[2]);
+  // 「今週を途中で作り直したレポート」(10月7日(水) 14:30 に作り直しを頼んだ)用。月曜0時〜水曜14:30 の記録だけで作る
+  const PROPOSALS_PARTIAL = [
+    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 3.1, effect: "big",
+      seen: "「進捗管理.xlsx — 案件一覧」シートで表の中にカーソルがある時間が、月〜水の9時台に毎回20〜30分(週3回)。毎回同じ時間帯に JIRA の SAG-123・SAG-131 の状態・期日の更新がある",
+      idea: "JQLで担当チケットの状態と期日を取り、進捗管理.xlsx の案件一覧へ書き込むバッチを毎朝8:30に動かす",
+      reuse: "jira-progress Skill のチケット取得" },
+    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 1.2, effect: "mid",
+      seen: "Chrome の「マイルストーン進捗 - Confluence」でページの中にカーソルがある時間が、月・火の9:50〜10:00に毎回8分ほど(週2回)。同じ時間帯に Confluence の編集の記録は無く、見ているだけ",
+      idea: "毎朝9:45に、マイルストーン進捗の表の要点をTeamsの自分宛てに送る",
+      reuse: "confluence-progress-update Skill の進捗表の読み取り" },
+    { id: 3, title: "日報の投稿", hours: 0.2, effect: "small",
+      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月・火の18時台に7分ほど(週2回)",
+      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
+      reuse: "daily-report-to-teams Skill" },
+    { id: 4, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small",
+      seen: "面倒だった作業のメモに「勤怠の通知メールを毎回手でフォルダに移している」(10/6)とある。Outlook の題名はメールごとに変わるため、記録の繰り返しとしてはまとまらない",
+      idea: "Outlook の仕分けルールで勤怠の通知メールを決まったフォルダへ自動で移す設定の手順を作る",
+      reuse: "なし(新しく作る)" }
+  ];
+  const BARS_PARTIAL = [
+    ["Excel", "進捗管理.xlsx — 案件一覧", 3.1, "案件一覧シートの表で作業していた。毎朝 JIRA のチケットの更新と同じ時間帯に使っており、チケットの状態や期日を表に反映していたと推定しています", "毎朝 9:00〜10:00(月〜水)", ["表の中にカーソルがある時間が 9:05〜9:32。同じ時間帯に JIRA の SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6)", "表の中にカーソルがある時間が 9:10〜9:35。同じ時間帯に SAG-131 の期日を10/15→10/20に変更(10/7)"], 1],
+    ["Chrome", "SAG ボード - Jira", 2.4, "JIRA のボードでチケットを確認・更新していた。JIRA の更新履歴に、同じ時間帯の状態・期日の変更が7件あります", "毎朝 9:00〜10:00、夕方 17:30〜18:00", ["SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6 9:12)", "SAG-131 の期日を10/15→10/20に変更(10/7 9:20)"], null],
+    ["Teams", "チャット | Microsoft Teams", 1.8, "チャットの入力欄にカーソルがある時間が1日中に分散しています。題名からは相手ややり取りの内容は分かりません", "1日中に分散(1回あたり平均4分)", ["入力欄にカーソルがある時間が 10:40〜10:52(10/6)"], null],
+    ["Chrome", "マイルストーン進捗 - Confluence", 1.2, "Confluence のマイルストーン進捗のページを見ていた。同じ時間帯に Confluence の編集の記録は無く、読んでいただけと推定しています", "月・火 9:50〜10:00", ["ページの中にカーソルがある時間が 9:51〜9:59(10/6)"], 2],
+    ["Outlook", "受信トレイ - Outlook", 1.2, "受信トレイのメッセージの一覧を見ていた。朝と昼休み明けに15分ほどずつ使っています", "毎朝 8:50〜9:05、13:00〜13:15", ["メッセージの一覧にカーソルがある時間が 8:50〜9:06(10/6)", "面倒だった作業のメモ:「勤怠の通知メールを毎回手でフォルダに移している」(10/6 9:02)"], null],
+    ["VS Code", "requirements.md — study-routine-work-finder", 1.0, "study リポジトリの仕様書を編集していた。同じ時間帯の Claude Code への依頼から、BL-057 の仕様作成と分かります", "火の午後", ["エディタにカーソルがある時間が 15:10〜16:05。同じ時間帯に Claude Code へ「/requirement BL-057 …」を依頼(10/6)"], null],
+    ["ターミナル", "study-routine-work-finder — zsh", 0.6, "study リポジトリのフォルダでターミナルを使っていた。Claude Code への依頼と同じ時間帯が多く、引き継ぎのコマンドを実行していたと推定しています", "午後に分散", ["16:10〜16:16。同じ時間帯に Claude Code へ「/requirement …」を依頼(10/6)"], null],
+    ["Chrome", "(題名が取れませんでした)", 0.5, "題名が取れなかったため推定です。前後に使ったアプリが Excel と Chrome で、同じ時間帯に JIRA の更新があるため、チケットの確認の続きと推定しています", "水曜 13:10〜13:40", ["題名が取れなかった時間 13:10〜13:40。同じ時間帯に SAG-131 の状態を更新(10/7)"], null],
+    ["Numbers", "勤怠_202610.csv", 0.3, "勤怠のCSVの表で作業していた", "月 17:00〜17:20", ["表の中にカーソルがある時間が 17:02〜17:18(10/5)"], null]
+  ];
+  function proposals() { return state === "ended" ? PROPOSALS_ENDED : state === "partial" ? PROPOSALS_PARTIAL : PROPOSALS; }
+  const SHORT_BARS = [
+    ["Excel", "進捗管理.xlsx — 案件一覧", 0.7, "", "金曜 9:00〜9:45", [], null],
+    ["Chrome", "SAG ボード - Jira", 0.5, "", "金曜 9:10〜9:40", [], null]
+  ];
+  const TOTALS = {
+    normal: { work: 31.5, meeting: 6.0, away: 4.2, excluded: 0.3 },
+    short: { work: 1.2, meeting: 0.2, away: 0.1, excluded: 0.0 },
+    ended: { work: 25.5, meeting: 5.0, away: 3.3, excluded: 0.2 },
+    partial: { work: 16.0, meeting: 3.5, away: 2.0, excluded: 0.2 }
+  };
   let state = "normal";
   const selected = new Set();
 
   function promptText() {
     const ids = [...selected].sort((a, b) => a - b);
-    const names = ids.map(i => `案${i}「${PROPOSALS[i - 1].title}」`).join("、");
-    return `/backlog 定型業務レポート 2026-W41 の自動化案から ${names} をバックログに積んで(PJ: study(個人))`;
+    const lines = ids.map(i => `${i}. ${proposals()[i - 1].title}`).join("\n");
+    return `/backlog 定型業務の週次レポート 2026-W41 の自動化案から、次をバックログに積んでください。\n${lines}`;
   }
 
   function renderProposals() {
@@ -219,19 +276,19 @@
       return;
     }
     if (state === "short") {
-      area.innerHTML = '<p class="empty">今週の作業の記録が1.5時間しかないため、自動化案は作っていません。作業の記録が5時間以上ある週に作ります。</p>';
+      area.innerHTML = '<p class="empty">今週の作業の記録が1.2時間しかないため、自動化案は作っていません。作業の記録が5時間以上ある週に作ります。</p>';
       return;
     }
     if (state === "fail") {
-      area.innerHTML = '<p class="error"><b>自動化案を作れませんでした。</b> 分析の途中でClaudeの呼び出しが3回続けて時間切れになりました。時間の使い方と記録の状態は下に出ています。チャットで「定型業務レポートを作り直して」と頼むと、今週の分を作り直せます。</p>';
+      area.innerHTML = '<p class="error"><b>自動化案を作れませんでした。</b> 分析の途中でClaudeの呼び出しが3回続けて時間切れになりました。時間の使い方と記録の状態は下に出ています。チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと作り直せます。</p>';
       return;
     }
-    const items = PROPOSALS.map(p => `
+    const items = proposals().map(p => `
       <li class="proposal">
         <input type="checkbox" id="pick-${p.id}" data-id="${p.id}" ${selected.has(p.id) ? "checked" : ""}>
         <div class="ptitle">
           <label for="pick-${p.id}">${p.id}. ${p.title}</label>
-          <span class="hours">週 ${p.hours.toFixed(1)}h</span>
+          <span class="hours">${p.hours == null ? "週の時間は記録では見えない" : `週 ${p.hours.toFixed(1)}h`}</span>
           <span class="effect ${p.effect}">効果 ${{ big: "大", mid: "中", small: "小" }[p.effect]}</span>
         </div>
         <dl class="pbody">
@@ -284,11 +341,29 @@
     }
   }
 
+  function renderTotals() {
+    const t = TOTALS[state] || TOTALS.normal;
+    document.getElementById("period").textContent = state === "partial"
+      ? "対象: 2026年10月5日(月)〜10月7日(水) 14:30(途中までの記録) ／ 作成: 10月7日(水) 14:32"
+      : "対象: 2026年10月5日(月)〜10月9日(金) ／ 作成: 10月9日(金) 17:00";
+    const sum = t.work + t.meeting + t.away + t.excluded;
+    const parts = [
+      ["作業", t.work, "var(--accent)"],
+      ["会議", t.meeting, "var(--mid)"],
+      ["離席", t.away, "var(--muted)"],
+      ["記録しなかった時間", t.excluded, "var(--danger)"]
+    ];
+    document.getElementById("totals").innerHTML = parts.map(([n, h]) => `<span>${n} <b>${h.toFixed(1)}</b>時間</span>`).join("");
+    document.getElementById("split").innerHTML = parts.map(([, h, c]) => `<span style="width:${(h / sum * 100).toFixed(1)}%;background:${c}"></span>`).join("");
+    document.getElementById("legend").innerHTML = parts.map(([n, h, c]) => `<span><i style="background:${c}"></i>${n} ${h.toFixed(1)}h</span>`).join("");
+  }
+
   function renderBars() {
-    const max = BARS[0][2];
+    const rows = state === "short" ? SHORT_BARS : state === "ended" ? BARS_ENDED : state === "partial" ? BARS_PARTIAL : BARS;
+    const max = rows[0][2];
     const noAI = state === "fail" || state === "short";
-    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail";
-    document.getElementById("bars").innerHTML = BARS.map(([app, t, h, summary0, when, examples0, link0], i) => {
+    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail" && state !== "readfail" && state !== "partial" && state !== "pastcont" && state !== "cfgbad";
+    document.getElementById("bars").innerHTML = rows.map(([app, t, h, summary0, when, examples0, link0], i) => {
       const summary = noAI ? '<span class="status">この週は作業の要約を作っていません(自動化案の欄の理由と同じ)。時間帯だけを出しています。</span>' : summary0;
       const examples = noAI ? ["(要約を作っていないため出していません)"] : examples0;
       const link = noProposals ? null : link0;
@@ -304,7 +379,7 @@
           <dl class="kv">
             <dt>主な時間帯</dt><dd>${when}</dd>
             <dt>具体例</dt><dd><ul class="ex">${examples.map(e => `<li>${e}</li>`).join("")}</ul></dd>
-            <dt>自動化案</dt><dd>${link ? `<a href="#pick-${link}">案${link}「${PROPOSALS[link - 1].title}」</a>` : "なし"}</dd>
+            <dt>自動化案</dt><dd>${link ? `<a href="#pick-${link}">案${link}「${proposals()[link - 1].title}」</a>` : "なし"}</dd>
           </dl>
         </div>
       </details></li>`;
@@ -314,18 +389,20 @@
   function renderRec() {
     const ended = state === "ended";
     const short = state === "short";
+    const partial = state === "partial";
     document.getElementById("rec").innerHTML = `
-      <dt>状態</dt><dd>${ended ? '<span class="pill off">終了</span> 10月9日(金) 18:00 に終わりました' : '<span class="pill">記録中</span> 10月31日(金) 18:00 に終わります'}</dd>
-      <dt>この週の記録</dt><dd>${short ? "1.5時間(10月9日のみ)" : "42.0時間(5日間)"}</dd>
-      <dt>面倒だった作業のメモ</dt><dd>${short ? "なし" : "2件(10月6日・10月8日)"}</dd>
-      <dt>記録しないアプリ</dt><dd>パスワード管理・キーチェーンアクセス・システム設定</dd>
-      <dt>記録しないことば</dt><dd>なし</dd>
-      <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">10月7日(水) 13:10〜13:40 Chromeから応答がなく、題名が取れませんでした(アプリ名だけ記録)</span>'}</dd>
-      <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>`;
+      <dt>状態</dt><dd>${ended ? '<span class="pill off">終了</span> 10月8日(木) 18:00 に終わりました' : state === "pastcont" ? '<span class="pill">記録中</span>(この週のあとも記録を続けていました)' : state === "cfgbad" ? '<span class="pill">記録中</span> <span class="warnline">設定ファイルが読めないため、終わりの予定は出していません</span>' : '<span class="pill">記録中</span> 10月31日(金) 18:00 に終わります'}</dd>
+      <dt>この週の記録</dt><dd>${short ? "1.5時間(10月9日のみ)" : ended ? "34.0時間(10月5日〜8日の4日間)" : partial ? "21.7時間(10月5日〜10月7日 14:30)" : "42.0時間(5日間)"}</dd>
+      <dt>面倒だった作業のメモ</dt><dd>${short ? "なし" : partial ? "1件(10月6日)" : "2件(10月6日・10月7日)"}</dd>
+      <dt>記録しないアプリ</dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "パスワード管理・キーチェーンアクセス・システム設定"}</dd>
+      <dt>記録しないことば<br><small>(題名に含まれると記録しない)</small></dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "なし"}</dd>
+      <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">記録が取れなかった時間: 10月7日(水) 12:05〜12:55(Macのスリープなど)</span><br><span class="warnline">題名が取れなかった時間: Chrome 0.5時間(10月7日(水) 13:10〜13:40、アプリから応答なし。アプリ名だけ記録)</span>'}</dd>
+      <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>
+      <dt>読めなかった記録</dt><dd>${state === "readfail" ? '<span class="warnline">Confluence(example.atlassian.net): 認証に失敗したため、この週の Confluence の編集は使わずに作りました</span>' : "なし(JIRA・Confluence・Claude Code の会話・議事録をすべて読めました)"}</dd>`;
   }
 
   function render() {
-    renderProposals(); renderBars(); renderRec();
+    renderTotals(); renderProposals(); renderBars(); renderRec();
     document.querySelectorAll(".mockctl button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.state === state)));
   }
 

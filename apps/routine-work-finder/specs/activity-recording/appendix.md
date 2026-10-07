@@ -14,6 +14,7 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 └── memos/<YYYY-MM-DD>.jsonl   # 面倒だった作業のメモ(1行1件)
 ```
 
+- 同じフォルダに週次レポート係のファイル(`report-state.json`・`report.lock/`・`reports/`・`requests/`)も置かれる。形は [週次レポートの付録](../weekly-automation-report/appendix.md) の「週次レポート係が使うファイル」
 - ファイルの権限: 600
 - 日付は日本時間の日付。削除の対象はファイル名が `^\d{4}-\d{2}-\d{2}\.jsonl$` に合うものだけ
 - 設定ファイルの書き換え: 同じフォルダの `config.json.tmp` に書いてから `config.json` へ名前を付け替える
@@ -37,7 +38,7 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 ```
 
 - `endsAt`: 終わりの日時。止めたとき・未設定は `null`
-- `stoppedAt`: 「記録を止めて」で止めた日時。始めたときに `null` に戻す
+- `stoppedAt`: 「記録を止めて」で止めた日時。始めたときに `null` に戻す。必須の項目ではなく、欠けていたら `null` とみなす
 - `excludedApps[].bundleId`: 分からないときは `null`
 - `excludedTitleWords`: 題名に含まれると除外することばの一覧(例: `["給与", "人事"]`)
 - 必須の項目: `version`・`endsAt`・`excludedApps`・`excludedTitleWords`。欠け・型違いは記録しない側に倒す
@@ -60,6 +61,7 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 ```
 
 - `accessibilityGranted`: `AXIsProcessTrusted()` の値。false なら状態の確認で許可の案内を返す
+- `configError`: 設定ファイルが読めなかったときの理由(例: `"invalidJson"` / `"missingField:endsAt"`)。読めた回は `null`
 - 記録係が動いていないとみなす条件: `updatedAt` が今より30秒以上前
 
 ## 操作の記録の行の形
@@ -76,7 +78,13 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 - `sheet`: Excel の選択シート名。無ければ項目を書かない
 - `focusRole`: カーソルのある部品の role。subrole があれば `focusSubrole` も書く。取れなければ書かない
 - `titleTruncated`: 題名が1,000字を超えて切り詰めたとき `true`
-- 題名が取れなかったとき: `title` の代わりに `{"titleUnavailable": true, "reason": "noWindow" / "denied" / "timeout"}`
+- 題名が取れなかったとき: `title` は書かず、行の一番上の項目として `"titleUnavailable": true` と `"titleReason": "<理由>"` を持つ。理由は下の「エラーの理由」の `noWindow` / `denied` / `timeout`。停止の行の `reason` とは別の名前にする
+
+題名が取れなかった行:
+
+```json
+{"t":"2026-10-06T10:15:15+09:00","kind":"sample","app":"Microsoft Teams","bundleId":"com.microsoft.teams2","monitor":1,"idleSec":3.0,"locked":false,"mic":false,"displaySleepPrevented":false,"titleUnavailable":true,"titleReason":"timeout"}
+```
 
 除外中の行(アプリ名も題名も書かない):
 
@@ -88,12 +96,17 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 
 ```json
 {"t":"2026-10-06T09:00:00+09:00","kind":"start"}
-{"t":"2026-10-31T18:00:05+09:00","kind":"stop","reason":"endsAtPassed"}
+{"t":"2026-10-31T18:00:00+09:00","kind":"stop","reason":"endsAtPassed"}
 ```
 
-- `stop` の `reason`: `endsAtPassed`(終わりの日時を過ぎた)/ `stopRequested`(止める依頼)/ `configError`(設定が読めない)
+- `stop` の `reason`: `endsAtPassed`(終わりの日時を過ぎた)/ `stopRequested`(止める依頼)/ `endsAtMissing`(`endsAt` と `stoppedAt` がどちらも `null`、または設定ファイルが無い)
+- 停止の行は、記録のファイルの最後の行が停止の行でなく、今は記録しない状態(終わりの日時を過ぎた・止めた・終わりの日時が無い)の回に1回だけ書く。最後の行がすでに停止の行なら書かない
+- 停止の行の `t`: `endsAtPassed` は「最後の行の時刻」と `endsAt` の遅い方、`stopRequested` は「最後の行の時刻」と `stoppedAt` の遅い方、`endsAtMissing` はその回の時刻(寄せる先の日時が無いため)。その時刻の日本時間の日付のファイルに書き足す
+- 設定ファイルが読めない回は停止の行も通常の行も書かない。理由は状態のファイルの `configError` に書く
+- 設定ファイルが無い回は「終わりの日時が無い」として扱い、`configError` は `null` にする(停止の行の条件に当たれば `endsAtMissing` の停止の行を書く)
 - 周りの状態が取れなかった項目は `null`
 - 読む側は、知らない `kind`・知らない項目を読み飛ばす。最終行が書きかけ(JSON として読めない)の場合も読み飛ばす
+- 範囲を区切って読む側(`records.py`)は、範囲の直前の行(範囲より前のファイルの最後に読める行)で、範囲の始まりが記録している期間の内か外かを決める。直前の行が停止の行、または28日の保持で直前の行が無い場合は期間の外とする。期間の内で、直前の行から範囲内の最初の行までが30秒以上空いている場合は、範囲の始まりから最初の行までを記録が取れなかった時間とする。範囲の終わりは、範囲の最後の行が記録している期間の内(停止の行でない)で、範囲の終わりまで30秒以上空いている場合に、最後の行から範囲の終わりまでを記録が取れなかった時間とする。範囲の後の行は見ない
 
 ## メモのファイルの形
 
@@ -114,14 +127,17 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 | 前面ウィンドウ | 前面アプリの pid から `AXUIElementCreateApplication` → `kAXFocusedWindowAttribute` |
 | ウィンドウの題名 | 前面ウィンドウの `kAXTitleAttribute` |
 | カーソルの部品の種類 | アプリ要素の `kAXFocusedUIElementAttribute` → `kAXRoleAttribute`(あれば `kAXSubroleAttribute`) |
-| Excel のシート名 | 前面ウィンドウの子(先頭40個まで)から role が `AXTabGroup` のものを探し、`kAXTabsAttribute` の中で `kAXValueAttribute` が真のタブの `kAXTitleAttribute` |
+| Excel のシート名 | 前面ウィンドウの `kAXChildrenAttribute` で子を取り、先頭40個までの `kAXRoleAttribute` から role が `AXTabGroup` のものを探し、`kAXTabsAttribute` の中で `kAXValueAttribute` が真のタブの `kAXTitleAttribute` |
 
-- `kAXValueAttribute`・`kAXSelectedTextAttribute` など、部品の中の文字を返す属性は読まない
+- 読む属性は上の表の8つ(`kAXFocusedWindowAttribute`・`kAXTitleAttribute`・`kAXFocusedUIElementAttribute`・`kAXRoleAttribute`・`kAXSubroleAttribute`・`kAXChildrenAttribute`・`kAXTabsAttribute`・`kAXValueAttribute`)だけ。記録係のソースの構造検証はこの8つを許可リストにする
+- `kAXSelectedTextAttribute` など、部品の中の文字を返す属性は読まない。`kAXValueAttribute` は、タブ群の中のタブが選ばれているか(真偽)を見る1か所だけで読み、入力欄・表など文字を持つ部品には読まない
 - 1回の記録で上の問い合わせを合わせて1秒で打ち切る
 
 ## エラーの理由
 
-| 状況 | reason |
+題名が取れなかった行の `titleReason` に入れる値。
+
+| 状況 | titleReason |
 |---|---|
 | 前面ウィンドウが取れない | `noWindow` |
 | `AXIsProcessTrusted()` が false | `denied` |
@@ -215,7 +231,8 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 {"ok": true, "message": "10月31日 18:00 まで記録します", "notices": ["システム設定のアクセシビリティで記録係をオンにしてください"], "data": {}}
 ```
 
-- 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong", "message": "…"}`
+- 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong" / "configUnreadable", "message": "…"}`
+- `configUnreadable`: `config.json` があるが読めない・形が違うため、設定ファイルの書き換え(始める・止める・除外の追加と削除)を断ったとき
 
 ## ログの書式
 
