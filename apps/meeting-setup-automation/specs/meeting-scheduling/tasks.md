@@ -1,7 +1,5 @@
 # 空き時間からの会議候補提示とTeams会議の自動作成 タスク分解
 
-> 実装中: session study-bf, branch: feature/meeting-setup-romaji-impl, started: 2026-10-07T11:13:11+09:00
-
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
 テストは `apps/meeting-setup-automation/application/tests/` に unittest で書き、`python3 -m unittest discover -s tests -t .` で実行する(teams-transcript-fetcher・meeting-minutes-generatorと同じ)。OneDriveのフォルダ・メンバー名簿・現在時刻はテストでは一時ディレクトリと固定値に差し替える。Power Automateフローとブラウザは自動テストから動かさない(該当項目は[実機確認](#仕様承認pr前に行う実機確認)と[動作確認チェックリスト](#動作確認チェックリスト)で担保する)。
