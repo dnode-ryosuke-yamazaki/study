@@ -1,0 +1,3 @@
+[
+  {"app": "Microsoft Excel", "bundleId": "com.microsoft.Excel", "elapsedMs": 16, "focusedElementError": 0, "focusedWindowError": 0, "role": {"error": 0, "value": "AXLayoutArea"}, "sheet": {"childCount": 14, "childrenError": 0, "selectedTitle": {"error": 0, "length": 2, "value": "SHEET"}, "tabCount": 9, "tabGroupFound": true, "tabsError": 0}, "subrole": {"error": -25205}, "title": {"error": 0, "length": 27, "value": "TITLE"}, "trusted": true}
+]

@@ -1,0 +1,4 @@
+[
+  {"app": "Google Chrome", "bundleId": "com.google.Chrome", "elapsedMs": 1259, "focusedElementError": 0, "focusedWindowError": 0, "role": {"error": 0, "value": "AXTextField"}, "sheet": {"childCount": 4, "childrenError": 0, "tabGroupFound": false}, "subrole": {"error": -25212}, "title": {"error": 0, "length": 49, "value": "TITLE"}, "trusted": true},
+  {"app": "Google Chrome", "bundleId": "com.google.Chrome", "elapsedMs": 5, "focusedElementError": 0, "focusedWindowError": 0, "role": {"error": 0, "value": "AXWebArea"}, "sheet": {"childCount": 4, "childrenError": 0, "tabGroupFound": false}, "subrole": {"error": -25212}, "title": {"error": 0, "length": 49, "value": "TITLE"}, "trusted": true}
+]

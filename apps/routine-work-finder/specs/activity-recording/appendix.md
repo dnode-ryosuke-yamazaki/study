@@ -174,7 +174,7 @@ codesign --verify --verbose "$HOME/Library/Application Support/routine-work-find
 ```
 
 - スクリプトの変数名は ASCII だけにする(launchd から動く /bin/bash 3.2 の制約に合わせる)
-- 署名のあと、システム設定の「プライバシーとセキュリティ → アクセシビリティ」の一覧に記録係(`bin/rwf-recorder`)を追加してオンにする(手元で行う)。署名していれば、作り直しても一覧の許可が残る見込み
+- 署名のあと、システム設定の「プライバシーとセキュリティ → アクセシビリティ」の一覧に記録係(`bin/rwf-recorder`)を追加してオンにする(手元で行う)。一覧への追加は最初の1回だけで、作り直して署名し置き直したときは一覧を触らない(許可が残る)
 - 続けて launchd のジョブを `launchctl bootout` → `bootstrap` で入れ直す(手元のターミナルで実行する)
 
 ## launchd の設定ファイルの形
