@@ -12,8 +12,12 @@
 名簿の形(記入例は `roster.example.json`):
     {
       "organizer": {"name": "自分の名前", "email": "me@example.com"},   # 任意
-      "members": [{"name": "山田 太郎", "email": "taro@example.com"}, ...]
+      "members": [{"name": "山田 太郎", "email": "taro@example.com", "romaji": "Taro Yamada"}, ...]
     }
+
+`romaji` は任意で「名 姓」の順に書く(同 [8])。OutlookやTeamsの表示名(「姓, 名」)を写した
+指定でも解決できるよう、ローマ字のフルネームは両方の並びで照合に使う。Outlookが同姓同名の
+区別に付ける末尾の番号は、他の照合で見つからないときだけ外して照合する(同 [9])。
 
 `organizer` は候補が0件のときの代替案1で、開催者自身に仮の予定があることを名前つきで
 示すために使う(無ければ「開催者(あなた)」と示す)。
@@ -25,12 +29,17 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 _敬称 = ("さん", "サン")
 _空白 = re.compile(r"[\s\u3000]+")
 #: 「姓, 名」形式の登録を空白区切りで打っても同じ名前として扱うため、照合キーから落とす
 _読点 = re.compile(r"[,、]")
+#: 全角の英数字・記号(！〜～)を半角に揃える。Unicode正規化(NFKC)は使わない。
+#: 名簿の漢字の異体字まで書き換わり、登録どおりに打っても一致しなくなるため
+_全角を半角に = str.maketrans({chr(c): chr(c - 0xFEE0) for c in range(0xFF01, 0xFF5F)})
+#: 照合キーの末尾の番号。全角数字は照合キーを作る時点で半角に揃っている
+_末尾の番号 = re.compile(r"[0-9]+$")
 
 
 class 名簿エラー(Exception):
@@ -38,12 +47,12 @@ class 名簿エラー(Exception):
 
 
 def _照合キー(名前: str) -> str:
-    """打ち方の違いを吸収した比較用の文字列。空白をすべて落とし、大文字小文字を揃える。
+    """打ち方の違いを吸収した比較用の文字列。空白と読点を落とし、全角英数字を半角に、大文字小文字を揃える。
 
     敬称はここでは外さない。名簿の登録名が敬称で終わる場合(「ハッサン」など)に、
     索引側で外すと別人と潰れてしまうため、外すのは問い合わせ側だけにする。
     """
-    return _読点.sub("", _空白.sub("", 名前.strip())).casefold()
+    return _読点.sub("", _空白.sub("", 名前.strip().translate(_全角を半角に))).casefold()
 
 
 def _敬称を外した照合キー(名前: str) -> Optional[str]:
@@ -54,6 +63,16 @@ def _敬称を外した照合キー(名前: str) -> Optional[str]:
         if キー.endswith(照合) and len(キー) > len(照合):
             return キー[: -len(照合)]
     return None
+
+
+def _番号を外した照合キー(名前: str) -> Optional[str]:
+    """末尾の番号を落とした照合キー。番号が付いていない・落とすと空になる場合はNone。
+
+    敬称はここでは外さない(1つの段で外すのは敬称か番号のどちらか一方だけ)。
+    """
+    キー = _照合キー(名前)
+    外した = _末尾の番号.sub("", キー)
+    return 外した if 外した and 外した != キー else None
 
 
 def _姓と名(フルネーム: str) -> Tuple[str, str]:
@@ -74,6 +93,9 @@ class 解決結果:
     #: 未解決の名前ごとの候補({名前: [{"name": フルネーム, "email": ...}, ...]})。
     #: 登録が無い名前は空リスト。チャットへの表示にだけ使い、ログには出さない(design.md#セキュリティ)
     候補一覧: Dict[str, List[dict]] = field(default_factory=dict)
+    #: 末尾の番号を外した照合で解決した人のメールアドレス。番号は同姓同名の別人を区別する印でもあるため、
+    #: 依頼内容の確認でメールアドレスを添えて示す(requirements.md#参加者の解決 [9])
+    番号を外して解決: Set[str] = field(default_factory=set)
 
     @property
     def ok(self) -> bool:
@@ -82,21 +104,30 @@ class 解決結果:
 
 @dataclass
 class 名簿:
-    #: フルネームの照合キー -> 該当する人({"name": フルネーム, "email": ...})の一覧
+    #: フルネームの照合キー -> 該当する人({"name": フルネーム, "email": ...})の一覧。
+    #: ローマ字表記を持つ人は、ローマ字のフルネーム(「名 姓」「姓 名」の両並び)もここに載る
     _フルネーム: Dict[str, List[dict]]
-    #: 姓だけ・名だけの照合キー -> 該当する人の一覧
+    #: 姓だけ・名だけの照合キー -> 該当する人の一覧(ローマ字の姓・名を含む)
     _姓名: Dict[str, List[dict]]
     organizer_name: Optional[str] = None
 
-    def _該当(self, 名前: str) -> List[dict]:
-        """打たれた文字列に該当する人を集める。打たれたとおりの照合を、敬称を外した照合より先に見る。
+    def _段ごとの該当(self, 名前: str) -> Tuple[List[dict], bool]:
+        """打たれた文字列に該当する人と、末尾の番号を外した段で見つかったかどうかを返す。
 
+        打たれたとおりの照合、敬称を外した照合、末尾の番号を外した照合の順に見て、
+        該当が見つかった段で打ち切る(requirements.md#参加者の解決 [6][9])。
         同じ照合キーではフルネームでの一致と姓・名での一致を**統合**して数える。
         片方を優先して打ち切ると、区切りの無い登録名(「大西」)が同姓の別人
         (「大西 潤哉」)を隠して1人に確定してしまい、同姓の別人を黙って招待する
-        (requirements.md#参加者の解決 [2])。
+        (requirements.md#参加者の解決 [2])。氏名とローマ字は同じ索引に載っているので、
+        氏名で該当した人とローマ字で該当した別人もここで合わせて数える。
         """
-        for キー in (_照合キー(名前), _敬称を外した照合キー(名前)):
+        段 = (
+            (_照合キー(名前), False),
+            (_敬称を外した照合キー(名前), False),
+            (_番号を外した照合キー(名前), True),
+        )
+        for キー, 番号を外した in 段:
             if not キー:
                 continue
             該当: List[dict] = []
@@ -105,8 +136,11 @@ class 名簿:
                     if not any(x["email"].casefold() == 人["email"].casefold() for x in 該当):
                         該当.append(人)
             if 該当:
-                return 該当
-        return []
+                return 該当, 番号を外した
+        return [], False
+
+    def _該当(self, 名前: str) -> List[dict]:
+        return self._段ごとの該当(名前)[0]
 
     def resolve_one(self, 名前: str) -> Optional[str]:
         """名前を1件解決する。登録がない・複数人が該当する場合はNone。"""
@@ -128,12 +162,17 @@ class 名簿:
         結果 = 解決結果()
         for 名前 in 名前一覧:
             表示 = 名前.strip()
-            人 = self.一人に定める(名前)
-            if 人 is None:
+            該当, 番号を外した = self._段ごとの該当(名前)
+            if len(該当) != 1:
+                # 番号を外した段で複数人が該当しても、番号では絞らずに候補を示す(同 [9])
                 if 表示 not in 結果.候補一覧:
                     結果.未解決.append(表示)
-                    結果.候補一覧[表示] = self.候補(名前)
-            elif not any(x["email"].casefold() == 人["email"].casefold() for x in 結果.解決済み):
+                    結果.候補一覧[表示] = list(該当) if len(該当) > 1 else []
+                continue
+            人 = dict(該当[0])
+            if 番号を外した:
+                結果.番号を外して解決.add(人["email"])
+            if not any(x["email"].casefold() == 人["email"].casefold() for x in 結果.解決済み):
                 # 打たれた文字列ではなく名簿のフルネームを返す。姓だけ・敬称付きの指定を
                 # 許した以上、確認提示が入力の反響になっていると誤解決に気づけない。
                 # 同じ人を姓だけとフルネームで二重に挙げても1人として扱う
@@ -175,6 +214,19 @@ def load(path: Path) -> 名簿:
         for 部分 in (姓, 名):
             if 部分:
                 _積む(姓名索引, _照合キー(部分), 人)
+
+        ローマ字 = 行.get("romaji")
+        if ローマ字 is not None and not isinstance(ローマ字, str):
+            raise 名簿エラー(f"メンバー名簿 {path} の members に romaji が文字列でない行があります")
+        if ローマ字 and ローマ字.strip():
+            # 名簿には「名 姓」で書く。3語以上なら先頭を名・末尾を姓とし、間の語は使わない。
+            # Outlookの表示名「姓, 名」も打てるよう、フルネームは両方の並びで載せる
+            ローマ字の名, ローマ字の姓 = _姓と名(ローマ字)
+            for 並び in ((ローマ字の名, ローマ字の姓), (ローマ字の姓, ローマ字の名)):
+                _積む(フルネーム索引, _照合キー("".join(並び)), 人)
+            for 部分 in (ローマ字の名, ローマ字の姓):
+                if 部分:
+                    _積む(姓名索引, _照合キー(部分), 人)
 
     開催者 = 内容.get("organizer") or {}
     return 名簿(

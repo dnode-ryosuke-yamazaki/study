@@ -266,7 +266,13 @@ def cmd_submit(args, env: 実行環境) -> int:
 
     依頼id = args.request_id or request.依頼idを生成(datetime.combine(env.今日, timeutil.now_jst().time(), tzinfo=timeutil.JST))
     依頼 = request.組み立て(条件, 設定値, env.今日, 依頼id)
-    env.出力(_依頼内容の提示(依頼, [p["name"] for p in 解決.解決済み]))
+    # 末尾の番号を外して解決した人だけ、同姓同名の別人でないことを確かめられるようメールアドレスを添える。
+    # 添えるのはチャットへの表示だけで、ログには出さない(design.md#セキュリティ)
+    参加者名 = [
+        f"{p['name']} <{p['email']}>" if p["email"] in 解決.番号を外して解決 else p["name"]
+        for p in 解決.解決済み
+    ]
+    env.出力(_依頼内容の提示(依頼, 参加者名))
     if args.dry_run:
         env.出力("(--dry-run のため依頼は書き出していません。内容に誤りがなければ --dry-run を外して実行してください)")
         return 0

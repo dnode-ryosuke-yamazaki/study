@@ -68,6 +68,7 @@ auto/
 [application/roster.example.json](application/roster.example.json) を写して `~/Library/Application Support/meeting-setup-automation/roster.json` を作る。**氏名とメールアドレスの対応表は個人情報なので、リポジトリには置かない**(`.gitignore` で守る形にすると書き忘れ1つでコミットされるため、リポジトリの外に置く)。
 
 - `members`: 参加者として指定できる人。`name` は依頼時にチャットで使う表記そのもの。**同じ名前が2人いると解決できない**(黙ってどちらかを選ばない)ので、区別できる表記にする
+- `members[].romaji`(任意): ローマ字表記。「名 姓」の順に書く(例: `Taro Yamada`)。書いておくと、Outlookの表示名(`Yamada, Taro`、同姓同名の区別に末尾へ付く番号を含む)をそのまま参加者に渡しても解決できる。無い人・空の人は `name` だけで照合する
 - `organizer`(任意): 自分。候補が0件のときの代替案1で、自分に仮の予定があることを名前つきで示すために使う。無くても動く(その場合は「開催者(あなた)」と示す)
 
 ### 3. ビューアURLの設定値を置く

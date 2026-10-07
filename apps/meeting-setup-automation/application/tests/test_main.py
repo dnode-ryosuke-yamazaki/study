@@ -23,6 +23,7 @@ from tests.test_result import _作成結果, 直リンク
 JST = timezone(timedelta(hours=9))
 今日 = "2026-09-09"
 A, B, ME = "a@example.com", "b@example.com", "me@example.com"
+E = "e@example.com"
 
 
 class _ラジオ収集(HTMLParser):
@@ -74,7 +75,7 @@ class 通し環境:
             json.dumps(
                 {
                     "organizer": {"name": "私", "email": ME},
-                    "members": [{"name": "A さん", "email": A}, {"name": "B さん", "email": B}, {"name": "重複", "email": "x1@example.com"}, {"name": "重複", "email": "x2@example.com"}],
+                    "members": [{"name": "A さん", "email": A}, {"name": "B さん", "email": B}, {"name": "重複", "email": "x1@example.com"}, {"name": "重複", "email": "x2@example.com"}, {"name": "E さん", "email": E, "romaji": "Taro Ei"}],
                 },
                 ensure_ascii=False,
             ),
@@ -203,6 +204,20 @@ class 依頼の書き出し(unittest.TestCase):
         self.assertEqual(sorted(出席者), [("A さん", A), ("B さん", B)])
         # 送信前の確認提示にも名簿の登録名が出る(誤解決に気づけるようにするため)
         self.assertIn("A さん, B さん", out)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
+    def test_末尾の番号を外して解決した参加者だけ確認の提示にメールアドレスを添えること(self):
+        """否定確認: 全員にメールアドレスを添えるようにすると落ちる。"""
+        # Outlookの表示名の形(「姓, 名 1」)をそのまま貼った場合を想定する。名簿の値は架空
+        code, out = self.e.run("submit", "--subject", "x", "--attendee", "Ei, Taro 1", "--attendee", "A", "--duration", "30", "--request-id", "ID1", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn(f"E さん <{E}>", out)
+        # 番号を外さずに解決した参加者にはメールアドレスを添えない(提示を名簿の氏名のまま保つ)
+        self.assertIn("A さん", out)
+        self.assertNotIn(f"<{A}>", out)
+        # 添えたメールアドレスはチャットへの表示にとどめ、ログには残さない(design.md#セキュリティ)
+        ログ = self.e.設定.ログファイル.read_text(encoding="utf-8") if self.e.設定.ログファイル.exists() else ""
+        self.assertNotIn(E, ログ)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#依頼内容の受け付け条件-7
     def test_受け付け条件を満たさない依頼は書き出さず項目を示すこと(self):
