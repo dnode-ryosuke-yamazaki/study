@@ -482,6 +482,24 @@ class 末尾の番号を外した照合(unittest.TestCase):
                 self.assertEqual(結果.解決済み, [{"name": "架空 雅寛", "email": "kaku@example.com"}])
                 self.assertEqual(結果.番号を外して解決, {"kaku@example.com"})
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-7、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
+    def test_メールアドレスの大文字小文字だけ違う重複登録でも番号を外した旨が解決済みの人と結び付くこと(self):
+        """否定確認: 番号を外して解決した人の記録と照合を、メールアドレスの完全一致で行うようにすると落ちる。
+
+        同じ人が大文字小文字だけ違うメールアドレスで2行登録され、片方にだけローマ字がある場合、
+        漢字で挙げたときとローマ字で挙げたときで名簿の別の行に当たる。解決済みの人は先に当たった行で
+        残るので、記録は大文字小文字を区別せずに引けないと、確認の提示でメールアドレスが添えられない。
+        """
+        名簿 = self._名簿(
+            [
+                {"name": "架空 雅寛", "email": "Kaku@example.com"},
+                {"name": "架空 雅寛", "email": "kaku@example.com", "romaji": "Masahiro Kaku"},
+            ]
+        )
+        結果 = 名簿.resolve(["架空 雅寛", "Kaku, Masahiro 1"])
+        self.assertEqual(結果.解決済み, [{"name": "架空 雅寛", "email": "Kaku@example.com"}])
+        self.assertTrue(結果.番号を外して解決した人か(結果.解決済み[0]))
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#参加者の解決-9
     def test_敬称と番号の両方が付いた名前は一方だけしか外さないため解決しないこと(self):
         """否定確認: 敬称と番号を両方外す照合の段を足すと落ちる。"""
