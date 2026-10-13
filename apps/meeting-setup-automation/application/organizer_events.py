@@ -159,6 +159,21 @@ def _予定を読む(項目: dict) -> 予定:
     )
 
 
+def 受け付けられる(内容, 依頼id: str) -> bool:
+    """開催者の予定ファイルとして「届いた」とみなせる形か(design.md#バリデーション)。
+
+    `requestId` が依頼IDと一致し、`error` が入っているか `events` が配列として読めるもの。満たさない間は
+    途中まで書かれたファイルと同じく「まだ来ていない」として待ち続ける(依頼IDが違うファイルを使わない)。
+    """
+    if not isinstance(内容, dict):
+        return False
+    if str(内容.get("requestId") or "") != 依頼id:
+        return False
+    if 内容.get("error"):
+        return True
+    return isinstance(内容.get("events"), list)
+
+
 def 読む(内容, 依頼id: str) -> 予定の読み取り:
     """開催者の予定ファイルから予定の一覧を取り出す。
 

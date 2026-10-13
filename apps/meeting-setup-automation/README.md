@@ -133,7 +133,7 @@ auto/
 |---|---|
 | 候補が届かず打ち切られる | `meetingSetting/request/` に依頼があり `candidates/` に無い → 探索フローの実行履歴。OneDrive同期が止まっていないかも確認 |
 | 候補が届くが失敗理由が入っている | `candidates/candidates-<依頼ID>-a1.json` の `error` と探索フローの実行履歴 |
-| 開催者の予定のみ重なる枠に件名が出ず「取得できませんでした」になる | `meetingSetting/organizerEventsRequest/` に依頼があり `organizerEvents/` に無い → 開催者予定フローの実行履歴(オフになっていないか)。`organizerEvents/organizer-events-<依頼ID>.json` の `error` に失敗理由が入っていればその内容。枠の提示は止まらないので、直したら `resume <依頼ID>` で件名付きに取り直せる(予定ファイルがある依頼は取り直さない) |
+| 開催者の予定のみ重なる枠に件名が出ず「取得できませんでした」になる | `meetingSetting/organizerEventsRequest/` に依頼があり `organizerEvents/` に無い → 開催者予定フローの実行履歴(オフになっていないか)。`organizerEvents/organizer-events-<依頼ID>.json` の `error` に失敗理由が入っていればその内容。枠の提示は止まらない。予定ファイルがまだ無い依頼(待ち上限で打ち切られた場合)は、フローを直してから `resume <依頼ID>` すれば件名付きになる。`error` 入りの予定ファイルがある依頼は取り直さないので、件名が要るなら `submit` で依頼し直す |
 | 会議が作られない | `selection/` に選択結果があり `result/` に無い → 作成フローの実行履歴 |
 | 作成結果に失敗理由が入っている | `result/result-<依頼ID>.json` の `error`。**再試行の前にTeamsのカレンダーでその枠に会議が既に無いか確かめる**(作成後の処理で失敗した場合は会議だけが残っている) |
 | Teamsに通知が来ない | `teamsNotice/meetingSetting/` にファイルが残っている → 会議設定通知フローがオフか監視先違い。消えている → 投稿先チャネルの指定 |

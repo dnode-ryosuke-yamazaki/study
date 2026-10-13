@@ -388,7 +388,7 @@ E1〜E7で不合格があった場合は、該当するrequirements.mdを直し�
 - 🟢 `~/.claude/skills/meeting-setup/SKILL.md` の「1-1. 聞き取る」に、参加者はローマ字(Outlookの表示名の写しを含む)でも渡せることを書き足す(テスト対象外)
 - 対応: [requirements.md#参加者の解決](requirements.md#参加者の解決) [5][6][8][9] / [design.md#会議設定の依頼を組み立てて書き出す](design.md#会議設定の依頼を組み立てて書き出す) 手順2 / [design.md#セキュリティ](design.md#セキュリティ)
 
-### 28. 開催者の予定の台帳フォルダと待ち上限の設定(config.py・ledger.py)【担当: claude】
+### 28. 開催者の予定の台帳フォルダと待ち上限の設定(config.py・ledger.py)【担当: claude】【実装済み】
 
 開催者の予定の依頼と予定の2つの台帳を他の台帳と同じ決め方で置き、待ち上限を候補の待ちと共有するための土台を作る。
 
@@ -398,7 +398,7 @@ E1〜E7で不合格があった場合は、該当するrequirements.mdを直し�
 - 🟢 `config.py` の台帳フォルダに2つのフォルダを足し、`ledger.py` に2つのファイル名の関数を足す。6種類の台帳ファイルがいずれもファイル名に依頼IDを含むこと
 - 対応: [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][2] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [2] / [design.md#関連するファイル抜粋](design.md#関連するファイル抜粋)
 
-### 29. 開催者のみ不在の枠の切り出しと代替案1の定義の変更(candidates.py・request.py)【担当: claude】
+### 29. 開催者のみ不在の枠の切り出しと代替案1の定義の変更(candidates.py・request.py)【担当: claude】【実装済み】
 
 参加者全員が空きで開催者だけが空き以外の枠を候補から分けて集め、同じ枠が代替案1と二重に出ないようにする。
 
@@ -412,7 +412,7 @@ E1〜E7で不合格があった場合は、該当するrequirements.mdを直し�
 - 🟢 `request.代替案1を組み立てる` を実装する。代替案1の候補は「開催者以外の参加者のうち仮の予定が入っている人が1人以上いて、残りの参加者と開催者がいずれも「空き」か「仮」の枠」(開催者自身が仮かどうかは問わない)とし、出席者全員が「空き」で開催者だけが「空き」以外の枠は含めないこと(同じ枠が代替案1と開催者の予定のみ重なる枠の両方に出ないようにする)
 - 対応: [requirements.md#候補探索の既定条件](requirements.md#候補探索の既定条件) [3][5] / [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [1][2][3][4] / [requirements.md#候補が0件のときの代替案の提示](requirements.md#候補が0件のときの代替案の提示) [1][3]
 
-### 30. 開催者の予定の依頼・読み取り・枠との突き合わせ(organizer_events.py 新規)【担当: claude】
+### 30. 開催者の予定の依頼・読み取り・枠との突き合わせ(organizer_events.py 新規)【担当: claude】【実装済み】
 
 開催者自身の予定を専用フローに頼んで受け取り、どの予定がどの枠に重なるかを判断材料として整える。
 
@@ -423,7 +423,7 @@ E1〜E7で不合格があった場合は、該当するrequirements.mdを直し�
 - 🟢 `organizer_events.py` を実装する。ログには予定の件名を出さず、件数と取得の成否だけを残すこと
 - 対応: [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [5][6][7][9] / [requirements.md#候補の提示](requirements.md#候補の提示) [10] / [requirements.md#台帳ファイルの扱い](requirements.md#台帳ファイルの扱い) [1][2] / [design.md#セキュリティ](design.md#セキュリティ)
 
-### 31. 選択画面の「開催者の予定のみ重なる枠」の区画と目印(select_html.py・templates/select.html)【担当: claude】
+### 31. 選択画面の「開催者の予定のみ重なる枠」の区画と目印(select_html.py・templates/select.html)【担当: claude】【実装済み】
 
 選択画面に「開催者の予定のみ重なる枠」の区画を足し、候補と取り違えずに同じ操作で選べるようにする。
 
@@ -435,7 +435,7 @@ E1〜E7で不合格があった場合は、該当するrequirements.mdを直し�
 - 🟢 `select_html.py` と `templates/select.html` を実装する。カードの空き状況の表示は候補と同じ部品を使い、予定の行だけを足すこと
 - 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [9][10][11][12] / [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [5][6][8] / [requirements.md#候補の選択](requirements.md#候補の選択) [1] / [design.md#画面設計](design.md#画面設計)
 
-### 32. 通知文とチャット出力への「開催者の予定のみ重なる枠」の追加(notify.py)【担当: claude】
+### 32. 通知文とチャット出力への「開催者の予定のみ重なる枠」の追加(notify.py)【担当: claude】【実装済み】
 
 Teams通知とチャットの出力に開催者の予定のみ重なる枠の件数と枠ごとの行を足し、画面を開かなくても何があるか分かるようにする。
 
@@ -446,7 +446,7 @@ Teams通知とチャットの出力に開催者の予定のみ重なる枠の件
 - 🟢 `notify.py` を実装する。チャットへの出力(`resume` の標準出力)は通知文と同じ内容にすること
 - 対応: [requirements.md#候補の提示](requirements.md#候補の提示) [9][12] / [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [5][6][8] / [requirements.md#通知](requirements.md#通知) [3]
 
-### 33. resume の流れへの組み込みと開催者の予定の待ち合わせ(main.py・progress.py・wait_for.py)【担当: claude】
+### 33. resume の流れへの組み込みと開催者の予定の待ち合わせ(main.py・progress.py・wait_for.py)【担当: claude】【実装済み】
 
 開催者の予定の依頼・待ち・突き合わせを候補の処理と再開の流れに組み込み、取れなくても提示が止まらないようにする。
 

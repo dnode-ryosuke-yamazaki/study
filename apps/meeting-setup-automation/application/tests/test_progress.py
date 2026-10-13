@@ -45,6 +45,9 @@ class 進行状態の判定(unittest.TestCase):
         self._置く(ledger.開催者の予定の依頼ファイル(self.設定, self.id))
         状態 = self._判定()
         self.assertEqual((状態.状態, 状態.開催者の予定の依頼あり, 状態.開催者の予定あり), (progress.候補到着, True, False))
+        self._置く(ledger.開催者の予定ファイル(self.設定, self.id), {"requestId": "other", "error": "", "events": []})
+        状態 = self._判定()
+        self.assertFalse(状態.開催者の予定あり)  # 依頼IDが違うファイルは「まだ来ていない」扱い
         self._置く(ledger.開催者の予定ファイル(self.設定, self.id), {"requestId": self.id, "error": "", "events": []})
         状態 = self._判定()
         self.assertEqual((状態.状態, 状態.開催者の予定の依頼あり, 状態.開催者の予定あり), (progress.候補到着, True, True))

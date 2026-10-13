@@ -821,12 +821,98 @@ class 開催者の予定のみ重なる枠の通し(unittest.TestCase):
         html1, _ = self.e.画面("ID1")
         self.assertIn("社内レビュー", html1)
         self.assertNotIn("別件", html1)
-        # ID2の予定ファイルに ID1 の requestId が入っていても、ID2 の依頼には使わない
-        ledger.write_json(self.e.開催者の予定("ID2"), _予定ファイル(別の予定, 依頼id="ID1"))
         code, out = self.e.run("resume", "ID2")
         html2, _ = self.e.画面("ID2")
-        self.assertIn("依頼IDが一致しません", html2)
-        self.assertNotIn("別件", html2)
+        self.assertIn("別件", html2)
+        self.assertNotIn("社内レビュー", html2)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#バリデーション
+    def test_依頼IDが違うか形が読めない予定ファイルはまだ来ていないものとして待ち続け正しいファイルに置き換わればそれを使うこと(self):
+        """否定確認: 待ち対象の受け付け条件を外すと、依頼IDが違うファイルをその場で使って「別件」が出て落ちる。"""
+        別の予定 = [_予定("別件", datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc))]
+        ledger.write_json(self.e.開催者の予定("ID1"), _予定ファイル(別の予定, 依頼id="OTHER"))  # 依頼IDが違う
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        self.e.到着させる(3, self.e.開催者の予定("ID1"), {"requestId": "ID1", "error": "", "events": "まだ"})  # 配列でない
+        self.e.到着させる(4, self.e.開催者の予定("ID1"), _予定ファイル(self.予定一覧, 依頼id="ID1"))
+        code, out = self.e.run("resume", "ID1")
+        self.assertEqual(code, 0)
+        self.assertIn("開催者の予定の到着を待っています", out)
+        html, _ = self.e.画面("ID1")
+        self.assertIn("社内レビュー 16:00〜16:30(予約済み)", html)
+        self.assertNotIn("別件", html)
+        self.assertNotIn("依頼IDが一致しません", out)
+        # 正しいファイルが来ないまま上限を超えたら、理由は「待ち上限」であって「フローの失敗」ではない
+        self.e.close()
+        self.e = 通し環境()
+        self.e.submit()
+        ledger.write_json(self.e.開催者の予定("ID1"), _予定ファイル(別の予定, 依頼id="OTHER"))
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(self.枠一覧))
+        code, out = self.e.run("resume", "ID1")
+        html, _ = self.e.画面("ID1")
+        self.assertIn("開催者の予定を取得できませんでした(待ち上限(30秒)を超えました)", html)
+        self.assertNotIn("別件", html)
+        self.assertNotIn("フローからの失敗理由", out)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#開催者の予定のみ重なる枠の提示
+    def test_候補が0件の経路で依頼を書き出せなかったときは依頼し直さず理由も待ち上限ではなく書き出し失敗になること(self):
+        """否定確認: 代替案のまとめで依頼を書き出し直すと、理由が「待ち上限」に変わり依頼ファイルが作られて落ちる。"""
+        self.e.設定.開催者の予定の依頼フォルダ.parent.mkdir(parents=True, exist_ok=True)
+        self.e.設定.開催者の予定の依頼フォルダ.write_text("x", encoding="utf-8")
+        枠一覧 = [
+            _空き枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative")),  # 代替案1
+            _空き枠(datetime(2026, 9, 11, 16, 0, tzinfo=JST), 開催者="busy"),              # 開催者だけが予約済み
+        ]
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(枠一覧))
+        self.e.到着させる(2, self.e.候補("ID1", 2), _候補ファイル([], 試行=2))
+        with self.assertLogs(main.logger, level="ERROR") as 記録:
+            code, out = self.e.run("resume", "ID1")
+        self.assertEqual(code, 0)
+        html, p = self.e.画面("ID1")
+        self.assertEqual(len(p.ラジオ), 2)
+        self.assertIn("開催者の予定の依頼を書き出せませんでした", html)
+        self.assertNotIn("待ち上限", html)
+        self.assertEqual(sum("種類=開催者の予定の依頼" in 行 for 行 in 記録.output), 1)
+        self.assertFalse(self.e.設定.開催者の予定の依頼フォルダ.is_dir())
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-7
+    def test_代替案の提示中で再開したとき予定だけ届いていれば予定を待たず両方未着なら同時に待つこと(self):
+        枠一覧 = [
+            _空き枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative")),
+            _空き枠(datetime(2026, 9, 11, 16, 0, tzinfo=JST), 開催者="busy"),
+        ]
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(枠一覧))
+        code, out = self.e.run("resume", "ID1")  # 代替案2の候補も予定も来ない → 両方打ち切り
+        self.assertIn("代替案2の候補の到着を待っています", out)
+        self.assertIn("開催者の予定の到着を待っています", out)
+        # 予定だけが届いた状態で再開 → 予定は待たず、代替案2だけを待つ
+        ledger.write_json(self.e.開催者の予定("ID1"), _予定ファイル(self.予定一覧, 依頼id="ID1"))
+        self.e.到着させる(2, self.e.候補("ID1", 2), _候補ファイル([], 試行=2))
+        code, out = self.e.run("resume", "ID1")
+        self.assertIn("代替案の提示中", out)
+        self.assertIn("代替案2の候補の到着を待っています", out)
+        self.assertNotIn("開催者の予定の到着を待っています", out)
+        self.assertIn("社内レビュー 16:00〜16:30(予約済み)", out)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-8、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-4
+    def test_代替案2を作らない依頼で代替案1も0件なら開催者の枠だけの選択画面と相談の両方が出て待ちも起きないこと(self):
+        """否定確認: 代替案の開始で「開催者の枠があれば相談で終えない」の条件を外すと、選択画面が無くて落ちる。"""
+        self.e.close()
+        self.e = 通し環境()
+        self.e.submit(start_date="2026-09-09", end_date="2026-09-12", time_start="09:30", time_end="17:30")
+        枠一覧 = [
+            _空き枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("busy", "busy")),
+            _空き枠(datetime(2026, 9, 11, 16, 0, tzinfo=JST), 開催者="busy"),
+        ]
+        ledger.write_json(self.e.開催者の予定("ID1"), _予定ファイル(self.予定一覧, 依頼id="ID1"))  # 予定は既にある
+        self.e.到着させる(1, self.e.候補("ID1"), _候補ファイル(枠一覧))
+        code, out = self.e.run("resume", "ID1")
+        self.assertEqual(code, 0)
+        self.assertNotIn("到着を待っています(", out.split("候補(試行1)の到着を待っています")[-1].split("\n", 1)[-1])
+        html, p = self.e.画面("ID1")
+        self.assertEqual(p.見出し, [main.見出し_開催者])
+        self.assertIn("候補が見つかりませんでした", out)
+        self.assertIn("select-ID1.html", out)
+        self.assertFalse(self.e.依頼("ID1", 2).exists())
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち合わせ-4、apps/meeting-setup-automation/specs/meeting-scheduling/design.md#ログ
     def test_待ちの進捗に開催者の予定が対象として出てログに件名を残さないこと(self):

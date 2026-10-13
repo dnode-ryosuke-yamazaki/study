@@ -145,6 +145,25 @@ class 開催者の予定ファイルの読み取り(unittest.TestCase):
         self.assertEqual([p.件名 for p in 読み.予定一覧], ["正常"])
 
 
+class 開催者の予定ファイルの受け付け(unittest.TestCase):
+    """待つ側は、依頼IDが一致して `events` が配列として読める(または失敗理由が入っている)ファイルだけを
+    「届いた」とみなし、それ以外は途中まで書かれているのと同じく「まだ来ていない」として待ち続ける
+    (design.md#バリデーション)。
+    """
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#バリデーション
+    def test_依頼IDが一致しeventsが配列のファイルと失敗理由入りのファイルだけを受け付けること(self):
+        """否定確認: `events` の配列判定を外すと、`events` が文字列のファイルを受け付けて落ちる。"""
+        self.assertTrue(organizer_events.受け付けられる(_予定ファイル([]), ID))
+        self.assertTrue(organizer_events.受け付けられる(_予定ファイル([], 失敗="Connector failed"), ID))
+        self.assertTrue(organizer_events.受け付けられる({"requestId": ID, "error": "x"}, ID))  # 失敗時は events が無くてもよい
+        self.assertFalse(organizer_events.受け付けられる(_予定ファイル([], 依頼id="other"), ID))
+        self.assertFalse(organizer_events.受け付けられる({"requestId": ID, "error": "", "events": "まだ"}, ID))
+        self.assertFalse(organizer_events.受け付けられる({"requestId": ID, "error": ""}, ID))
+        self.assertFalse(organizer_events.受け付けられる(["not", "a", "dict"], ID))
+        self.assertFalse(organizer_events.受け付けられる(None, ID))
+
+
 class 枠と予定の突き合わせ(unittest.TestCase):
 
     def setUp(self):
