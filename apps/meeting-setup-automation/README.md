@@ -1,6 +1,6 @@
 # meeting-setup-automation
 
-チャットで件名・参加者・所要時間・アジェンダを伝えると、参加者全員が空いている候補枠を提示し、選んだ枠でTeams会議を作成して参加者を招待する。空き時間の探索と会議の作成はテナント側のPower Automateフローが担い、Skillとフローは個人OneDrive上のファイル(台帳)で連携する。M365へのAPI認証(アプリ登録・管理者同意)を必要としない。
+チャットで件名・参加者・所要時間・アジェンダを伝えると、参加者全員が空いている候補枠を提示し、選んだ枠でTeams会議を作成して参加者を招待する。参加者全員は空いていて開催者自身の予定だけが重なる枠は、候補とは別の区画「開催者の予定のみ重なる枠」として重なる予定の件名と一緒に示す。空き時間の探索・開催者自身の予定の取得・会議の作成はテナント側のPower Automateフローが担い、Skillとフローは個人OneDrive上のファイル(台帳)で連携する。M365へのAPI認証(アプリ登録・管理者同意)を必要としない。
 
 - 全体像・機能マップ: [specs/architecture.md](specs/architecture.md)
 - 仕様: [specs/meeting-scheduling/](specs/meeting-scheduling/)
@@ -13,7 +13,7 @@
 |---|---|
 | 実行環境 | macOS。Python 3.11以降(標準ライブラリのみ。追加ライブラリなし)。チャット(Claude Code)のセッションから `main.py` を呼ぶ |
 | 必要な権限 | OneDrive同期クライアントにサインイン済みであること。M365への認証はすべて同期クライアントとPower Automateのコネクタに委ねるため、このアプリは資格情報を一切持たない |
-| 前提となる稼働 | Power Automateフロー3本(探索・作成・会議設定通知)がオンで、下記の台帳フォルダを監視していること |
+| 前提となる稼働 | Power Automateフロー4本(探索・開催者予定・作成・会議設定通知)がオンで、下記の台帳フォルダを監視していること |
 | 実行場所 | `apps/meeting-setup-automation/application/` |
 
 **定期実行・無人実行の仕組みは持たない。** チャットからの明示起動のみで、launchdジョブは作らない。
@@ -38,7 +38,7 @@ MEETING_SETUP_LEDGER_ROOT=/tmp/ms-test/ledger MEETING_SETUP_NOTICE_DIR=/tmp/ms-t
 | `MEETING_SETUP_LEDGER_ROOT` | `~/Library/CloudStorage/OneDrive-.../00_root/auto/meetingSetting` | 台帳フォルダのルート |
 | `MEETING_SETUP_NOTICE_DIR` | `.../00_root/auto/teamsNotice/meetingSetting` | Teams通知の書き出し先 |
 | `MEETING_SETUP_WORK_DIR` | `~/Library/Application Support/meeting-setup-automation` | 名簿・設定・ログ |
-| `MEETING_SETUP_CANDIDATES_TIMEOUT_SEC` / `MEETING_SETUP_RESULT_TIMEOUT_SEC` | 300 | 候補・作成結果の待ち上限(秒)。2つは別々 |
+| `MEETING_SETUP_CANDIDATES_TIMEOUT_SEC` / `MEETING_SETUP_RESULT_TIMEOUT_SEC` | 300 | 候補・作成結果の待ち上限(秒)。2つは別々。代替案2の候補と開催者の予定の待ちは候補の上限を共用する |
 | `MEETING_SETUP_POLL_INTERVAL_SEC` | 5 | 到着確認の間隔(秒) |
 | `MEETING_SETUP_SYNC_GRACE_SEC` | 30 | 選択画面を書いた後にOneDrive同期を待つ猶予(秒) |
 | `MEETING_SETUP_WEB_VIEWER` / `MEETING_SETUP_WEB_DIR` | (settings.json) | ビューアURLとサーバー相対パスの上書き |
@@ -52,11 +52,13 @@ MEETING_SETUP_LEDGER_ROOT=/tmp/ms-test/ledger MEETING_SETUP_NOTICE_DIR=/tmp/ms-t
 ```
 auto/
 ├── meetingSetting/
-│   ├── request/         # 依頼(Skillが書く → 探索フローが読む)
-│   ├── candidates/      # 候補(探索フローが書く → Skillが読む)
-│   ├── selection/       # 選択結果(Skillが書く → 作成フローが読む)
-│   ├── result/          # 作成結果(作成フローが書く → Skillが読む)
-│   └── html/            # 候補選択画面(Skillが書く → ブラウザで開く)
+│   ├── request/                # 依頼(Skillが書く → 探索フローが読む)
+│   ├── candidates/             # 候補(探索フローが書く → Skillが読む)
+│   ├── organizerEventsRequest/ # 開催者の予定の依頼(Skillが書く → 開催者予定フローが読む)
+│   ├── organizerEvents/        # 開催者の予定(開催者予定フローが書く → Skillが読む)
+│   ├── selection/              # 選択結果(Skillが書く → 作成フローが読む)
+│   ├── result/                 # 作成結果(作成フローが書く → Skillが読む)
+│   └── html/                   # 候補選択画面(Skillが書く → ブラウザで開く)
 └── teamsNotice/
     └── meetingSetting/  # Teams通知(Skillが書く → 会議設定通知フローが投稿)
 ```
@@ -85,7 +87,7 @@ auto/
 
 ### 4. Power Automateフローを作る
 
-[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・作成フロー・会議設定通知フローの3本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。
+[application/power-automate/README.md](application/power-automate/README.md) に従って、探索フロー・開催者予定フロー・作成フロー・会議設定通知フローの4本を作る。台帳ファイルの形・アクションの入力・つまずく点はそこに書いてある。開催者予定フローは開催者(利用者)自身のアカウントで作る(利用者自身の既定カレンダーを読むため、他の人が代わりに作っても目的のカレンダーを読めない)。
 
 ### 5. Teams通知の投稿先を登録する
 
@@ -98,7 +100,7 @@ auto/
 | サブコマンド | 役割 |
 |---|---|
 | `main.py submit --subject <件名> --attendee <名前> ... --duration <分> [--agenda <原文>] [--start-date --end-date --time-start --time-end --max-results --weekdays --allow-partial] [--dry-run]` | 名前の解決・受け付け条件の検証・依頼の書き出し。`--dry-run` で書き出さずに内容だけ返す |
-| `main.py resume <依頼ID>` | 台帳の状態から続きを進める(候補の待ち・絞り込み・代替案・選択画面と通知・作成結果の待ち・完了の通知)。打ち切った後の再開も同じ |
+| `main.py resume <依頼ID>` | 台帳の状態から続きを進める(候補の待ち・絞り込み・開催者の予定の依頼と待ち・代替案・選択画面と通知・作成結果の待ち・完了の通知)。打ち切った後の再開も同じ |
 | `main.py select "<選択画面でコピーした1行>"` | 候補ファイルと突き合わせて選択結果を書き出し、作成結果を待って完了を通知する |
 | `main.py retry-create <依頼ID>` | 失敗した会議の作成を同じ枠でやり直す(失敗した作成結果が無ければ何もしない) |
 
@@ -115,12 +117,23 @@ auto/
 
 代替案の依頼は既定の依頼の直後に続くため、フォルダ監視トリガーの検知間隔が絞られて往復が伸び、待ち上限(5分)で打ち切られることがある。打ち切られても台帳は残るので、`resume <依頼ID>` で続きから再開できる。
 
+## 開催者の予定のみ重なる枠
+
+参加者全員は空いていて開催者(自分)の予定だけが重なる枠は、候補には数えず、選択画面の最後の区画「開催者の予定のみ重なる枠(自分の予定を調整すれば開けられる枠)」に「⚠ 開催者の予定あり」の目印付きで並ぶ。候補が0件かどうかの判定には影響しない(この枠しか無ければ代替案も調べる)。
+
+- 重なっている自分の予定の件名・開始と終了・空き状況の種別(仮・予約済み・外出中・他の場所で作業中・不明)を、開催者予定フローが自分の既定カレンダーから読んで添える。非公開に設定した予定は件名の代わりに「非公開の予定」と出る。本文・出席者・場所は読まない
+- 候補と同じラジオボタンで選べ、コピーした1行を貼れば候補と同じ流れで会議が作られる。**重なっている自分の予定の変更・削除はこの仕組みでは行わない。** 選ぶ前に自分で動かす
+- 予定を取得できなくても(依頼を書き出せない・待ち上限5分を超える・フローが失敗を返す)枠は提示され、件名の代わりに理由が添えられる
+- 参加者の予定の件名は引き続き扱わない(扱えるのは自分のカレンダーだけ。理由は [specs/adr/0003-organizer-own-events-flow.md](specs/adr/0003-organizer-own-events-flow.md))
+- 空き時間の探索が、開催者の空き状況が「予約済み」の枠を返すかどうかは実機確認E8で確かめる(未実施)。返さない場合、この区画に実際に出るのは自分の予定が「仮」の枠だけになる
+
 ## 障害時にどのフォルダを見るか
 
 | 症状 | 見る場所 |
 |---|---|
 | 候補が届かず打ち切られる | `meetingSetting/request/` に依頼があり `candidates/` に無い → 探索フローの実行履歴。OneDrive同期が止まっていないかも確認 |
 | 候補が届くが失敗理由が入っている | `candidates/candidates-<依頼ID>-a1.json` の `error` と探索フローの実行履歴 |
+| 開催者の予定のみ重なる枠に件名が出ず「取得できませんでした」になる | `meetingSetting/organizerEventsRequest/` に依頼があり `organizerEvents/` に無い → 開催者予定フローの実行履歴(オフになっていないか)。`organizerEvents/organizer-events-<依頼ID>.json` の `error` に失敗理由が入っていればその内容。枠の提示は止まらないので、直したら `resume <依頼ID>` で件名付きに取り直せる(予定ファイルがある依頼は取り直さない) |
 | 会議が作られない | `selection/` に選択結果があり `result/` に無い → 作成フローの実行履歴 |
 | 作成結果に失敗理由が入っている | `result/result-<依頼ID>.json` の `error`。**再試行の前にTeamsのカレンダーでその枠に会議が既に無いか確かめる**(作成後の処理で失敗した場合は会議だけが残っている) |
 | Teamsに通知が来ない | `teamsNotice/meetingSetting/` にファイルが残っている → 会議設定通知フローがオフか監視先違い。消えている → 投稿先チャネルの指定 |
