@@ -32,6 +32,28 @@ func apply(_ decision: TickDecision, now: Date, to lastLine: LastLine) -> LastLi
     return lastLine
 }
 
+extension AxRawResponse {
+    /// tests/fixtures/ax/ の1件(タスク1の確認用プログラムが書いた形)から作る。打ち切りは確認用プログラムでは起きていないので false
+    init?(fixture: [String: Any]) {
+        func attribute(_ raw: Any?) -> AxAttribute? {
+            guard let object = raw as? [String: Any], let error = object["error"] as? Int else { return nil }
+            return AxAttribute(error: Int32(error), value: object["value"] as? String)
+        }
+        guard let trusted = fixture["trusted"] as? Bool, let windowError = fixture["focusedWindowError"] as? Int else { return nil }
+        let sheet = fixture["sheet"] as? [String: Any]
+        self.init(
+            trusted: trusted,
+            timedOut: false,
+            focusedWindowError: Int32(windowError),
+            title: attribute(fixture["title"]),
+            selectedSheet: attribute(sheet?["selectedTitle"]),
+            focusedElementError: (fixture["focusedElementError"] as? Int).map(Int32.init),
+            role: attribute(fixture["role"]),
+            subrole: attribute(fixture["subrole"])
+        )
+    }
+}
+
 /// テスト用の一時フォルダ。環境変数 TMPDIR があればその下に作る
 /// (FileManager の既定の一時フォルダは TMPDIR を見ないため、書き込み先を限られた環境で書けないことがある)
 func temporaryDirectory() -> URL {
