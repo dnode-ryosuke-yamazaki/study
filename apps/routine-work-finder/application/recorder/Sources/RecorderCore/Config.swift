@@ -45,7 +45,7 @@ public func parseConfig(_ data: Data) -> ConfigLoadResult {
         return .unreadable("invalidJson")
     }
     do {
-        let version: Int = try requiredField(object, "version") { $0 as? Int }
+        let version: Int = try requiredField(object, "version") { parseInteger($0) }
         let endsAt: Date? = try requiredField(object, "endsAt", nullable: true) { parseDate($0) }
         let stoppedAt: Date? = try optionalField(object, "stoppedAt") { parseDate($0) }
         let excludedApps: [ExcludedApp] = try requiredField(object, "excludedApps") { parseExcludedApps($0) }
@@ -108,6 +108,12 @@ private func optionalField<T>(_ object: [String: Any], _ key: String, convert: (
         throw ConfigFieldError(reason: "invalidType:\(key)")
     }
     return value
+}
+
+/// JSON の整数。真偽値は数として受け入れない(JSONSerialization は true を 1 としても読めるため、型で見分ける)
+private func parseInteger(_ raw: Any) -> Int? {
+    guard let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+    return raw as? Int
 }
 
 private func parseDate(_ raw: Any) -> Date? {

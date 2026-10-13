@@ -55,6 +55,8 @@ struct ConfigTests {
         #expect(parseConfig(Data(json.utf8)) == .unreadable("invalidType:endsAt"))
         let badDate = #"{"version":1,"endsAt":"10月31日","excludedApps":[],"excludedTitleWords":[]}"#
         #expect(parseConfig(Data(badDate.utf8)) == .unreadable("invalidType:endsAt"))
+        let noOffset = #"{"version":1,"endsAt":"2026-10-31T18:00:00","excludedApps":[],"excludedTitleWords":[]}"#
+        #expect(parseConfig(Data(noOffset.utf8)) == .unreadable("invalidType:endsAt"))
         let badApp = #"{"version":1,"endsAt":null,"excludedApps":["パスワード"],"excludedTitleWords":[]}"#
         #expect(parseConfig(Data(badApp.utf8)) == .unreadable("invalidType:excludedApps"))
     }

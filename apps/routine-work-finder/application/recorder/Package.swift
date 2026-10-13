@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .target(name: "RecorderCore"),
         .executableTarget(name: "rwf-recorder", dependencies: ["RecorderCore"]),
-        .testTarget(name: "RecorderCoreTests", dependencies: ["RecorderCore"]),
+        // Fixtures は操作スクリプトが書き出した設定ファイル。テストが #filePath から読むのでビルドには含めない
+        .testTarget(name: "RecorderCoreTests", dependencies: ["RecorderCore"], exclude: ["Fixtures"]),
     ],
     swiftLanguageModes: [.v5]
 )
