@@ -35,6 +35,24 @@ class 進行状態の判定(unittest.TestCase):
         状態 = self._判定()
         self.assertEqual(状態.状態, progress.存在しない)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-7、apps/meeting-setup-automation/specs/meeting-scheduling/design.md#状態管理
+    def test_開催者の予定の依頼と予定ファイルの有無を持つが状態の種類と判定の順序は変えないこと(self):
+        """否定確認: 予定ファイルの有無を状態の判定に混ぜると、候補到着のまま返す末尾の assert で落ちる。"""
+        self._置く(ledger.依頼ファイル(self.設定, self.id, 1))
+        self._置く(ledger.候補ファイル(self.設定, self.id, 1))
+        状態 = self._判定()
+        self.assertEqual((状態.開催者の予定の依頼あり, 状態.開催者の予定あり), (False, False))
+        self._置く(ledger.開催者の予定の依頼ファイル(self.設定, self.id))
+        状態 = self._判定()
+        self.assertEqual((状態.状態, 状態.開催者の予定の依頼あり, 状態.開催者の予定あり), (progress.候補到着, True, False))
+        self._置く(ledger.開催者の予定ファイル(self.設定, self.id), {"requestId": self.id, "error": "", "events": []})
+        状態 = self._判定()
+        self.assertEqual((状態.状態, 状態.開催者の予定の依頼あり, 状態.開催者の予定あり), (progress.候補到着, True, True))
+        self.assertEqual(
+            [progress.依頼済み, progress.候補到着, progress.代替案の提示中, progress.代替案の提示済み, progress.選択済み, progress.作成失敗, progress.作成済み],
+            ["依頼済み", "候補到着", "代替案の提示中", "代替案の提示済み", "選択済み", "作成失敗", "作成済み"],
+        )
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#状態管理
     def test_試行番号1の依頼だけがあれば依頼済みであること(self):
         self._置く(ledger.依頼ファイル(self.設定, self.id, 1))

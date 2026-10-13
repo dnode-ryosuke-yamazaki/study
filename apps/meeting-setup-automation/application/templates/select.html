@@ -23,6 +23,10 @@
   .card .when { font-size: 1.05rem; }
   .card .avail { color: #57606a; font-size: 0.9rem; margin-top: 6px; }
   .card ul.tentative { margin: 6px 0 0 26px; padding: 0; font-size: 0.9rem; color: #57606a; }
+  .card.organizer { border-color: #d9822b; background: #fffaf3; }
+  .card .organizer-badge { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 6px; border: 1px solid #d9822b; background: #fff1e0; color: #8a4b00; font-size: 0.85rem; font-weight: 600; }
+  .card ul.organizer-events { margin: 6px 0 0 26px; padding: 0; font-size: 0.9rem; color: #1f2328; list-style: none; }
+  .card ul.organizer-events li::before { content: "▸ "; color: #8a4b00; }
   .empty { color: #57606a; font-style: italic; }
   .actions { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #d0d7de; padding: 12px 16px; }
   .actions .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -36,7 +40,7 @@
 <main>
 <!--HEADER-->
 <!--SECTIONS-->
-<p class="guide">候補を1つ選んで「選択結果をコピー」を押し、コピーした1行をチャットに貼ると会議が作られます。コピーできない場合は下の入力欄が選択状態になるので、手作業でコピーしてください。</p>
+<p class="guide">候補を1つ選んで「選択結果をコピー」を押し、コピーした1行をチャットに貼ると会議が作られます。コピーできない場合は下の入力欄が選択状態になるので、手作業でコピーしてください。「開催者の予定のみ重なる枠」を選ぶ場合は、重なっている自分の予定の変更・削除をご自身で行ってください(この仕組みでは行いません)。</p>
 </main>
 <div class="actions">
   <div class="inner">
