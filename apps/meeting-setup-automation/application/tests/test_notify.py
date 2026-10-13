@@ -33,6 +33,52 @@ class 選択画面の通知文(unittest.TestCase):
         文 = notify.選択画面の通知文("定例", 3, None, "/ledger/html/select-ID1.html")
         self.assertIn("select-ID1.html", 文)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-9
+    def test_開催者の予定のみ重なる枠の件数と枠ごとの行が含まれ0件なら見出しも行も含めないこと(self):
+        """否定確認: 件数が0でも見出しを出すように変えると、後半の assertNotIn で落ちる。"""
+        枠 = notify.開催者の枠の要約(件数=2, 行一覧=[
+            "・09/11(金) 16:00〜17:00 — 社内レビュー 16:00〜16:30(仮)、非公開の予定 16:30〜17:00(予約済み)",
+            "・09/12(土) 10:00〜11:00 — 開催者の予定を取得できませんでした(待ち上限(5分)を超えました)",
+        ])
+        文 = notify.選択画面の通知文("定例", 3, "https://example/v", None, 開催者の枠=枠)
+        self.assertIn("開催者の予定のみ重なる枠: 2件(自分の予定を調整すれば開けられる枠)", 文)
+        self.assertIn("・09/11(金) 16:00〜17:00 — 社内レビュー 16:00〜16:30(仮)、非公開の予定 16:30〜17:00(予約済み)", 文)
+        self.assertIn("開催者の予定を取得できませんでした(待ち上限(5分)を超えました)", 文)
+        self.assertLess(文.index("候補: 3件"), 文.index("開催者の予定のみ重なる枠"))
+        self.assertLess(文.index("開催者の予定のみ重なる枠"), 文.index("選択画面:"))
+        無し = notify.選択画面の通知文("定例", 3, "https://example/v", None, 開催者の枠=None)
+        self.assertNotIn("開催者の予定のみ重なる枠", 無し)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-8
+    def test_代替案を提示する通知文にも同じ見出しと行が含まれ両方0件のときは選択画面のURLと相談の文面の両方が含まれること(self):
+        枠 = notify.開催者の枠の要約(件数=1, 行一覧=["・09/11(金) 16:00〜17:00 — 社内レビュー 16:00〜17:00(仮)"])
+        代替 = notify.代替案の要約(代替案1件数=1, 代替案1の仮の予定=[], 代替案2件数=1, 代替案2の条件="c2", 代替案2が得られなかった理由="", 打ち切りの可能性=False)
+        文 = notify.選択画面の通知文("定例", 2, "https://example/v", None, 代替, 開催者の枠=枠)
+        self.assertIn("代替案1", 文)
+        self.assertIn("開催者の予定のみ重なる枠: 1件", 文)
+        両方0件 = notify.代替案の要約(代替案1件数=0, 代替案1の仮の予定=[], 代替案2件数=0, 代替案2の条件="c2", 代替案2が得られなかった理由="", 打ち切りの可能性=False)
+        相談 = ["候補が見つかりませんでした。試した条件:", "- 既定の条件: c0", "参加者・期間・所要時間のどれを緩めるかを決めて、`submit` で依頼し直してください。"]
+        文2 = notify.選択画面の通知文("定例", 0, "https://example/v", None, 両方0件, 開催者の枠=枠, 相談=相談)
+        self.assertIn("https://example/v", 文2)
+        self.assertIn("参加者・期間・所要時間のどれを緩めるか", 文2)
+        self.assertIn("開催者の予定のみ重なる枠: 1件", 文2)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#セキュリティ
+    def test_通知文に予定の本文や出席者や場所に当たる内容が含まれないこと(self):
+        """行は organizer_events が件名・時刻・種別だけから組み立てるので、本文などは渡りようがないことを確かめる。"""
+        import organizer_events
+        from tests.test_organizer_events import _予定, _予定ファイル, _枠 as _開催者枠
+        枠 = _開催者枠(datetime(2026, 9, 11, 16, 0, tzinfo=JST))
+        読み = organizer_events.読む(_予定ファイル([
+            _予定("社内レビュー", datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc), body={"content": "本文は秘密"},
+                attendees=[{"emailAddress": {"address": "x@example.com"}}], location={"displayName": "第3会議室"}),
+        ]), "20260909-101500-ab3f")
+        行 = organizer_events.通知の行(枠, organizer_events.枠の表示行(枠, 読み.予定一覧))
+        文 = notify.選択画面の通知文("定例", 0, "https://example/v", None, 開催者の枠=notify.開催者の枠の要約(件数=1, 行一覧=[行]))
+        self.assertIn("社内レビュー", 文)
+        for 出してはいけない in ("本文は秘密", "x@example.com", "第3会議室"):
+            self.assertNotIn(出してはいけない, 文)
+
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-8、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2
     def test_代替案の提示では既定で0件だったことと各代替案の件数と仮の予定と広げた条件が含まれること(self):
         代替 = notify.代替案の要約(

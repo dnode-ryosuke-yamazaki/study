@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import ledger
+import organizer_events
 from config import 設定
 
 存在しない = "存在しない"
@@ -39,6 +40,10 @@ class 進行状態:
     失敗理由: str = ""
     作成結果: Optional[Any] = None
     選択結果: Optional[Any] = None
+    #: 開催者の予定の台帳の有無。状態の判定には使わない(候補到着・代替案の各状態の処理の中で
+    #: 「待つ・使う・何もしない」を決める材料。design.md#状態管理)
+    開催者の予定の依頼あり: bool = False
+    開催者の予定あり: bool = False
 
 
 def 失敗理由を取り出す(結果ファイル: Any) -> str:
@@ -68,7 +73,13 @@ def 判定(設定値: 設定, 依頼id: str) -> 進行状態:
 
     代替案2の依頼あり = ledger.依頼ファイル(設定値, 依頼id, 2).is_file()
     試行番号 = 2 if 代替案2の依頼あり else 1
-    共通 = dict(試行番号=試行番号, 代替案2の依頼あり=代替案2の依頼あり)
+    共通 = dict(
+        試行番号=試行番号,
+        代替案2の依頼あり=代替案2の依頼あり,
+        開催者の予定の依頼あり=ledger.開催者の予定の依頼ファイル(設定値, 依頼id).is_file(),
+        # 依頼IDが違う・形が読めないファイルは「まだ来ていない」扱い(design.md#バリデーション)
+        開催者の予定あり=organizer_events.受け付けられる(ledger.read_json(ledger.開催者の予定ファイル(設定値, 依頼id)), 依頼id),
+    )
 
     再試行 = 最後の再試行番号(設定値, 依頼id)
     if 再試行 is not None:

@@ -141,6 +141,26 @@ class 複数の到着待ち(unittest.TestCase):
         self.assertTrue(結果["待ちB"].打ち切り)
         self.assertLess(結果["待ちA"].経過秒, 結果["待ちB"].経過秒)
 
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#バリデーション
+    def test_受け付けの条件を渡した対象はJSONとして読めても条件を満たすまで書き込み中とみなして待ち続けること(self):
+        """開催者の予定ファイルのように、依頼IDの一致や配列の有無まで見てから「届いた」とする待ち方。"""
+        回数 = {"n": 0}
+
+        def 確認前():
+            回数["n"] += 1
+            if 回数["n"] == 2:
+                self.a.write_text('{"requestId": "other"}', encoding="utf-8")  # 読めるが受け付けられない
+            if 回数["n"] == 3:
+                self.a.write_text('{"requestId": "ID1"}', encoding="utf-8")
+
+        結果 = wait_for.wait_for_all(
+            {"予定": (self.a, 60, lambda 内容: 内容.get("requestId") == "ID1")},
+            間隔秒=5, 進捗=lambda s: None, 時計=self.時計.time, 待つ=self.時計.sleep, 確認前=確認前,
+        )
+        self.assertTrue(結果["予定"].到着)
+        self.assertEqual(結果["予定"].内容, {"requestId": "ID1"})
+        self.assertEqual(結果["予定"].経過秒, 10)
+
     def test_両方が届けば両方の内容が返ること(self):
         self.a.write_text('{"a": 1}', encoding="utf-8")
         self.b.write_text('{"b": 2}', encoding="utf-8")

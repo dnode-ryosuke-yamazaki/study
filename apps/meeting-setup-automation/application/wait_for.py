@@ -47,7 +47,7 @@ def wait_for_json(
 
 
 def wait_for_all(
-    対象: Mapping[str, Tuple[Path, float]],
+    対象: Mapping[str, Tuple],
     間隔秒: float,
     進捗: Callable[[str], None],
     時計: Callable[[], float] = time.monotonic,
@@ -57,7 +57,9 @@ def wait_for_all(
     """複数のファイルを同時に待つ。待ちごとに別々の上限を適用し、片方が打ち切られても
     もう片方は上限まで待ち続ける(requirements.md#往復の待ち合わせ [5])。
 
-    `対象` は {表示名: (ファイル, 上限秒)}。
+    `対象` は {表示名: (ファイル, 上限秒)} または {表示名: (ファイル, 上限秒, 受け付ける)}。
+    `受け付ける` を渡した対象は、JSONとして読めてもその条件を満たすまで「書き込み中」とみなして
+    待ち続ける(開催者の予定ファイルの依頼IDの一致など。design.md#バリデーション)。
     """
     開始 = 時計()
     結果: Dict[str, 待ち結果] = {}
@@ -66,8 +68,12 @@ def wait_for_all(
         if 確認前 is not None:
             確認前()
         経過 = 時計() - 開始
-        for 名前, (path, 上限秒) in list(未到着.items()):
+        for 名前, 項目 in list(未到着.items()):
+            path, 上限秒 = 項目[0], 項目[1]
+            受け付ける = 項目[2] if len(項目) > 2 else None
             内容 = ledger.read_json(path)
+            if 内容 is not None and 受け付ける is not None and not 受け付ける(内容):
+                内容 = None  # 形が整うまで「まだ来ていない」扱い
             if 内容 is not None:
                 結果[名前] = 待ち結果(到着=True, 打ち切り=False, 内容=内容, 経過秒=経過)
                 del 未到着[名前]

@@ -23,13 +23,21 @@ class 台帳と通知と作業のフォルダ(unittest.TestCase):
         self.設定 = config.load(environ={})
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
-    def test_台帳の5種類のフォルダが台帳ルートの直下に用途別に分かれていること(self):
+    def test_台帳の6種類と選択画面のフォルダが台帳ルートの直下に用途別に分かれていること(self):
         root = self.設定.台帳ルート
         self.assertEqual(self.設定.依頼フォルダ, root / "request")
         self.assertEqual(self.設定.候補フォルダ, root / "candidates")
+        self.assertEqual(self.設定.開催者の予定の依頼フォルダ, root / "organizerEventsRequest")
+        self.assertEqual(self.設定.開催者の予定フォルダ, root / "organizerEvents")
         self.assertEqual(self.設定.選択結果フォルダ, root / "selection")
         self.assertEqual(self.設定.作成結果フォルダ, root / "result")
         self.assertEqual(self.設定.htmlフォルダ, root / "html")
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
+    def test_開催者の予定の2つのフォルダが環境変数で差し替えた台帳ルートに追従すること(self):
+        設定 = config.load(environ={config.台帳ルート環境変数: "/tmp/x/ledger"})
+        self.assertEqual(設定.開催者の予定の依頼フォルダ, Path("/tmp/x/ledger/organizerEventsRequest"))
+        self.assertEqual(設定.開催者の予定フォルダ, Path("/tmp/x/ledger/organizerEvents"))
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
     def test_台帳ルートの既定がOneDrive同期フォルダのmeetingSettingであること(self):
@@ -90,6 +98,14 @@ class 待ち時間の上限と間隔(unittest.TestCase):
         )
         self.assertEqual(設定.候補待ち上限秒, 10)
         self.assertEqual(設定.作成結果待ち上限秒, 30)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#往復の待ち時間の上限-2
+    def test_開催者の予定の待ち上限は候補の待ち上限と同じ設定値であり別の設定値を増やさないこと(self):
+        """要件が「候補の待ちと同じ上限」と定めているため、候補の上限を変えれば一緒に変わる。"""
+        self.assertEqual(self.設定.開催者の予定待ち上限秒, 300)
+        設定 = config.load(environ={config.候補待ち上限環境変数: "42"})
+        self.assertEqual(設定.開催者の予定待ち上限秒, 42)
+        self.assertFalse(hasattr(config, "開催者の予定待ち上限環境変数"))
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#往復の待ち合わせと打ち切り
     def test_確認間隔の既定が5秒で同期の猶予の既定が30秒であること(self):

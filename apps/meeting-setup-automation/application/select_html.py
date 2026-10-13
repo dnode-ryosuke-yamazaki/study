@@ -25,6 +25,14 @@ from config import 設定
 #: 貼られた内容が選択結果かどうかを取り違えずに判定するための目印の語
 目印の語 = "MEETING-SELECT"
 ラジオボタン名 = "candidate"
+#: 開催者の予定のみ重なる枠のカードに付ける目印(requirements.md#候補の提示 [10])
+開催者の目印 = "⚠ 開催者の予定あり"
+#: 開催者の予定のみ重なる枠は参加者全員が空きなので、空いていない人数の代わりにこう示す
+開催者の空き状況 = "参加者は全員空き"
+_既定の注記 = (
+    "既定の条件では候補が0件だったため、条件を緩めた候補を示しています。"
+    "見出しごとに、どの代替案による候補かと緩めた後の条件を添えています。"
+)
 _曜日名 = "月火水木金土日"
 _テンプレート = Path(__file__).parent / "templates" / "select.html"
 
@@ -34,6 +42,9 @@ class カード:
     枠: 枠
     #: 代替案1の枠にだけ入る「仮の予定あり: <参加者名>」の行
     仮の予定: List[str] = field(default_factory=list)
+    #: 開催者の予定のみ重なる枠のカードにだけ入る、重なる予定ごとの行(または取得できなかった理由の行)。
+    #: None なら候補のカード、空でないリストなら開催者の予定のみ重なる枠のカード
+    開催者の予定: Optional[List[str]] = None
 
 
 @dataclass
@@ -41,6 +52,8 @@ class セクション:
     見出し: str
     条件: str
     カード一覧: List[カード]
+    #: カードが0件なら区画ごと出さない(開催者の予定のみ重なる枠の区画)。候補の区画は0件でも見出しを出す
+    空なら省く: bool = False
 
 
 @dataclass
@@ -59,19 +72,29 @@ def _空き状況(w: 枠) -> str:
 def _カードhtml(番号: int, 依頼id: str, c: カード) -> str:
     w = c.枠
     日付 = f"{w.開始:%Y-%m-%d}({_曜日名[w.開始.weekday()]})"
+    開催者 = c.開催者の予定 is not None
     仮 = ""
     if c.仮の予定:
         項目 = "".join(f"<li>{html.escape(s)}</li>" for s in c.仮の予定)
         仮 = f'<ul class="tentative">{項目}</ul>'
+    予定 = ""
+    バッジ = ""
+    if 開催者:
+        # 予定の件名はカレンダーから来た値なのでエスケープして埋め込む(design.md#セキュリティ)
+        項目 = "".join(f"<li>{html.escape(s)}</li>" for s in c.開催者の予定)
+        予定 = f'<ul class="organizer-events">{項目}</ul>'
+        バッジ = f'<span class="organizer-badge">{html.escape(開催者の目印)}</span>'
+    空き状況 = 開催者の空き状況 if 開催者 else _空き状況(w)
     return (
-        '<label class="card">'
+        f'<label class="card{" organizer" if 開催者 else ""}">'
         f'<input type="radio" name="{ラジオボタン名}" value="{番号}"'
         f' data-request="{html.escape(依頼id)}" data-attempt="{w.試行番号}" data-number="{番号}"'
         f' data-start="{timeutil.format_jst(w.開始)}" data-end="{timeutil.format_jst(w.終了)}">'
         f'<span class="num">候補 {番号}</span>'
+        f"{バッジ}"
         f'<span class="when">{日付} {w.開始:%H:%M}〜{w.終了:%H:%M}</span>'
-        f'<div class="avail">{html.escape(_空き状況(w))}</div>'
-        f"{仮}"
+        f'<div class="avail">{html.escape(空き状況)}</div>'
+        f"{仮}{予定}"
         "</label>"
     )
 
@@ -83,9 +106,15 @@ def 組み立てる(
     参加者数: int,
     セクション一覧: Sequence[セクション],
     緩めた: bool,
+    注記: Optional[str] = None,
 ) -> str:
-    """採用した枠から選択画面のHTMLを組み立てる。候補番号は画面に並べた順の1からの連番。"""
-    条件の要約 = " / ".join(s.条件 for s in セクション一覧 if s.条件)
+    """採用した枠から選択画面のHTMLを組み立てる。候補番号は画面に並べた順の1からの連番(区画をまたいで通し採番)。
+
+    `緩めた` が真のときはヘッダーの下に注記を出す。`注記` を渡せばその文を、渡さなければ代替案の既定の文を使う
+    (両方の代替案とも0件で開催者の予定のみ重なる枠だけを示すときに差し替える)。
+    """
+    # ヘッダーの絞り込み条件には候補の区画の条件だけを並べる(開催者の予定のみ重なる枠の区画の説明文は絞り込み条件ではない)
+    条件の要約 = " / ".join(s.条件 for s in セクション一覧 if s.条件 and not s.空なら省く)
     ヘッダー = (
         "<header>"
         f"<h1>{html.escape(件名)}</h1>"
@@ -97,14 +126,13 @@ def 組み立てる(
         "</header>"
     )
     if 緩めた:
-        ヘッダー += (
-            '<div class="notice">既定の条件では候補が0件だったため、条件を緩めた候補を示しています。'
-            "見出しごとに、どの代替案による候補かと緩めた後の条件を添えています。</div>"
-        )
+        ヘッダー += f'<div class="notice">{html.escape(注記 or _既定の注記)}</div>'
 
     部分: List[str] = []
     番号 = 0
     for s in セクション一覧:
+        if s.空なら省く and not s.カード一覧:
+            continue
         部分.append(f"<section><h2>{html.escape(s.見出し)}</h2>")
         if s.条件:
             部分.append(f'<p class="condition">{html.escape(s.条件)}</p>')

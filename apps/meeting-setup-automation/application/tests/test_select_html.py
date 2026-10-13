@@ -170,6 +170,102 @@ class 選択画面の内容(unittest.TestCase):
         self.assertIn("&lt;script&gt;", html)
 
 
+def _開催者の区画(カード一覧):
+    return select_html.セクション(
+        見出し="開催者の予定のみ重なる枠(自分の予定を調整すれば開けられる枠)",
+        条件="候補ではありません。重なっている自分の予定を動かせば開けられる枠です",
+        カード一覧=カード一覧, 空なら省く=True,
+    )
+
+
+class 開催者の予定のみ重なる枠の区画(unittest.TestCase):
+    """参加者全員は空いていて開催者の予定だけが重なる枠を、候補とは別の区画に、重なる予定の行と
+    目印付きで並べる。候補と同じラジオボタンの群に属し、同じ操作で選べる。
+    """
+
+    def _開催者カード(self, 開始, 行):
+        return select_html.カード(枠=_枠(開始, 開催者="tentative"), 開催者の予定=行)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-9
+    def test_開催者の予定のみ重なる枠の区画が候補の区画の後ろに見出し付きで置かれ枠が0件なら区画自体を出さないこと(self):
+        """否定確認: `空なら省く` の判定を外すと、0件でも見出しが出て落ちる。"""
+        カード = [self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ["社内レビュー 16:00〜17:00(仮)"])]
+        html = _既定の画面(セクション一覧=[
+            select_html.セクション(見出し="候補", 条件="c", カード一覧=[select_html.カード(枠=_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST)))]),
+            _開催者の区画(カード),
+        ])
+        self.assertLess(html.index("候補</h2>"), html.index("開催者の予定のみ重なる枠(自分の予定を調整すれば開けられる枠)"))
+        無し = _既定の画面(セクション一覧=[
+            select_html.セクション(見出し="候補", 条件="c", カード一覧=[select_html.カード(枠=_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST)))]),
+            _開催者の区画([]),
+        ])
+        self.assertNotIn("<h2>開催者の予定のみ重なる枠", 無し)
+        self.assertNotIn(select_html.開催者の目印, 無し)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-10、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-5
+    def test_カードに目印のバッジと重なる予定ごとの行が出て非公開の予定は件名が伏せられ取得できなかった枠は理由の行になること(self):
+        html = _既定の画面(セクション一覧=[_開催者の区画([
+            self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ["社内レビュー 16:00〜16:30(仮)", "非公開の予定 16:30〜17:00(予約済み)"]),
+            self._開催者カード(datetime(2026, 9, 12, 10, 0, tzinfo=JST), ["開催者の予定を取得できませんでした(待ち上限(5分)を超えました)"]),
+        ])], 緩めた=False)
+        self.assertEqual(html.count(select_html.開催者の目印), 2)
+        self.assertIn("社内レビュー 16:00〜16:30(仮)", html)
+        self.assertIn("非公開の予定 16:30〜17:00(予約済み)", html)
+        self.assertIn("開催者の予定を取得できませんでした(待ち上限(5分)を超えました)", html)
+        self.assertIn("参加者は全員空き", html)
+        self.assertNotIn("1人が空いていません", html)  # 開催者の予定は「空いていない人数」には数えない
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の提示-11、apps/meeting-setup-automation/specs/meeting-scheduling/design.md#画面設計
+    def test_区画のカードは候補と同じラジオボタンの群に属し通し番号が続きコピーの1行の試行番号が1であること(self):
+        html = _既定の画面(セクション一覧=[
+            select_html.セクション(見出し="代替案1: 仮の予定を含める", 条件="c1",
+                              カード一覧=[select_html.カード(枠=_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 試行=1))]),
+            select_html.セクション(見出し="代替案2: 期間と時間帯を広げる", 条件="c2",
+                              カード一覧=[select_html.カード(枠=_枠(datetime(2026, 9, 25, 18, 0, tzinfo=JST), 試行=2))]),
+            _開催者の区画([self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ["社内レビュー 16:00〜17:00(仮)"])]),
+        ], 緩めた=True)
+        p = _解析(html)
+        self.assertEqual({r["name"] for r in p.ラジオ}, {select_html.ラジオボタン名})
+        self.assertEqual([r["data-number"] for r in p.ラジオ], ["1", "2", "3"])
+        self.assertEqual([r["data-attempt"] for r in p.ラジオ], ["1", "2", "1"])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-8
+    def test_両方の代替案とも0件で開催者の予定のみ重なる枠だけがあるときはその区画だけの画面になり既定で0件だったことがヘッダーに入ること(self):
+        注記 = "既定の条件では候補が0件で、2つの代替案でも候補がありませんでした。開催者の予定のみ重なる枠だけを示しています。"
+        html = _既定の画面(
+            セクション一覧=[_開催者の区画([self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ["社内レビュー 16:00〜17:00(仮)"])])],
+            緩めた=True, 注記=注記,
+        )
+        p = _解析(html)
+        self.assertEqual(len(p.ラジオ), 1)
+        self.assertIn("既定の条件では候補が0件", html)
+        self.assertIn(注記, html)
+        self.assertNotIn("<h2>代替案1", html)
+        self.assertNotIn("候補ではありません", html.split("<section>")[0])  # 区画の説明文はヘッダーの絞り込み条件に混ぜない
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#セキュリティ
+    def test_予定の件名をHTMLとして解釈されない形で埋め込むこと(self):
+        html = _既定の画面(セクション一覧=[_開催者の区画([
+            self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ['<img src=x onerror=alert(1)> 16:00〜17:00(仮)']),
+        ])])
+        self.assertNotIn("<img src=x", html)
+        self.assertIn("&lt;img src=x", html)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/tasks.md#31-選択画面の開催者の予定のみ重なる枠の区画と目印select_htmlpytemplatesselecthtml
+    @unittest.skipUnless(shutil.which("node"), "nodeが無い環境では構文検査を省く")
+    def test_開催者の区画を含む生成物のJavaScriptが構文として成立していること(self):
+        html = _既定の画面(セクション一覧=[_開催者の区画([
+            self._開催者カード(datetime(2026, 9, 11, 16, 0, tzinfo=JST), ['改行\nと "引用符" 16:00〜17:00(仮)']),
+        ])])
+        js = "\n".join(_解析(html).スクリプト)
+        self.assertTrue(js.strip())
+        with tempfile.TemporaryDirectory() as d:
+            置き場 = Path(d, "select.js")
+            置き場.write_text(js, encoding="utf-8")
+            結果 = subprocess.run(["node", "--check", str(置き場)], capture_output=True, text=True)
+        self.assertEqual(結果.returncode, 0, 結果.stderr)
+
+
 class コピーの仕組み(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の選択-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補の選択-2

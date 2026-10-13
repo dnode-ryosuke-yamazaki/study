@@ -16,7 +16,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import timeutil
 from config import 設定
@@ -46,6 +46,14 @@ class 代替案の要約:
 
 
 @dataclass
+class 開催者の枠の要約:
+    """開催者の予定のみ重なる枠の件数と、枠ごとの1行(「・MM/DD(曜) HH:MM〜HH:MM — <件名> …」。取得できなかった枠は理由の行)。"""
+
+    件数: int
+    行一覧: List[str]
+
+
+@dataclass
 class 書き出し結果:
     ok: bool
     path: Optional[str] = None
@@ -59,8 +67,20 @@ def _日時範囲(開始: Optional[datetime], 終了: Optional[datetime]) -> str
 
 
 def 選択画面の通知文(
-    件名: str, 候補件数: int, url: Optional[str], htmlパス: Optional[str], 代替案: Optional[代替案の要約] = None
+    件名: str,
+    候補件数: int,
+    url: Optional[str],
+    htmlパス: Optional[str],
+    代替案: Optional[代替案の要約] = None,
+    開催者の枠: Optional[開催者の枠の要約] = None,
+    相談: Sequence[str] = (),
 ) -> str:
+    """選択画面のURLを知らせる通知文。チャットにも同じ内容を出す。
+
+    `開催者の枠` があれば「開催者の予定のみ重なる枠: N件」と枠ごとの行を候補の件数の後ろに足す
+    (requirements.md#候補の提示 [9])。0件のときは見出しも行も出さない。`相談` は両方の代替案とも
+    0件で開催者の予定のみ重なる枠だけがあるときの相談の文面で、URLの後ろに添える(同 開催者の予定のみ重なる枠の提示 [8])。
+    """
     行 = ["【会議候補が出そろいました】", f"件名: {件名}", f"候補: {候補件数}件"]
     if 代替案 is not None:
         行.append("既定の条件では候補が0件だったため、2つの代替案の候補を示します。")
@@ -76,12 +96,16 @@ def 選択画面の通知文(
         else:
             項目 = "・".join(代替案.広げなかった項目) or "期間・時間帯"
             行.append(f"- 代替案2は作りませんでした({項目}を依頼時に指定されていたため広げていません)")
+    if 開催者の枠 is not None and 開催者の枠.件数 > 0:
+        行.append(f"開催者の予定のみ重なる枠: {開催者の枠.件数}件(自分の予定を調整すれば開けられる枠)")
+        行.extend(開催者の枠.行一覧)
     if url:
         行.append(f"選択画面: {url}")
         行.append("開けない場合は同期の完了を数十秒待ってから再読込してください。")
     else:
         行.append(f"選択画面(ローカル): {htmlパス}")
         行.append("ビューアURLの設定が無いためファイルパスを示しています。")
+    行.extend(相談)
     行.append("候補を1つ選んで「選択結果をコピー」し、コピーした1行をチャットに貼ってください。")
     return "\n".join(行)
 
