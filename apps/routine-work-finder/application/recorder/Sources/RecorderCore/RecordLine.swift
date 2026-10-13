@@ -38,7 +38,7 @@ public enum RecordLine: Equatable, Sendable {
 
     /// 改行を含まない1行の JSON。項目は appendix.md の例と同じ順に並べる
     public func jsonLine() -> String {
-        var fields: [(String, JSONValue)] = [("t", .string(Self.timestamp(time)))]
+        var fields: [(String, JSONValue)] = [("t", .string(JapanTime.timestamp(time)))]
         switch self {
         case .start:
             fields.append(("kind", .string("start")))
@@ -68,14 +68,6 @@ public enum RecordLine: Equatable, Sendable {
         }
         return "{" + fields.map { "\(JSONValue.string($0.0).encoded):\($0.1.encoded)" }.joined(separator: ",") + "}"
     }
-
-    /// 日本時間の時差付きの時刻(例 "2026-10-06T10:15:05+09:00")
-    static func timestamp(_ date: Date) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = JapanTime.timeZone
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.string(from: date)
-    }
 }
 
 private enum JSONValue {
@@ -93,8 +85,7 @@ private enum JSONValue {
     var encoded: String {
         switch self {
         case .string(let text):
-            let data = try! JSONSerialization.data(withJSONObject: text, options: [.fragmentsAllowed, .withoutEscapingSlashes])
-            return String(decoding: data, as: UTF8.self)
+            return jsonString(text)
         case .int(let number):
             return String(number)
         case .tenths(let number):

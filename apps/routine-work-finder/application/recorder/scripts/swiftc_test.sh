@@ -16,6 +16,11 @@ swiftc $common -parse-as-library -emit-library -emit-module -enable-testing \
   -module-name RecorderCore $recorder_dir/Sources/RecorderCore/*.swift \
   -o $out_dir/libRecorderCore.dylib -emit-module-path $out_dir/RecorderCore.swiftmodule
 
+# 記録係の実行ファイルもコンパイルが通ることだけを確かめる(macOS に尋ねる部分はテストを持たない)
+swiftc $common -module-name rwf_recorder -I $out_dir -L $out_dir -lRecorderCore \
+  -Xlinker -rpath -Xlinker $out_dir \
+  $recorder_dir/Sources/rwf-recorder/*.swift -o $out_dir/rwf-recorder
+
 swiftc $common -parse-as-library -module-name RecorderCoreTests \
   -I $out_dir -L $out_dir -lRecorderCore \
   -F $frameworks -framework Testing -plugin-path $clt/usr/lib/swift/host/plugins/testing \

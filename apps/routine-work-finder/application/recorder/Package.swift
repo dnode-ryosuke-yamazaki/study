@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "RecorderCore"),
+        .executableTarget(name: "rwf-recorder", dependencies: ["RecorderCore"]),
         .testTarget(name: "RecorderCoreTests", dependencies: ["RecorderCore"]),
     ],
     swiftLanguageModes: [.v5]

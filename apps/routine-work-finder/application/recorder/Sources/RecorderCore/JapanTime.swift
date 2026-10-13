@@ -14,6 +14,14 @@ public enum JapanTime {
         return formatter.string(from: date)
     }
 
+    /// 日本時間の時差付きの時刻(例 "2026-10-06T10:15:05+09:00")。記録の行・状態のファイル・ログで使う
+    public static func timestamp(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = timeZone
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
+    }
+
     /// 時差付きの ISO 8601 の文字列(例 "2026-10-07T18:00:00+09:00")を読む。読めなければ nil
     public static func parseTimestamp(_ text: String) -> Date? {
         let formatter = ISO8601DateFormatter()
