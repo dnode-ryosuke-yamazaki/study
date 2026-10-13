@@ -1,10 +1,16 @@
 #!/bin/zsh
 # RecorderCore のテストを SwiftPM を通さずに swiftc で回す。
 # 正式な実行は scripts/swift_test.sh。swift build / swift test が動かない環境(Claude Code のサンドボックス)向け。
-# 使い方: /bin/zsh scripts/swiftc_test.sh [出力先フォルダ]
+# 使い方: /bin/zsh scripts/swiftc_test.sh [--perf] [出力先フォルダ]
+#   --perf: 性能テスト(Tests/RecorderCorePerfTests)を回す。付けなければ通常のテスト(Tests/RecorderCoreTests)
 set -eu
 
 recorder_dir=${0:A:h:h}
+suite=RecorderCoreTests
+if [[ ${1:-} == --perf ]]; then
+  suite=RecorderCorePerfTests
+  shift
+fi
 out_dir=${1:-${TMPDIR:-/tmp}/rwf-recorder-swiftc}
 clt=/Library/Developer/CommandLineTools
 frameworks=$clt/Library/Developer/Frameworks
@@ -21,13 +27,13 @@ swiftc $common -module-name rwf_recorder -I $out_dir -L $out_dir -lRecorderCore 
   -Xlinker -rpath -Xlinker $out_dir \
   $recorder_dir/Sources/rwf-recorder/*.swift -o $out_dir/rwf-recorder
 
-swiftc $common -parse-as-library -module-name RecorderCoreTests \
+swiftc $common -parse-as-library -module-name $suite \
   -I $out_dir -L $out_dir -lRecorderCore \
   -F $frameworks -framework Testing -plugin-path $clt/usr/lib/swift/host/plugins/testing \
   -Xlinker -rpath -Xlinker $frameworks \
   -Xlinker -rpath -Xlinker $clt/Library/Developer/usr/lib \
   -Xlinker -rpath -Xlinker $out_dir \
-  $recorder_dir/Tests/RecorderCoreTests/*.swift $recorder_dir/scripts/TestRunner.swift \
-  -o $out_dir/RecorderCoreTests
+  $recorder_dir/Tests/$suite/*.swift $recorder_dir/scripts/TestRunner.swift \
+  -o $out_dir/$suite
 
-$out_dir/RecorderCoreTests
+$out_dir/$suite
