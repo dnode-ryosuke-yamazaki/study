@@ -1,6 +1,6 @@
 #!/bin/zsh
 # RecorderCore のテストを SwiftPM を通さずに swiftc で回す。
-# 正式な実行は `swift test`。swift build / swift test が動かない環境(Claude Code のサンドボックス)向け。
+# 正式な実行は scripts/swift_test.sh。swift build / swift test が動かない環境(Claude Code のサンドボックス)向け。
 # 使い方: /bin/zsh scripts/swiftc_test.sh [出力先フォルダ]
 set -eu
 

@@ -8,7 +8,7 @@
 
 全件を claude 担当にした理由: 委任用アカウントのクレジット残量の記録が、月次リセット日(2026-10-01)を過ぎて無効になっている(リセット日到達)。
 
-置き場所は、特に書かない限り `apps/routine-work-finder/application/` の下(以下このフォルダからの相対パス)。記録係のテストは `recorder/` で `swift test`、操作スクリプトのテストはこのフォルダで `python3 -m unittest discover -s tests -t .` で回す。`~/.claude/skills/` は Bash から書けないため、Skill のファイルは Write/Edit ツールで書く。
+置き場所は、特に書かない限り `apps/routine-work-finder/application/` の下(以下このフォルダからの相対パス)。記録係のテストは `recorder/` で `/bin/zsh scripts/swift_test.sh`(Swift Testing のマクロ部品の場所を明示して `swift test` を呼ぶ。Claude Code のサンドボックスでは `swift test` が動かないため `/bin/zsh scripts/swiftc_test.sh`)、操作スクリプトのテストはこのフォルダで `python3 -m unittest discover -s tests -t .` で回す。`~/.claude/skills/` は Bash から書けないため、Skill のファイルは Write/Edit ツールで書く。
 
 ## 先に確かめること
 
