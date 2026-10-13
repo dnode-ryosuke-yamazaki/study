@@ -56,9 +56,27 @@ class 台帳ファイルの名前(unittest.TestCase):
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-1
     def test_Skillが書くフォルダとフローが書くフォルダが重ならないこと(self):
-        skill側 = {self.設定.依頼フォルダ, self.設定.選択結果フォルダ, self.設定.htmlフォルダ}
-        フロー側 = {self.設定.候補フォルダ, self.設定.作成結果フォルダ}
+        skill側 = {self.設定.依頼フォルダ, self.設定.開催者の予定の依頼フォルダ, self.設定.選択結果フォルダ, self.設定.htmlフォルダ}
+        フロー側 = {self.設定.候補フォルダ, self.設定.開催者の予定フォルダ, self.設定.作成結果フォルダ}
         self.assertFalse(skill側 & フロー側)
+        self.assertEqual(len(skill側 | フロー側), 7)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#台帳ファイルの扱い-2
+    def test_開催者の予定の依頼と開催者の予定は依頼IDだけを含む名前でそれぞれのフォルダに置かれること(self):
+        """依頼1件につき1ファイルで、試行番号・再試行番号を持たない(appendix.md フォルダとファイル名)。"""
+        self.assertEqual(
+            ledger.開催者の予定の依頼ファイル(self.設定, "20260909-101500-ab3f"),
+            Path("/ledger/organizerEventsRequest/organizer-events-request-20260909-101500-ab3f.json"),
+        )
+        self.assertEqual(
+            ledger.開催者の予定ファイル(self.設定, "20260909-101500-ab3f"),
+            Path("/ledger/organizerEvents/organizer-events-20260909-101500-ab3f.json"),
+        )
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#power-automateフローの役割
+    def test_開催者予定フローが書くファイル名も読んだファイル名の先頭を置き換えただけで得られること(self):
+        依頼 = ledger.開催者の予定の依頼ファイル(self.設定, "X").name
+        self.assertEqual(依頼.replace("organizer-events-request-", "organizer-events-"), ledger.開催者の予定ファイル(self.設定, "X").name)
 
 
 class JSONの読み書き(unittest.TestCase):

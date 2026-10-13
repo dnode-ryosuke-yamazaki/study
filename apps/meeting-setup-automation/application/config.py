@@ -49,7 +49,8 @@ class 設定:
     通知フォルダ: Path
     作業フォルダ: Path
 
-    #: 2つの待ちの上限は別々に持つ(実測の結果、別の値になりうるため)。
+    #: 2つの待ちの上限は別々に持つ(実測の結果、別の値になりうるため)。開催者の予定の待ちと
+    #: 代替案2の候補の待ちは候補の待ちと同じ上限を使い、別の設定値を増やさない。
     #: 仕様: requirements.md#往復の待ち時間の上限 [1][2]
     候補待ち上限秒: int
     作成結果待ち上限秒: int
@@ -83,12 +84,27 @@ class 設定:
         return self.代替案の探索期間日数
 
     @property
+    def 開催者の予定待ち上限秒(self) -> int:
+        """開催者の予定の待ちは候補の待ちと同じ経路をたどるため同じ上限。requirements.md#往復の待ち時間の上限 [2]"""
+        return self.候補待ち上限秒
+
+    @property
     def 依頼フォルダ(self) -> Path:
         return self.台帳ルート / "request"
 
     @property
     def 候補フォルダ(self) -> Path:
         return self.台帳ルート / "candidates"
+
+    @property
+    def 開催者の予定の依頼フォルダ(self) -> Path:
+        """Skillが書き、開催者予定フローが読む。requirements.md#台帳ファイルの扱い [1]"""
+        return self.台帳ルート / "organizerEventsRequest"
+
+    @property
+    def 開催者の予定フォルダ(self) -> Path:
+        """開催者予定フローが書き、Skillが読む。requirements.md#台帳ファイルの扱い [1]"""
+        return self.台帳ルート / "organizerEvents"
 
     @property
     def 選択結果フォルダ(self) -> Path:

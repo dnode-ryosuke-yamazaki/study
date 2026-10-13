@@ -155,8 +155,9 @@ class 全員空きの判定(unittest.TestCase):
     def _絞る(self, 枠一覧, 条件=既定条件, 仮を空きとみなす=False):
         return candidates.絞り込む(candidates.読む(_候補ファイル(枠一覧)), 条件, 仮を空きとみなす=仮を空きとみなす)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補探索の既定条件-3
-    def test_出席者の空き状況がすべて空きで開催者も空きの枠だけを採用すること(self):
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補探索の既定条件-3、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-1
+    def test_出席者の空き状況がすべて空きで開催者も空きの枠だけを採用し開催者だけが仮の枠は開催者のみ不在に分けること(self):
+        """否定確認: 開催者のみ不在の判定を外すと、15:00の枠が「全員空きでない」に数えられて落ちる。"""
         結果 = self._絞る(
             [
                 _枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "free"), 開催者="free"),
@@ -165,7 +166,9 @@ class 全員空きの判定(unittest.TestCase):
             ]
         )
         self.assertEqual([枠.開始.hour for 枠 in 結果.採用], [10])
-        self.assertEqual(結果.除外内訳["全員空きでない"], 2)
+        self.assertEqual(結果.除外内訳["全員空きでない"], 1)
+        self.assertEqual([枠.開始.hour for 枠 in 結果.開催者のみ不在], [15])
+        self.assertEqual(結果.除外内訳["開催者のみ不在"], 1)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補探索の既定条件-5
     def test_仮の予定が入っている出席者を含む枠は出席可能率が100でも採用しないこと(self):
@@ -182,32 +185,102 @@ class 全員空きの判定(unittest.TestCase):
         self.assertEqual(結果.採用[0].空いていない人数, 1)
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-1
-    def test_仮の予定を空きとみなす条件では仮の出席者や開催者を含む枠を採用し予約済みは除くこと(self):
+    def test_仮の予定を空きとみなす条件では開催者以外に仮の予定がある枠だけを採用し予約済みと開催者だけが仮の枠は除くこと(self):
+        """否定確認: 代替案1の対象の判定から「開催者以外に仮がいる」の条件を外すと13:00の枠が採用されて落ちる。"""
         結果 = self._絞る(
             [
                 _枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative")),
                 _枠(datetime(2026, 9, 10, 13, 0, tzinfo=JST), 出席者=("free", "free"), 開催者="tentative"),
+                _枠(datetime(2026, 9, 10, 14, 0, tzinfo=JST), 出席者=("tentative", "free"), 開催者="tentative"),
                 _枠(datetime(2026, 9, 10, 15, 0, tzinfo=JST), 出席者=("busy", "free")),
+                _枠(datetime(2026, 9, 10, 16, 0, tzinfo=JST), 出席者=("tentative", "busy")),
             ],
             仮を空きとみなす=True,
         )
-        self.assertEqual([枠.開始.hour for 枠 in 結果.採用], [10, 13])
+        self.assertEqual([枠.開始.hour for 枠 in 結果.採用], [10, 14])
+        self.assertEqual(結果.開催者のみ不在, [])  # 代替案1の絞り直しでは切り出さない
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2
-    def test_絞り直した枠ごとに仮の予定を持つ参加者の一覧が返ること(self):
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-2、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-3
+    def test_絞り直した枠ごとに仮の予定を持つ参加者の一覧が返り開催者自身の仮も分かること(self):
         結果 = self._絞る(
             [
                 _枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative"),
                    アドレス=["a@example.com", "b@example.com"]),
-                _枠(datetime(2026, 9, 10, 13, 0, tzinfo=JST), 出席者=("free", "free"), 開催者="tentative",
+                _枠(datetime(2026, 9, 10, 13, 0, tzinfo=JST), 出席者=("free", "tentative"), 開催者="tentative",
                    アドレス=["a@example.com", "b@example.com"]),
             ],
             仮を空きとみなす=True,
         )
         self.assertEqual(結果.採用[0].仮の参加者, ["b@example.com"])
         self.assertEqual(結果.採用[0].開催者が仮, False)
-        self.assertEqual(結果.採用[1].仮の参加者, [])
+        self.assertEqual(結果.採用[1].仮の参加者, ["b@example.com"])
         self.assertEqual(結果.採用[1].開催者が仮, True)
+
+
+class 開催者のみ不在の枠の切り出し(unittest.TestCase):
+    """参加者全員は空いていて開催者だけが空き以外の枠を、候補には数えずに別の一覧として持つ。
+    開催者が自分の予定を動かせば開けられる枠なので、候補と取り違えずに判断材料として示す。
+    """
+
+    def _絞る(self, 枠一覧, 条件=既定条件, 仮を空きとみなす=False):
+        return candidates.絞り込む(candidates.読む(_候補ファイル(枠一覧)), 条件, 仮を空きとみなす=仮を空きとみなす)
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-1
+    def test_出席者全員が空きで開催者だけが空き以外の枠が採用とは別の一覧に分かれ出席者に空き以外がいる枠は分かれないこと(self):
+        """否定確認: 開催者の空き状況の比較を `== 空き` に反転すると、空きの枠まで分けられて落ちる。"""
+        開催者の値 = ["tentative", "busy", "oof", "workingElsewhere", "unknown", " Busy "]
+        枠一覧 = [_枠(datetime(2026, 9, 10, 10 + i, 0, tzinfo=JST), 開催者=v) for i, v in enumerate(開催者の値)]
+        枠一覧.append(_枠(datetime(2026, 9, 11, 10, 0, tzinfo=JST), 出席者=("tentative", "free"), 開催者="busy"))
+        枠一覧.append(_枠(datetime(2026, 9, 11, 11, 0, tzinfo=JST), 出席者=("free", "free"), 開催者="free"))
+        条件 = candidates.絞り込み条件(
+            時間帯開始=time(9, 30), 時間帯終了=time(17, 30), 対象曜日=(0, 1, 2, 3, 4), 全員空き=True, 上限件数=10
+        )
+        結果 = self._絞る(枠一覧, 条件)
+        self.assertEqual([w.開始.hour for w in 結果.採用], [11])
+        self.assertEqual(len(結果.開催者のみ不在), len(開催者の値))
+        self.assertEqual({w.開催者空き for w in 結果.開催者のみ不在}, {"tentative", "busy", "oof", "workingelsewhere", "unknown"})
+        self.assertEqual(結果.除外内訳["全員空きでない"], 1)  # 出席者に仮がいる枠は開催者のみ不在に入らない
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-1、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-4
+    def test_開催者のみ不在の枠にも曜日と時間帯と祝日の条件が効き開始時刻順で上限件数までに収まること(self):
+        枠一覧 = [
+            _枠(datetime(2026, 9, 12, 10, 0, tzinfo=JST), 開催者="busy"),  # 土曜
+            _枠(datetime(2026, 9, 10, 8, 0, tzinfo=JST), 開催者="busy"),  # 時間帯外
+            _枠(datetime(2026, 9, 21, 10, 0, tzinfo=JST), 開催者="busy"),  # 敬老の日
+        ] + [_枠(datetime(2026, 9, 10, 16 - i, 0, tzinfo=JST), 開催者="tentative") for i in range(7)]  # 10:00〜16:00を逆順で
+        結果 = self._絞る(枠一覧)
+        self.assertEqual(結果.採用, [])
+        self.assertEqual([w.開始.hour for w in 結果.開催者のみ不在], [10, 11, 12, 13, 14])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-4
+    def test_開催者のみ不在の枠どうしは時間の重なる枠の先のものだけが残り採用した候補と重なっても除かれないこと(self):
+        """否定確認: 候補の重複除外を開催者のみ不在の枠にまたいで適用すると、10:00の枠が消えて落ちる。"""
+        結果 = self._絞る(
+            [
+                _枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST)),  # 採用される候補 10:00-11:00
+                _枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="busy"),  # 候補と同じ時間の開催者のみ不在
+                _枠(datetime(2026, 9, 10, 10, 30, tzinfo=JST), 開催者="busy"),  # 上の枠と重なる → 除く
+                _枠(datetime(2026, 9, 10, 11, 0, tzinfo=JST), 開催者="busy"),  # 接するだけ → 残る
+            ]
+        )
+        self.assertEqual([w.開始.hour for w in 結果.採用], [10])
+        self.assertEqual([(w.開始.hour, w.開始.minute) for w in 結果.開催者のみ不在], [(10, 0), (11, 0)])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-1
+    def test_全員空きを求めない依頼では開催者のみ不在の一覧が空になること(self):
+        条件 = candidates.絞り込み条件(
+            時間帯開始=time(9, 30), 時間帯終了=time(17, 30), 対象曜日=(0, 1, 2, 3, 4), 全員空き=False, 上限件数=5
+        )
+        結果 = self._絞る([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="busy")], 条件)
+        self.assertEqual(len(結果.採用), 1)
+        self.assertEqual(結果.開催者のみ不在, [])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-2
+    def test_開催者のみ不在の枠は採用件数に数えず受け取った件数には含まれること(self):
+        結果 = self._絞る([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="busy")])
+        self.assertEqual(結果.採用, [])
+        self.assertEqual(結果.受け取った件数, 1)
+        self.assertEqual(len(結果.開催者のみ不在), 1)
 
 
 class 並び順と重複と上限(unittest.TestCase):

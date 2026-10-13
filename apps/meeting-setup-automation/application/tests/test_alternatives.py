@@ -99,11 +99,14 @@ class 代替案1の絞り直し(unittest.TestCase):
         結果2 = request.代替案1を組み立てる(self._読み(枠一覧), candidates.絞り込み条件.依頼から(_依頼()), 要求件数=50)
         self.assertFalse(結果2.打ち切りの可能性)
 
-    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-3
-    def test_開催者が仮の枠も代替案1の候補として採用すること(self):
-        読み = self._読み([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="tentative")])
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#開催者の予定のみ重なる枠の提示-3、apps/meeting-setup-automation/specs/meeting-scheduling/requirements.md#候補が0件のときの代替案の提示-3
+    def test_出席者全員が空きで開催者だけが仮の枠は代替案1に入らず出席者にも仮がいれば開催者が仮でも入ること(self):
+        """同じ枠が代替案1と開催者の予定のみ重なる枠の両方に出ないようにする。"""
         条件 = candidates.絞り込み条件.依頼から(_依頼())
-        結果 = request.代替案1を組み立てる(読み, 条件, 要求件数=50)
+        開催者だけ仮 = self._読み([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 開催者="tentative")])
+        self.assertEqual(request.代替案1を組み立てる(開催者だけ仮, 条件, 要求件数=50).採用, [])
+        両方仮 = self._読み([_枠(datetime(2026, 9, 10, 10, 0, tzinfo=JST), 出席者=("free", "tentative"), 開催者="tentative")])
+        結果 = request.代替案1を組み立てる(両方仮, 条件, 要求件数=50)
         self.assertEqual(len(結果.採用), 1)
         self.assertTrue(結果.採用[0].開催者が仮)
 
