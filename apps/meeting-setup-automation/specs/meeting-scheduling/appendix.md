@@ -176,7 +176,7 @@ design.md の処理フローとデータ設計が使う書式(設定値・サブ
 
 ### 開催者の予定ファイルの形
 
-`organizer-events-<依頼ID>.json`。「カレンダー ビューの取得 (V3)」で開催者自身の既定カレンダーを範囲で読んだ結果。繰り返し予定は回ごとに展開された状態で入る。本文・出席者・場所は書かない。
+`organizer-events-<依頼ID>.json`。「イベントのカレンダー ビューの取得 (V3)」で開催者自身の既定カレンダーを範囲で読んだ結果。繰り返し予定は回ごとに展開された状態で入る。本文・出席者・場所は書かない。
 
 ```json
 {
@@ -187,12 +187,14 @@ design.md の処理フローとデータ設計が使う書式(設定値・サブ
       "subject": "社内レビュー",
       "showAs": "tentative",
       "sensitivity": "normal",
-      "start": {"dateTime": "2026-09-11T05:00:00.0000000", "timeZone": "UTC"},
-      "end": {"dateTime": "2026-09-11T06:00:00.0000000", "timeZone": "UTC"}
+      "start": "{\"dateTime\":\"2026-09-11T05:00:00.0000000\",\"timeZone\":\"UTC\"}",
+      "end": "{\"dateTime\":\"2026-09-11T06:00:00.0000000\",\"timeZone\":\"UTC\"}"
     }
   ]
 }
 ```
+
+- `start`・`end` は、開催者予定フローの「選択」が `dateTime` と `timeZone` の組を**JSONの文字列にして**書いたもの(アクションの応答の時刻は世界標準時で、`timeZone` は `UTC`)。Skillは、この文字列のほか、組そのもの(`{"dateTime": ..., "timeZone": "UTC"}`)と日時だけの文字列(`2026-09-11T05:00:00.0000000`)のどれで届いても世界標準時として読む
 
 - `showAs` の値: `free` / `tentative` / `busy` / `oof` / `workingElsewhere` / `unknown`。Skill は `free` の予定を表示しない
 - `sensitivity` の値: `normal` / `personal` / `private` / `confidential`。`private`・`confidential` は件名の代わりに「非公開の予定」と示す

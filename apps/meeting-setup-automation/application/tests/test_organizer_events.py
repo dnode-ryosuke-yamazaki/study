@@ -137,6 +137,33 @@ class 開催者の予定ファイルの読み取り(unittest.TestCase):
         self.assertEqual(organizer_events.種別の表示語(読み.予定一覧[1].種別), "不明")
 
     # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#開催者の予定ファイルの区分
+    def test_開始終了がJSON文字列や日時の文字列で届いても世界標準時として読むこと(self):
+        """開催者予定フローの「選択」は start/end の組を文字列にして書く(実機確認E9の実応答)。"""
+        読み = organizer_events.読む(_予定ファイル([
+            {"subject": "文字列の組", "showAs": "busy", "sensitivity": "normal",
+             "start": '{"dateTime":"2026-10-15T00:30:00.0000000","timeZone":"UTC"}',
+             "end": '{"dateTime":"2026-10-15T02:00:00.0000000","timeZone":"UTC"}'},
+            {"subject": "日時だけ", "showAs": "tentative", "sensitivity": "normal",
+             "start": "2026-10-15T05:00:00.0000000", "end": "2026-10-15T06:00:00Z"},
+        ]), ID)
+        self.assertEqual(読み.失敗理由, "")
+        self.assertEqual([(p.件名, p.開始, p.終了) for p in 読み.予定一覧], [
+            ("文字列の組", datetime(2026, 10, 15, 0, 30, tzinfo=timezone.utc), datetime(2026, 10, 15, 2, 0, tzinfo=timezone.utc)),
+            ("日時だけ", datetime(2026, 10, 15, 5, 0, tzinfo=timezone.utc), datetime(2026, 10, 15, 6, 0, tzinfo=timezone.utc)),
+        ])
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#開催者の予定ファイルの区分
+    def test_実機確認E9の実応答の形の予定ファイルを読めること(self):
+        """fixture は実応答から件名を置き換えたもの(design.md#テスト戦略。開始終了は文字列の組・種別4種・非公開を含む)。"""
+        内容 = json.loads((Path(__file__).parent / "fixtures" / "organizer-events-e9.json").read_text(encoding="utf-8"))
+        読み = organizer_events.読む(内容, 内容["requestId"])
+        self.assertEqual(読み.失敗理由, "")
+        self.assertEqual(len(読み.予定一覧), len(内容["events"]))
+        self.assertEqual({p.種別 for p in 読み.予定一覧}, {"free", "tentative", "busy", "oof"})
+        self.assertTrue(any(p.非公開 for p in 読み.予定一覧))
+        self.assertTrue(all(p.開始.tzinfo is not None and p.終了 > p.開始 for p in 読み.予定一覧))
+
+    # 仕様: apps/meeting-setup-automation/specs/meeting-scheduling/design.md#開催者の予定ファイルの区分
     def test_開始か終了が読めない予定は飛ばして残りを読むこと(self):
         読み = organizer_events.読む(_予定ファイル([
             {"subject": "壊れ", "showAs": "busy", "start": {"dateTime": ""}, "end": {}},

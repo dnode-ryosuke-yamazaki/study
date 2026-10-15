@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -147,9 +148,27 @@ class 予定の読み取り:
         return bool(self.失敗理由)
 
 
+def _日時を取り出す(値) -> datetime:
+    """予定ファイルの start / end から日時を取り出す。
+
+    開催者予定フローの「選択」は `{"dateTime", "timeZone"}` の組を**文字列にして**書く(実機確認E9の実応答)。
+    組そのもの・組をJSONにした文字列・日時だけの文字列のどれで届いても読む。時刻は世界標準時で届く
+    (`timeZone` は `UTC`。オフセットが無ければ世界標準時とみなす)。
+    """
+    if isinstance(値, str):
+        文字列 = 値.strip()
+        if 文字列.startswith("{"):
+            値 = json.loads(文字列)
+        else:
+            return timeutil.parse_datetime(文字列)
+    if isinstance(値, dict):
+        return timeutil.parse_datetime(値.get("dateTime"))
+    raise ValueError(f"日時として解釈できません: {値!r}")
+
+
 def _予定を読む(項目: dict) -> 予定:
-    開始 = timeutil.parse_datetime(((項目.get("start") or {}).get("dateTime")))
-    終了 = timeutil.parse_datetime(((項目.get("end") or {}).get("dateTime")))
+    開始 = _日時を取り出す(項目.get("start"))
+    終了 = _日時を取り出す(項目.get("end"))
     return 予定(
         件名=str(項目.get("subject") or "") or "(件名なし)",
         種別=_正規化(項目.get("showAs")),
