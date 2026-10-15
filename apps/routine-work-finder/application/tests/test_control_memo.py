@@ -134,6 +134,29 @@ class MemoTests(ControlTestCase):
         self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["残す メモ"])
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
+    def test_最後のメモが改行で終わっていなくても_消したあとに足したメモと前のメモがつながらない(self):
+        """否定確認: 残したメモを改行なしで書き戻すと、次に足したメモと1行につながって落ちる"""
+        self.add("前のメモ", now=jst("2026-10-07T09:00:00"))
+        second, _ = self.add("消すメモ", now=jst("2026-10-07T09:30:00"))
+        path = self.paths.memos / "2026-10-07.jsonl"
+        path.write_bytes(path.read_bytes().rstrip(b"\n"))
+        self.assertTrue(self.run_control("memo", "delete", "--id", second["data"]["id"])["ok"])
+        self.add("足したメモ", now=jst("2026-10-07T10:00:00"))
+        self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["前のメモ", "足したメモ"])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
+    def test_日本語の途中で途切れた行があっても指定したメモを消し_途切れた行は残す(self):
+        """否定確認: ファイル全体を UTF-8 として読むと、文字に直せない例外で結果を返さずに落ちる"""
+        result, _ = self.add("消すメモ", now=jst("2026-10-07T09:00:00"))
+        path = self.paths.memos / "2026-10-07.jsonl"
+        broken = '{"id":"20261007-093000-abcd","text":"給'.encode("utf-8")[:-1]
+        with path.open("ab") as file:
+            file.write(broken)
+        deleted = self.run_control("memo", "delete", "--id", result["data"]["id"])
+        self.assertTrue(deleted["ok"], deleted)
+        self.assertEqual(path.read_bytes(), broken + b"\n")
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
     def test_無い番号_形の違う番号は断る(self):
         self.add("メモ")
         self.assertEqual(self.run_control("memo", "delete", "--id", "20261007-100000-ffff")["error"], "notFound")

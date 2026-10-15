@@ -88,7 +88,7 @@ struct AxResultParserTests {
     func timeout() throws {
         var raw = try Self.fixture("chrome")[0]
         raw.timedOut = true
-        raw.title = AxAttribute(error: -25204, value: nil)
+        raw.title = nil
         #expect(parseAxResponse(raw) == .unavailable(.timeout))
 
         var noResponse = try Self.fixture("chrome")[1]
@@ -102,8 +102,11 @@ struct AxResultParserTests {
     func timeoutAfterTitleKeepsTitle() throws {
         var raw = try Self.fixture("excel")[0]
         raw.timedOut = true
-        raw.selectedSheet = AxAttribute(error: -25204, value: nil)
+        // 打ち切ったあとの問い合わせは、AxReader が値を持たない(nil)で返す
+        raw.selectedSheet = nil
         raw.focusedElementError = -25204
+        raw.role = nil
+        raw.subrole = nil
         #expect(parseAxResponse(raw) == .read(WindowInfo(title: "TITLE", sheet: nil, focusRole: nil, focusSubrole: nil)))
     }
 }

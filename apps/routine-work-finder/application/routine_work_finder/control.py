@@ -219,12 +219,12 @@ def read_input_json(path, required_key):
     return content
 
 
-def write_text_replacing(target, text):
+def write_bytes_replacing(target, content):
     """同じフォルダの一時ファイル(600)に書いてから名前を付け替える"""
     temporary = target.with_name(target.name + ".tmp")
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as file:
-        file.write(text)
+    with os.fdopen(descriptor, "wb") as file:
+        file.write(content)
     os.replace(temporary, target)
 
 
@@ -396,12 +396,13 @@ def memo_delete(context, memo_id):
     path = context.paths.memos / f"{memo_id[0:4]}-{memo_id[4:6]}-{memo_id[6:8]}.jsonl"
     # メモのフォルダがまだ無ければ消すものも無いため、フォルダは確かめない(番号が見つからないと返す)
     context.ensure_writable(memo_replace=path if context.paths.memos.exists() else None)
-    # 行は LF だけで分ける(splitlines はメモの文の中の U+2028 などでも行を割る)
-    lines = path.read_text(encoding="utf-8").split("\n") if path.exists() else []
+    # 行はバイト列のまま LF だけで分ける(splitlines はメモの文の中の U+2028 などでも行を割る)。
+    # 日本語の途中で途切れた行も手を加えずに残し、残す行はどれも改行で終える(次に足すメモとつながらないように)
+    lines = [line for line in path.read_bytes().split(b"\n") if line] if path.exists() else []
     remaining = [line for line in lines if not _is_memo_line(line, memo_id)]
     if len(remaining) == len(lines):
         raise ControlError("notFound", "その番号のメモはありません")
-    write_text_replacing(path, "\n".join(remaining))
+    write_bytes_replacing(path, b"".join(line + b"\n" for line in remaining))
     context.log("INFO", "memo delete")
     return {"message": "メモを消しました", "notices": [], "data": {"id": memo_id}}
 

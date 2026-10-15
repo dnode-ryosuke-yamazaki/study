@@ -121,7 +121,7 @@
 - `Sources/rwf-recorder/AxReader.swift`(アクセシビリティの問い合わせ)と `Sources/RecorderCore/AxResultParser.swift`(結果の読み取りと理由の分類)
 - 読む属性は appendix.md「アクセシビリティの読み方」。前面ウィンドウの中を深く走査しない。部品の中の文字を返す属性は読まない。合わせて1秒で打ち切る
 - タスク1で保存した実機の応答(`tests/fixtures/ax/`)を使う。role 名(AXLayoutArea・AXWebArea など)はそのまま、題名・シート名は置き換える
-- テスト: ウィンドウの題名の記録-1・-2・-3 の契約(正常と失敗形)、-4(noWindow・denied・timeout の3理由)
+- テスト: ウィンドウの題名の記録-1・-2・-3 の契約(正常と失敗形)、-4(noWindow・denied・timeout の3理由と、題名を読めたあとの打ち切りは読めた題名を返す分岐)
 - 構造検証(`tests/test_recorder_forbidden_apis.py`、unittest): 記録しないもの-1〜4。`recorder/Sources/` を走査し、画面収録の関数・Apple Events・キー入力を受け取る関数・カメラの型・部品の中の文字を返す属性(`kAXSelectedTextAttribute` 等)を呼んでいないこと、`kAXValueAttribute` はタブの選択状態を見る1か所だけで使うこと、読む AX 属性が許可リストの8つ(`kAXFocusedWindowAttribute`・`kAXTitleAttribute`・`kAXFocusedUIElementAttribute`・`kAXRoleAttribute`・`kAXSubroleAttribute`・`kAXChildrenAttribute`・`kAXTabsAttribute`・`kAXValueAttribute`)に限られることを確かめる。禁止する名前の一覧は design.md のテスト戦略の備考に従う。否定確認として、禁止の呼び出しを1行足すと落ちることを見てから戻す
 
 </details>
