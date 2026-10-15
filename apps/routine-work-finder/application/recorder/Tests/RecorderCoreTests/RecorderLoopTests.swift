@@ -129,6 +129,44 @@ struct RecorderLoopTests {
         #expect(env.lines.last == .excluded(time: jst("2026-10-07T09:00:00")))
     }
 
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-3、apps/routine-work-finder/specs/activity-recording/requirements.md#ウィンドウの題名の記録-5
+    /// 否定確認: 切り詰めたあとの1,000字だけでことばを探すと落ちる
+    @Test("記録しないことばが題名の1,001字目以降にある回も、除外中の行だけを書く")
+    func excludedWordBeyondTruncationWritesExcluded() {
+        let env = FakeEnvironment(now: jst("2026-10-07T09:00:00"), config: recordingConfig(words: ["給与"]))
+        env.window = .read(WindowInfo(title: String(repeating: "あ", count: 1000) + "給与", sheet: nil, focusRole: nil, focusSubrole: nil))
+        RecorderLoop(environment: env).tick()
+        #expect(env.lines.last == .excluded(time: jst("2026-10-07T09:00:00")))
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#操作の記録-1
+    /// 否定確認: 2回目の回にも起動のログを書くと落ちる
+    @Test("起動して最初の回だけ、記録係の起動をログに書く")
+    func firstTickLogsRecorderStarted() {
+        let env = FakeEnvironment(now: jst("2026-10-07T09:00:00"), config: .missing)
+        let loop = RecorderLoop(environment: env)
+        loop.tick()
+        env.clock = jst("2026-10-07T09:00:05")
+        loop.tick()
+        #expect(env.logs.filter { $0 == "INFO recorder started" }.count == 1)
+        #expect(env.logs.first == "INFO recorder started")
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
+    /// 否定確認: 中身が変わらない回にも読み直しのログを書くと落ちる
+    @Test("設定の中身が変わった回だけ、設定の読み直しをログに書く")
+    func configChangeLogsReload() {
+        let env = FakeEnvironment(now: jst("2026-10-07T09:00:00"), config: recordingConfig())
+        let loop = RecorderLoop(environment: env)
+        loop.tick()
+        env.clock = jst("2026-10-07T09:00:05")
+        loop.tick()
+        env.clock = jst("2026-10-07T09:00:10")
+        env.config = recordingConfig(words: ["給与"])
+        loop.tick()
+        #expect(env.logs.filter { $0.contains("config reloaded") } == ["INFO config reloaded"])
+    }
+
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4、apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-6
     /// 否定確認: 理由が変わらない回にもログを書くと落ちる
     @Test("設定が読めない回は何も書かず、状態に理由を残し、理由のログは変わったときだけ書く")
@@ -198,6 +236,16 @@ struct RecorderLoopTests {
         #expect(env.purges == 2)
         #expect(env.logs.filter { $0.hasPrefix("INFO purge") } == ["INFO purge removed=3", "INFO purge removed=3"])
         #expect(env.statuses.last?.lastPurgeDate == "2026-10-30")
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#古い記録の削除-1
+    /// 否定確認: 消せなかった件数だけを書いてファイル名を書かないと落ちる
+    @Test("古いファイルを消せなかったときは、消せなかったファイル名をログに書く")
+    func purgeFailureLogsFileNames() {
+        let env = FakeEnvironment(now: jst("2026-10-29T09:00:00"), config: .missing)
+        env.purgeResult = PurgeResult(deletedCount: 1, failedPaths: ["/data/records/2026-09-30.jsonl", "/data/memos/2026-09-30.jsonl"])
+        RecorderLoop(environment: env).tick()
+        #expect(env.logs.contains("WARN purge failed count=2 files=records/2026-09-30.jsonl,memos/2026-09-30.jsonl"))
     }
 
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-8

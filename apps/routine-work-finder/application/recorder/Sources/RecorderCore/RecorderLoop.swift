@@ -43,6 +43,7 @@ public final class RecorderLoop {
     private var recordedPreviousTick = false
     private var lastPurgeDate: String?
     private var lastConfigError: String?
+    private var lastLoadedConfig: RecorderConfig?
     private var lastTitleReason: TitleUnavailableReason?
     private var lastWriteError: String?
 
@@ -54,6 +55,7 @@ public final class RecorderLoop {
         let started = environment.now()
         let now = started
         if lastLine == nil {
+            environment.log(.info, "recorder started")
             lastLine = environment.readLastLine()
         }
         purgeIfDayChanged(now: now)
@@ -62,6 +64,7 @@ public final class RecorderLoop {
         let decision = decideTick(config: config, now: now, lastLine: lastLine ?? .assumedStop,
                                   recordedPreviousTick: recordedPreviousTick)
         logConfigErrorChange(decision.configError)
+        logConfigReload(config)
 
         var wroteAll = true
         if let stop = decision.stopLine {
@@ -130,7 +133,12 @@ public final class RecorderLoop {
         let result = environment.purgeOldFiles(now: now)
         environment.log(.info, "purge removed=\(result.deletedCount)")
         if !result.failedPaths.isEmpty {
-            environment.log(.warn, "purge failed count=\(result.failedPaths.count)")
+            // データフォルダの中の「フォルダ名/ファイル名」だけを書く(ファイル名は日付だけ)
+            let names = result.failedPaths.map { path in
+                let url = URL(fileURLWithPath: path)
+                return "\(url.deletingLastPathComponent().lastPathComponent)/\(url.lastPathComponent)"
+            }
+            environment.log(.warn, "purge failed count=\(names.count) files=\(names.joined(separator: ","))")
         }
         lastPurgeDate = JapanTime.dateString(now)
     }
@@ -143,6 +151,15 @@ public final class RecorderLoop {
             environment.log(.info, "config readable")
         }
         lastConfigError = configError
+    }
+
+    /// 読めた設定の中身が前回読めたものから変わったときだけ書く(起動して最初に読んだときは書かない)
+    private func logConfigReload(_ config: ConfigLoadResult) {
+        guard case .loaded(let loaded) = config else { return }
+        if let lastLoadedConfig, lastLoadedConfig != loaded {
+            environment.log(.info, "config reloaded")
+        }
+        lastLoadedConfig = loaded
     }
 
     private func logTitleReasonChange(_ window: WindowReadResult) {
