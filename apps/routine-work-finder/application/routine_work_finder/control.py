@@ -55,11 +55,17 @@ class Context:
             if write_config:
                 probe_replace(self.paths.root / "config.json.tmp")
             if memo_append is not None:
-                if not self.paths.memos.exists():
+                # 確かめるために作ったフォルダ・ファイルは消す(断ったときに空のものを残さない。書くときに作り直す)
+                created_folder = not self.paths.memos.exists()
+                if created_folder:
                     self.paths.memos.mkdir(mode=0o700)
-                    os.chmod(self.paths.memos, 0o700)
+                created_file = not memo_append.exists()
                 descriptor = os.open(memo_append, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
                 os.close(descriptor)
+                if created_file:
+                    memo_append.unlink()
+                if created_folder:
+                    self.paths.memos.rmdir()
             if memo_replace is not None:
                 probe_replace(memo_replace.with_name(memo_replace.name + ".tmp"))
         except OSError as error:
@@ -365,6 +371,9 @@ def memo_add(context, path):
     if len(text) > MEMO_MAX_LENGTH:
         raise ControlError("tooLong", f"メモは{MEMO_MAX_LENGTH:,}字までです({len(text):,}字)。短くしてから頼んでください")
     memo = {"id": f"{local:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}", "t": timestamp(local), "text": text}
+    if not context.paths.memos.exists():
+        context.paths.memos.mkdir(mode=0o700)
+        os.chmod(context.paths.memos, 0o700)
     descriptor = os.open(memo_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     with os.fdopen(descriptor, "a", encoding="utf-8") as file:
         file.write(json.dumps(memo, ensure_ascii=False) + "\n")

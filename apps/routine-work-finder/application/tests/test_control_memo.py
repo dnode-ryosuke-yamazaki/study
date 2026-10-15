@@ -39,6 +39,15 @@ class MemoTests(ControlTestCase):
         result, _ = self.add("  \n ")
         self.assertEqual(result["error"], "emptyText")
 
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-1、apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-5
+    def test_断ったときはメモのフォルダもファイルも作らない(self):
+        """否定確認: 書けるかを確かめるために作ったフォルダ・ファイルを残すと落ちる"""
+        for text in ("  ", "あ" * 2001):
+            with self.subTest(length=len(text)):
+                result, _ = self.add(text)
+                self.assertFalse(result["ok"])
+                self.assertFalse(self.paths.memos.exists())
+
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-1
     def test_入力ファイルが無い_形が違うときは断る(self):
         self.assertEqual(self.run_control("memo", "add", "--input-file", str(self.input_dir / "x.json"))["error"], "badInputFile")
