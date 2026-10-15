@@ -48,6 +48,26 @@ struct DailyFileWriterTests {
         #expect(parseLastLine(contents) == LastLine(time: jst("2026-10-07T09:00:05"), isStop: false))
     }
 
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#操作の記録-1
+    /// 否定確認: 書きかけの最終行のすぐ後ろに続けて書くと、次の行まで読めない1行になり落ちる
+    @Test("前回の最終行が書きかけ(改行で終わらない)なら、改行を補ってから書き足し、書きかけの行は消さない")
+    func startsNewLineAfterPartialLastLine() throws {
+        let records = temporaryDirectory().appendingPathComponent("records")
+        let writer = DailyFileWriter(recordsDirectory: records)
+        try writer.append(.start(time: jst("2026-10-07T09:00:00")))
+        let file = records.appendingPathComponent("2026-10-07.jsonl")
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(#"{"t":"2026-10-07T09:00:05+09:00","ki"#.utf8))
+        try handle.close()
+
+        try writer.append(.stop(StopLine(time: jst("2026-10-07T18:00:00"), reason: .endsAtPassed)))
+        let contents = try String(contentsOf: file, encoding: .utf8)
+        #expect(contents.split(separator: "\n").count == 3)
+        #expect(contents.contains(#"{"t":"2026-10-07T09:00:05+09:00","ki"# + "\n"))
+        #expect(parseLastLine(contents) == LastLine(time: jst("2026-10-07T18:00:00"), isStop: true))
+    }
+
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4
     @Test("停止の行は、その時刻の日本時間の日付のファイルに書く")
     func stopLineGoesToItsOwnDate() throws {

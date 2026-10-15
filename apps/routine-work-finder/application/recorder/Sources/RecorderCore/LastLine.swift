@@ -14,9 +14,10 @@ public struct LastLine: Equatable, Sendable {
     public static let assumedStop = LastLine(time: nil, isStop: true)
 }
 
-/// 記録のファイルの中身から、最後に読める行を取り出す。書きかけ(JSON として読めない)の行は飛ばす
+/// 記録のファイルの中身から、最後に読める行を取り出す。書きかけ(JSON として読めない)の行は飛ばす。
+/// 行は LF だけで分ける(題名の中の U+2028 などで行を割らない)
 public func parseLastLine(_ contents: String) -> LastLine {
-    for line in contents.split(whereSeparator: \.isNewline).reversed() {
+    for line in contents.split(separator: "\n").reversed() {
         guard let object = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any],
               let timestamp = object["t"] as? String,
               let time = JapanTime.parseTimestamp(timestamp),
@@ -36,9 +37,10 @@ public let recordFileNamePattern = #"^\d{4}-\d{2}-\d{2}\.jsonl$"#
 public func readLastLine(recordsDirectory: URL) -> LastLine {
     let names = (try? FileManager.default.contentsOfDirectory(atPath: recordsDirectory.path)) ?? []
     guard let newest = names.filter({ $0.range(of: recordFileNamePattern, options: .regularExpression) != nil }).max(),
-          let contents = try? String(contentsOf: recordsDirectory.appendingPathComponent(newest), encoding: .utf8)
+          let data = try? Data(contentsOf: recordsDirectory.appendingPathComponent(newest))
     else {
         return .assumedStop
     }
-    return parseLastLine(contents)
+    // 日本語の途中で途切れた最終行があっても前の行を読めるよう、文字に直せないバイトは置き換えて読む(その行は JSON として読めず飛ばされる)
+    return parseLastLine(String(decoding: data, as: UTF8.self))
 }

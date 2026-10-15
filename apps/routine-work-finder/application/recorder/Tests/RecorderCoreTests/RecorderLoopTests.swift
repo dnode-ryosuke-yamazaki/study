@@ -40,8 +40,12 @@ final class FakeEnvironment: RecorderEnvironment {
         lastLineReads += 1
         return initialLastLine
     }
+    /// この数だけ書けたあとの書き込みを失敗させる(nil なら失敗させない)
+    var failWritesAfter: Int?
+
     func append(_ line: RecordLine) throws {
         if failWrites { throw POSIXError(.EPERM) }
+        if let failWritesAfter, lines.count >= failWritesAfter { throw POSIXError(.ENOSPC) }
         lines.append(line)
     }
     func purgeOldFiles(now: Date) -> PurgeResult {
@@ -219,6 +223,22 @@ struct RecorderLoopTests {
         loop.tick()
         #expect(env.lines.first == .start(time: jst("2026-10-07T09:00:05")))
         #expect(env.statuses.last?.lastWriteError == nil)
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4
+    /// 否定確認: 開始の行を書けたことを最後の行として覚えないと、終わりの日時のあとに停止の行を書かず落ちる
+    @Test("開始の行だけ書けて続く行が書けなかったあと、終わりの日時を過ぎたら停止の行を書く")
+    func stopIsWrittenAfterStartOnlyTick() {
+        let env = FakeEnvironment(now: jst("2026-10-07T17:59:55"), config: recordingConfig())
+        env.failWritesAfter = 1
+        let loop = RecorderLoop(environment: env)
+        loop.tick()
+        #expect(env.lines == [.start(time: jst("2026-10-07T17:59:55"))])
+
+        env.failWritesAfter = nil
+        env.clock = jst("2026-10-07T18:00:00")
+        loop.tick()
+        #expect(env.lines.last == .stop(StopLine(time: endsAt, reason: .endsAtPassed)))
     }
 
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#古い記録の削除-1、apps/routine-work-finder/specs/activity-recording/requirements.md#古い記録の削除-2

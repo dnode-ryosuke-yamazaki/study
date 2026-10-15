@@ -32,6 +32,26 @@ struct LastLineTests {
     }
 
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4
+    /// 否定確認: ファイル全体を UTF-8 の文字列に直せなければ停止とみなすと落ちる
+    @Test("最終行が日本語の途中で途切れていても、1つ前の行を使う")
+    func skipsLastLineCutInsideMultibyteCharacter() throws {
+        let directory = temporaryDirectory()
+        var data = Data((#"{"t":"2026-10-07T09:00:05+09:00","kind":"sample"}"# + "\n").utf8)
+        data.append(Data(#"{"t":"2026-10-07T09:00:10+09:00","kind":"sample","title":"給"#.utf8).dropLast())
+        try data.write(to: directory.appendingPathComponent("2026-10-07.jsonl"))
+        #expect(readLastLine(recordsDirectory: directory) == LastLine(time: jst("2026-10-07T09:00:05"), isStop: false))
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4
+    /// 否定確認: LF 以外の行区切りの文字でも行を割ると、最後の行が読めず1つ前の行を使って落ちる
+    @Test("題名に行区切りの文字 U+2028 がある最後の行も1行として読む")
+    func keepsLineWithLineSeparatorInTitle() {
+        let contents = #"{"t":"2026-10-07T09:00:00+09:00","kind":"start"}"# + "\n"
+            + #"{"t":"2026-10-07T09:00:05+09:00","kind":"stop","reason":"endsAtPassed","title":"見積"# + "\u{2028}" + #"2026"}"# + "\n"
+        #expect(parseLastLine(contents) == LastLine(time: jst("2026-10-07T09:00:05"), isStop: true))
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-4
     @Test("読める行が1つも無ければ停止の行とみなす")
     func noReadableLineIsStop() {
         #expect(parseLastLine("") == .assumedStop)

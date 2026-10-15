@@ -93,6 +93,8 @@ public final class RecorderLoop {
     private func recordSample(now: Date, config: RecorderConfig, writeStart: Bool) -> Bool {
         if writeStart {
             guard write(.start(time: now)) else { return false }
+            // 続く行が書けなくても、終わりの日時を過ぎたら停止の行で期間を閉じられるよう、開始の行を最後の行として覚える
+            lastLine = LastLine(time: now, isStop: false)
             environment.log(.info, "recording started")
         }
         let app = environment.frontApp()

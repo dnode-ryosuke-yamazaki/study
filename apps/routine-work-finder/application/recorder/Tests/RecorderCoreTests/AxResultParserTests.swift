@@ -84,14 +84,26 @@ struct AxResultParserTests {
 
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#ウィンドウの題名の記録-4
     /// 否定確認: 打ち切りの印を見ないと落ちる
-    @Test("問い合わせが1秒で終わらず打ち切ったとき、または相手が応答しなかったときは、打ち切りを理由にする")
+    @Test("題名を読む前に1秒で打ち切ったとき、または相手が応答しなかったときは、打ち切りを理由にする")
     func timeout() throws {
         var raw = try Self.fixture("chrome")[0]
         raw.timedOut = true
+        raw.title = AxAttribute(error: -25204, value: nil)
         #expect(parseAxResponse(raw) == .unavailable(.timeout))
 
         var noResponse = try Self.fixture("chrome")[1]
         noResponse.focusedWindowError = -25204
         #expect(parseAxResponse(noResponse) == .unavailable(.timeout))
+    }
+
+    // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#ウィンドウの題名の記録-4、apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-3
+    /// 否定確認: 題名を読めたあとの打ち切りでも題名を捨てると、記録しないことばで判定できず落ちる
+    @Test("題名を読めたあとのシート名・部品の問い合わせで打ち切ったときは、読めた題名を返し、読めなかった項目は空にする")
+    func timeoutAfterTitleKeepsTitle() throws {
+        var raw = try Self.fixture("excel")[0]
+        raw.timedOut = true
+        raw.selectedSheet = AxAttribute(error: -25204, value: nil)
+        raw.focusedElementError = -25204
+        #expect(parseAxResponse(raw) == .read(WindowInfo(title: "TITLE", sheet: nil, focusRole: nil, focusSubrole: nil)))
     }
 }

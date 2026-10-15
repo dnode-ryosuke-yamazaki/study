@@ -151,6 +151,13 @@ class ReadConfigTests(TemporaryDataFolder):
                 self.paths.config.write_text(text, encoding="utf-8")
                 self.assertEqual(config_store.read_config(self.paths), config_store.ConfigRead("unreadable", None, reason))
 
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-1
+    def test_UTF8として読めない設定は壊れた設定として返す(self):
+        """否定確認: 文字に直せない例外を拾わずに投げると落ちる(記録係と同じく invalidJson にする)"""
+        self.root.mkdir(parents=True)
+        self.paths.config.write_bytes(b'{"version":1,"endsAt":null,"excludedApps":[],"excludedTitleWords":["\xe7\xb5"]}')
+        self.assertEqual(config_store.read_config(self.paths), config_store.ConfigRead("unreadable", None, "invalidJson"))
+
 
 class RecorderConfigFixtureTests(TemporaryDataFolder):
     """記録係(Swift)の契約テストが読む設定ファイルの fixture を、操作スクリプトが書く形と同じに保つ。

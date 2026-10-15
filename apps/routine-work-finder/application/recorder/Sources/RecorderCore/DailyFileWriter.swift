@@ -16,12 +16,22 @@ public struct DailyFileWriter {
         }
         let file = recordsDirectory.appendingPathComponent(JapanTime.dateString(line.time) + ".jsonl")
         // 無ければ600で作り、あれば末尾に書き足す。一時ファイルを経由しない
-        let descriptor = open(file.path, O_WRONLY | O_CREAT | O_APPEND, 0o600)
+        let descriptor = open(file.path, O_RDWR | O_CREAT | O_APPEND, 0o600)
         guard descriptor >= 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        try handle.write(contentsOf: Data((line.jsonLine() + "\n").utf8))
+        // 前回の最終行が書きかけ(改行で終わらない)なら改行を補い、この行を独立した1行にする。書きかけの行は消さない
+        let prefix = endsWithoutNewline(descriptor) ? "\n" : ""
+        try handle.write(contentsOf: Data((prefix + line.jsonLine() + "\n").utf8))
         try handle.close()
+    }
+
+    private func endsWithoutNewline(_ descriptor: Int32) -> Bool {
+        var status = stat()
+        guard fstat(descriptor, &status) == 0, status.st_size > 0 else { return false }
+        var last: UInt8 = 0
+        guard pread(descriptor, &last, 1, status.st_size - 1) == 1 else { return false }
+        return last != UInt8(ascii: "\n")
     }
 }

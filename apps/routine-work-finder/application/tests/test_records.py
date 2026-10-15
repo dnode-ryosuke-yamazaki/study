@@ -80,6 +80,26 @@ class ReadRecordsContractTests(RecordsTestCase):
         self.assertEqual(result.skipped, 2)
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#操作の記録-1
+    def test_日本語の途中で途切れた最終行があっても前の行は読む(self):
+        """否定確認: ファイル全体を UTF-8 として読むと、文字に直せない例外で前の行まで読めずに落ちる"""
+        self.write_lines(sample("2026-10-06T09:00:00"))
+        with (self.paths.records / "2026-10-06.jsonl").open("ab") as file:
+            file.write('{"t":"2026-10-06T09:00:05+09:00","kind":"sample","title":"給'.encode("utf-8")[:-1])
+        result = records.read_records(self.paths, jst("2026-10-06T00:00:00"), jst("2026-10-07T00:00:00"))
+        self.assertEqual(len(result.lines), 1)
+        self.assertEqual(result.skipped, 1)
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#ウィンドウの題名の記録-1
+    def test_題名に行区切りの文字U2028があっても1行として読む(self):
+        """否定確認: splitlines で行を分けると、U+2028 で行が割れて読み飛ばされ落ちる"""
+        line = sample("2026-10-06T09:00:00")
+        line["title"] = "見積 2026"
+        self.write_lines(line)
+        result = records.read_records(self.paths, jst("2026-10-06T00:00:00"), jst("2026-10-07T00:00:00"))
+        self.assertEqual([item["title"] for item in result.lines], ["見積 2026"])
+        self.assertEqual(result.skipped, 0)
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#操作の記録-1
     def test_知らない項目は無視して行を読む(self):
         """否定確認: 知らない項目のある行を読み飛ばすと落ちる"""
         line = sample("2026-10-06T09:00:00")
@@ -215,6 +235,15 @@ class ReadMemosTests(RecordsTestCase):
         memos = records.read_memos(self.paths, jst("2026-10-06T00:00:00"), jst("2026-10-07T00:00:00"))
         self.assertEqual([memo["id"] for memo in memos], ["20261006-101530-a1b2"])
         self.assertEqual(memos[0]["time"], jst("2026-10-06T10:15:30"))
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-3
+    def test_メモの文に行区切りの文字U2028があってもそのまま返す(self):
+        """否定確認: splitlines で行を分けると、メモが割れて読み飛ばされ落ちる"""
+        memo = {"id": "20261006-101530-a1b2", "t": "2026-10-06T10:15:30+09:00", "text": "1行目 2行目"}
+        with (self.paths.memos / "2026-10-06.jsonl").open("w", encoding="utf-8") as file:
+            file.write(json.dumps(memo, ensure_ascii=False) + "\n")
+        memos = records.read_memos(self.paths, jst("2026-10-06T00:00:00"), jst("2026-10-07T00:00:00"))
+        self.assertEqual([item["text"] for item in memos], ["1行目 2行目"])
 
 
 if __name__ == "__main__":

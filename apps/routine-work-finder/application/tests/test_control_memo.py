@@ -20,7 +20,8 @@ class MemoTests(ControlTestCase):
 
     def memo_lines(self, date):
         path = self.paths.memos / f"{date}.jsonl"
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        return [json.loads(line) for line in text.split("\n") if line]
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-1
     def test_入力ファイルの文と日時を残し_入力ファイルを消す(self):
@@ -122,6 +123,15 @@ class MemoTests(ControlTestCase):
         result = self.run_control("memo", "delete", "--id", second["data"]["id"])
         self.assertTrue(result["ok"], result)
         self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["残す"])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
+    def test_文に行区切りの文字U2028があるメモも消せ_ほかのメモはそのまま残る(self):
+        """否定確認: splitlines で行を分けると、メモが割れて番号が見つからず落ちる"""
+        self.add("残す メモ", now=jst("2026-10-07T09:00:00"))
+        second, _ = self.add("消す メモ", now=jst("2026-10-07T09:30:00"))
+        result = self.run_control("memo", "delete", "--id", second["data"]["id"])
+        self.assertTrue(result["ok"], result)
+        self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["残す メモ"])
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
     def test_無い番号_形の違う番号は断る(self):

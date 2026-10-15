@@ -102,12 +102,14 @@ def _read_json_lines(path):
 
 
 def _parse_lines(path):
+    # 行は LF だけで分ける(splitlines は題名・メモの中の U+2028 などでも行を割る)。
+    # 文字に直すのは1行ずつ行い、日本語の途中で途切れた行だけを読めない行として飛ばす
     results = []
-    for text in path.read_text(encoding="utf-8").splitlines():
-        if not text.strip():
+    for chunk in path.read_bytes().split(b"\n"):
+        if not chunk.strip():
             continue
         try:
-            results.append((json.loads(text), True))
+            results.append((json.loads(chunk.decode("utf-8")), True))
         except ValueError:
             results.append((None, False))
     return results

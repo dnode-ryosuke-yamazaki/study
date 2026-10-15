@@ -47,6 +47,9 @@ def read_config(data_paths):
         text = data_paths.config.read_text(encoding="utf-8")
     except OSError:
         return ConfigRead("unreadable", None, "unreadable")
+    except UnicodeDecodeError:
+        # 記録係と同じく、文字に直せないものも JSON として読めない設定とみなす
+        return ConfigRead("unreadable", None, "invalidJson")
     try:
         raw = json.loads(text)
     except ValueError:

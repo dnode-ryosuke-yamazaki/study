@@ -396,11 +396,12 @@ def memo_delete(context, memo_id):
     path = context.paths.memos / f"{memo_id[0:4]}-{memo_id[4:6]}-{memo_id[6:8]}.jsonl"
     # メモのフォルダがまだ無ければ消すものも無いため、フォルダは確かめない(番号が見つからないと返す)
     context.ensure_writable(memo_replace=path if context.paths.memos.exists() else None)
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.exists() else []
+    # 行は LF だけで分ける(splitlines はメモの文の中の U+2028 などでも行を割る)
+    lines = path.read_text(encoding="utf-8").split("\n") if path.exists() else []
     remaining = [line for line in lines if not _is_memo_line(line, memo_id)]
     if len(remaining) == len(lines):
         raise ControlError("notFound", "その番号のメモはありません")
-    write_text_replacing(path, "".join(remaining))
+    write_text_replacing(path, "\n".join(remaining))
     context.log("INFO", "memo delete")
     return {"message": "メモを消しました", "notices": [], "data": {"id": memo_id}}
 

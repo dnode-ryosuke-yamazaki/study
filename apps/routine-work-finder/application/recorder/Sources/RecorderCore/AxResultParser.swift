@@ -48,7 +48,9 @@ public func parseAxResponse(_ raw: AxRawResponse) -> WindowReadResult {
     guard raw.trusted, raw.focusedWindowError != AxErrorCode.apiDisabled else {
         return .unavailable(.denied)
     }
-    if raw.timedOut || raw.focusedWindowError == AxErrorCode.cannotComplete {
+    // 題名を読めたあとの問い合わせ(シート名・部品)で打ち切ったときは、読めた題名を返す(記録しないことばの判定に使う)
+    let titleRead = raw.focusedWindowError == AxErrorCode.success && readValue(raw.title) != nil
+    if (raw.timedOut && !titleRead) || raw.focusedWindowError == AxErrorCode.cannotComplete {
         return .unavailable(.timeout)
     }
     guard raw.focusedWindowError == AxErrorCode.success else {
