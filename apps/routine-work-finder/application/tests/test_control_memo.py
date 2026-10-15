@@ -4,7 +4,8 @@
 """
 
 import json
-import re
+import os
+import stat
 import unittest
 
 from tests.control_support import ControlTestCase, jst
@@ -53,6 +54,40 @@ class MemoTests(ControlTestCase):
         self.assertEqual(result["inputFile"], str(path.resolve()))
         self.assertTrue(path.exists())
 
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-1
+    def test_メモのフォルダ_その日のメモのファイルに書けないときも入力ファイルを残しその絶対パスを返す(self):
+        """否定確認: データフォルダと control.log だけを確かめてメモのファイルに書きにいくと落ちる"""
+        self.add("先に残したメモ")
+        memo_file = self.paths.memos / "2026-10-07.jsonl"
+        # その日のファイルがあるときはファイルに、まだ無い日(翌日)はフォルダに書けないと書き足せない
+        cases = [(memo_file, stat.S_IRUSR, stat.S_IRUSR | stat.S_IWUSR, self.now),
+                 (self.paths.memos, stat.S_IRUSR | stat.S_IXUSR, stat.S_IRWXU, jst("2026-10-08T10:00:00"))]
+        for target, locked, unlocked, now in cases:
+            with self.subTest(target=target.name):
+                path = self.write_input("memo.json", {"text": "メモ"})
+                os.chmod(target, locked)
+                try:
+                    result = self.run_control("memo", "add", "--input-file", str(path), now=now)
+                finally:
+                    os.chmod(target, unlocked)
+                self.assertEqual(result["error"], "dataFolderUnwritable")
+                self.assertEqual(result["inputFile"], str(path.resolve()))
+                self.assertTrue(path.exists())
+                self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["先に残したメモ"])
+                self.assertEqual(self.memo_lines("2026-10-08"), [])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
+    def test_メモのフォルダに書けないときは消さずに断る(self):
+        """否定確認: メモのフォルダに書けるかを確かめずに書き直しにいくと落ちる"""
+        result, _ = self.add("残る")
+        os.chmod(self.paths.memos, stat.S_IRUSR | stat.S_IXUSR)
+        try:
+            deleted = self.run_control("memo", "delete", "--id", result["data"]["id"])
+        finally:
+            os.chmod(self.paths.memos, stat.S_IRWXU)
+        self.assertEqual(deleted["error"], "dataFolderUnwritable")
+        self.assertEqual([line["text"] for line in self.memo_lines("2026-10-07")], ["残る"])
+
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-2
     def test_記録を止めていても_設定ファイルが壊れていてもメモは書ける(self):
         """否定確認: メモでも設定ファイルを読んで断ると落ちる"""
@@ -73,7 +108,7 @@ class MemoTests(ControlTestCase):
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#面倒だった作業のメモ-4
     def test_指定したメモを消し_ほかのメモは残す(self):
         """否定確認: 番号を見ずにファイルごと消すと落ちる"""
-        first, _ = self.add("残す", now=jst("2026-10-07T09:00:00"))
+        self.add("残す", now=jst("2026-10-07T09:00:00"))
         second, _ = self.add("消す", now=jst("2026-10-07T09:30:00"))
         result = self.run_control("memo", "delete", "--id", second["data"]["id"])
         self.assertTrue(result["ok"], result)

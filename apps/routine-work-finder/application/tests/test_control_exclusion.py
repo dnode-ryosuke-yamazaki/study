@@ -35,7 +35,21 @@ class ExcludeAppTests(ControlTestCase):
         self.assertTrue(self.run_control("exclude-app", "remove", "--input-file", str(path))["ok"])
         self.assertNotIn("システム設定", [app["name"] for app in self.read_config()["excludedApps"]])
         path = self.write_input("app.json", {"name": "無いアプリ"})
-        self.assertEqual(self.run_control("exclude-app", "remove", "--input-file", str(path))["error"], "notFound")
+        result = self.run_control("exclude-app", "remove", "--input-file", str(path))
+        self.assertEqual(result["error"], "notFound")
+        self.assertEqual([app["name"] for app in result["data"]["excludedApps"]], ["パスワード", "キーチェーンアクセス"])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
+    def test_すでにあるアプリは足さずにすでにあると返す(self):
+        """否定確認: すでにあるアプリを二重に足すと落ちる"""
+        self.write_config()
+        before = self.read_config()["excludedApps"]
+        path = self.write_input("app.json", {"name": "システム設定", "bundleId": None})
+        result = self.run_control("exclude-app", "add", "--input-file", str(path))
+        self.assertTrue(result["ok"], result)
+        self.assertIn("すでに", result["message"])
+        self.assertEqual(self.read_config()["excludedApps"], before)
+        self.assertEqual(result["data"]["excludedApps"], before)
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
     def test_設定ファイルが壊れているときは除外の追加を断る(self):
@@ -73,6 +87,27 @@ class ExcludeWordTests(ControlTestCase):
         path = self.write_input("word.json", {"word": "給与"})
         self.assertTrue(self.run_control("exclude-word", "remove", "--input-file", str(path))["ok"])
         self.assertEqual(self.read_config()["excludedTitleWords"], ["人事"])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
+    def test_一覧に無いことばは外さずに断り_今の一覧を返す(self):
+        """否定確認: 一致しないのに一覧を書き換える・一覧を返さないと落ちる"""
+        self.write_config(excludedTitleWords=["人事"])
+        path = self.write_input("word.json", {"word": "給与"})
+        result = self.run_control("exclude-word", "remove", "--input-file", str(path))
+        self.assertEqual(result["error"], "notFound")
+        self.assertEqual(result["data"]["excludedTitleWords"], ["人事"])
+        self.assertEqual(self.read_config()["excludedTitleWords"], ["人事"])
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
+    def test_すでにあることばは足さずにすでにあると返す(self):
+        """否定確認: すでにあることばを二重に足すと落ちる"""
+        self.write_config(excludedTitleWords=["給与"])
+        path = self.write_input("word.json", {"word": "給与"})
+        result = self.run_control("exclude-word", "add", "--input-file", str(path))
+        self.assertTrue(result["ok"], result)
+        self.assertIn("すでに", result["message"])
+        self.assertEqual(self.read_config()["excludedTitleWords"], ["給与"])
+        self.assertEqual(result["data"]["excludedTitleWords"], ["給与"])
 
     # 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録しないアプリ・ことばの一覧-5
     def test_データフォルダに書けないときは入力ファイルを残し_その絶対パスを返す(self):

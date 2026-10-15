@@ -44,18 +44,24 @@ class Context:
         with os.fdopen(descriptor, "a", encoding="utf-8") as file:
             file.write(f"{timestamp(self.now)} {level} {message}\n")
 
-    def ensure_writable(self, write_config=False, inputs=None):
-        """データフォルダと control.log(設定を書き換える操作では config.json.tmp も)に書けるかを、書く前に試して確かめる。
+    def ensure_writable(self, write_config=False, inputs=None, memo_append=None, memo_replace=None):
+        """データフォルダと control.log(設定を書き換える操作では config.json.tmp、メモを書き足す操作ではメモのフォルダと
+        その日のメモのファイル、メモを消す操作ではメモのフォルダの一時ファイルも)に書けるかを、書く前に試して確かめる。
         書けなければ入力ファイルは消さずに残し、その絶対パスを結果に入れる(inputs は {結果のキー: パス})"""
         try:
             config_store.ensure_data_folder(self.paths)
             descriptor = os.open(self.paths.control_log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
             os.close(descriptor)
             if write_config:
-                probe = self.paths.root / "config.json.tmp"
-                descriptor = os.open(probe, os.O_WRONLY | os.O_CREAT, 0o600)
+                probe_replace(self.paths.root / "config.json.tmp")
+            if memo_append is not None:
+                if not self.paths.memos.exists():
+                    self.paths.memos.mkdir(mode=0o700)
+                    os.chmod(self.paths.memos, 0o700)
+                descriptor = os.open(memo_append, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
                 os.close(descriptor)
-                probe.unlink()
+            if memo_replace is not None:
+                probe_replace(memo_replace.with_name(memo_replace.name + ".tmp"))
         except OSError as error:
             extra = {key: str(path) for key, path in (inputs or {}).items() if path is not None}
             raise ControlError("dataFolderUnwritable", f"データフォルダに書けません({error.strerror})", **extra) from error
@@ -67,6 +73,13 @@ class Context:
             raise ControlError("configUnreadable", f"設定ファイルが読めないため書き換えません(理由: {result.reason})。"
                                                    "設定ファイルを直すか消してください")
         return result.config if result.state == "ok" else config_store.default_config()
+
+
+def probe_replace(temporary):
+    """一時ファイルを作って消せるか(名前を付け替えて書き換えられるか)を試す"""
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT, 0o600)
+    os.close(descriptor)
+    temporary.unlink()
 
 
 def timestamp(moment):
@@ -236,7 +249,7 @@ def command_exclude_app(context, args):
     else:
         remaining = [app for app in config["excludedApps"] if app["name"] != name]
         if len(remaining) == len(config["excludedApps"]):
-            raise ControlError("notFound", f"{name} は記録しないアプリにありません")
+            raise ControlError("notFound", f"{name} は記録しないアプリにありません", data=exclusion_lists(config))
         config["excludedApps"] = remaining
         message = f"{name} を記録しないアプリから外しました"
     config_store.write_config(context.paths, config)
@@ -259,7 +272,7 @@ def command_exclude_word(context, args):
         message = f"「{word}」を記録しないことばに足しました。次の記録から外します"
     else:
         if word not in words:
-            raise ControlError("notFound", f"「{word}」は記録しないことばにありません")
+            raise ControlError("notFound", f"「{word}」は記録しないことばにありません", data=exclusion_lists(config))
         words.remove(word)
         message = f"「{word}」を記録しないことばから外しました"
     config_store.write_config(context.paths, config)
@@ -343,18 +356,16 @@ def command_memo(context, args):
 
 
 def memo_add(context, path):
-    context.ensure_writable(inputs={"inputFile": path})
+    local = context.now.astimezone(JST)
+    memo_file = context.paths.memos / f"{local:%Y-%m-%d}.jsonl"
+    context.ensure_writable(inputs={"inputFile": path}, memo_append=memo_file)
     text = read_input_json(path, "text")["text"].strip()
     if not text:
         raise ControlError("emptyText", "メモの文が空です")
     if len(text) > MEMO_MAX_LENGTH:
         raise ControlError("tooLong", f"メモは{MEMO_MAX_LENGTH:,}字までです({len(text):,}字)。短くしてから頼んでください")
-    local = context.now.astimezone(JST)
     memo = {"id": f"{local:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}", "t": timestamp(local), "text": text}
-    if not context.paths.memos.exists():
-        context.paths.memos.mkdir(mode=0o700)
-        os.chmod(context.paths.memos, 0o700)
-    descriptor = os.open(context.paths.memos / f"{local:%Y-%m-%d}.jsonl", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    descriptor = os.open(memo_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     with os.fdopen(descriptor, "a", encoding="utf-8") as file:
         file.write(json.dumps(memo, ensure_ascii=False) + "\n")
     context.log("INFO", "memo add")
@@ -373,8 +384,9 @@ def memo_list(context):
 def memo_delete(context, memo_id):
     if not memo_id or not records.MEMO_ID_PATTERN.match(memo_id):
         raise ControlError("badRequest", "メモの番号の形が違います")
-    context.ensure_writable()
     path = context.paths.memos / f"{memo_id[0:4]}-{memo_id[4:6]}-{memo_id[6:8]}.jsonl"
+    # メモのフォルダがまだ無ければ消すものも無いため、フォルダは確かめない(番号が見つからないと返す)
+    context.ensure_writable(memo_replace=path if context.paths.memos.exists() else None)
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.exists() else []
     remaining = [line for line in lines if not _is_memo_line(line, memo_id)]
     if len(remaining) == len(lines):
