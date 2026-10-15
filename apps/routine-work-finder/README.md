@@ -64,6 +64,8 @@ cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application
 
 「システム設定 → プライバシーとセキュリティ → アクセシビリティ」で「+」を押し、Cmd+Shift+G で `~/Library/Application Support/routine-work-finder/bin/rwf-recorder` を指定して追加し、オンにする。
 
+一覧への追加とオンは本人の権限で行える。一方、オンにした記録係をオフにする・一覧から外すには、このMacでは管理者権限を求められる(本人では行えない)。記録を止めたいときは、下記「解除」の 1・2(記録を止める・launchd から外す)で止まる。
+
 ### 4. launchd に登録する
 
 ```
@@ -113,7 +115,7 @@ python3 -m routine_work_finder.control status
    ```
 
 3. 自動起動もやめるなら、`~/Library/LaunchAgents/com.example.routine-work-finder-recorder.plist` を消す
-4. アクセシビリティの一覧から `rwf-recorder` を外す
+4. アクセシビリティの一覧から `rwf-recorder` を外す(管理者権限を求められる。本人で行えなければ外さなくてよい。記録係は 2 で止まっている)
 5. 記録・メモも消すなら、データフォルダ `~/Library/Application Support/routine-work-finder/` を消す(**元に戻せない**。週次レポートの作り直しにも使えなくなる)
 6. 証明書が要らなくなったら、キーチェーンアクセスで `routine-work-finder code signing` を消す
 
