@@ -250,6 +250,7 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 
 - 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong" / "configUnreadable" / "badRequest" / "dataFolderUnwritable" / "badInputFile", "message": "…"}`
 - `dataFolderUnwritable`: その操作が書く場所(設定・メモのファイル、weekly-automation-report の作り直しで書く `requests/`)と `control.log` に書けない(データフォルダがまだ無いときは作れない。`Operation not permitted` など)ため、何も書かずに返したとき。入力ファイルを読む前に確かめ、入力ファイルは消さずに残し、結果に `"inputFile": "<入力ファイルの絶対パス>"`(`exclude-add` で `--bundle-ids-file` もあれば `"bundleIdsFile"` も)を入れる。`control.log` が書けないときもこの返し方にする。Skill は `cd <application の絶対パス>` と、同じサブコマンドにそのパスを渡す行だけのコマンドブロックを渡す(自由な文を書かず、ブロックの中で入力ファイルを作らない)。weekly-automation-report の作り直しの依頼もこの返し方に従う(作り直しは入力ファイルが無く、週は `data.week` で返す。weekly-automation-report の付録)
+- `notFound`: `exclude-app remove`・`exclude-word remove` で一覧に一致するものが無い、または `memo delete` で番号のメモが無いため、何も書き換えずに返したとき。`exclude-app`・`exclude-word` では今の一覧を `"data": {"excludedApps": [...], "excludedTitleWords": [...]}` で添える
 - `badInputFile`: 入力ファイルが無い・読めない、または `--input-file`・`--bundle-ids-file` の JSON の形が違うとき。`--request-file` の依頼文の1行目が決まり文句でないときは `badRequest`
 - `configUnreadable`: `config.json` があるが読めない・形が違うため、設定ファイルの書き換え(始める・止める・除外の追加と削除)を断ったとき
 - `exclude-add --request-file`(記録しない候補のまとめての追加)は、依頼文をファイルから読む。Skill は依頼文を分けずに入力ファイルに書く。手を加えるのは、1行目が決まり文句で始まらない(スラッシュコマンドの引数として渡り、コマンド名が外れた)ときに `/routine-work-finder ` を前に戻すことだけ。`--bundle-ids-file` には Skill が `/Applications` で分かったアプリのバンドルIDだけを書く。分からないアプリは名前だけで足し、`bundleId` は `null`
@@ -269,9 +270,12 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 ## ログの書式
 
 ```
+2026-10-06T09:00:00+09:00 INFO recorder started
 2026-10-06T10:15:05+09:00 INFO recording started
 2026-10-06T10:20:10+09:00 WARN title unavailable reason=denied
+2026-10-06T11:02:35+09:00 INFO config reloaded
 2026-10-07T00:00:05+09:00 INFO purge removed=3
+2026-10-07T00:00:05+09:00 WARN purge failed count=1 files=records/2026-09-08.jsonl
 2026-10-09T17:40:12+09:00 INFO exclude added words=2 apps=1 alreadyExists=1 skipped=0
 ```
 
