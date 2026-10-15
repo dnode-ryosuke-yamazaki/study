@@ -56,8 +56,8 @@ requirements.mdの成立条件のうち、Power AutomateとOneDrive・ブラウ�
   - だめだった場合: 仕様は変えない(開催者の予定のみ重なる枠として実際に示されるのは、開催者の空き状況が「仮」の枠だけになる)。design.mdの決定事項とアプリREADMEに、予約済みの枠は探索の応答に含まれないため示されない旨を書く
   - 対応: [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [1] / [requirements.md#依存関係](requirements.md#依存関係)
 
-- [ ] **E9. 「カレンダー ビューの取得 (V3)」で開催者自身の既定カレンダーから指定した範囲の予定(繰り返し予定の各回を含む)の件名・開始終了・showAs・sensitivity が取れ、依頼から予定ファイルが届くまでが待ち上限5分に収まる**
-  - 手順: 使い捨てのフローで `auto/meetingSetting/organizerEventsRequest/` のファイル作成をトリガーに、Office 365 Outlookコネクタの「カレンダー ビューの取得 (V3)」を開催者自身の既定カレンダー・依頼ファイルの `rangeStart`〜`rangeEnd` で呼び、応答を `auto/meetingSetting/organizerEvents/` へ書き出す。範囲に仮(tentative)・予約済み(busy)・繰り返し・非公開(private)の予定を1つずつ含めて確認し、使い捨ての依頼ファイルを置いた時刻と予定ファイルがローカルの同期フォルダに現れた時刻を記録する
+- [x] **E9. 「イベントのカレンダー ビューの取得 (V3)」で開催者自身の既定カレンダーから指定した範囲の予定(繰り返し予定の各回を含む)の件名・開始終了・showAs・sensitivity が取れ、依頼から予定ファイルが届くまでが待ち上限5分に収まる** → 合格(2026-10-15)。7日分の範囲で54件が返り、全件に件名・`showAs`(free/tentative/busy/oof)・`sensitivity`(normal/private)が入り、繰り返し予定は日ごとの回に展開されて返った。本文・出席者・場所は書き出していない。依頼ファイルを置いてから予定ファイルがローカルに現れるまで17秒。時刻は世界標準時(`timeZone` は `UTC`)。`start`/`end` は「選択」が組を文字列にして書くため、Skill側を組・文字列・日時だけのどれでも読めるようにした。実応答から件名を置き換えたfixtureを `tests/fixtures/organizer-events-e9.json` に置いた
+  - 手順: 使い捨てのフローで `auto/meetingSetting/organizerEventsRequest/` のファイル作成をトリガーに、Office 365 Outlookコネクタの「イベントのカレンダー ビューの取得 (V3)」を開催者自身の既定カレンダー・依頼ファイルの `rangeStart`〜`rangeEnd` で呼び、応答を `auto/meetingSetting/organizerEvents/` へ書き出す。範囲に仮(tentative)・予約済み(busy)・繰り返し・非公開(private)の予定を1つずつ含めて確認し、使い捨ての依頼ファイルを置いた時刻と予定ファイルがローカルの同期フォルダに現れた時刻を記録する
   - 合格条件: 4種類の予定がいずれも、件名・開始と終了・`showAs`・`sensitivity` を持って返ること。繰り返し予定は範囲内の各回が1件ずつ展開されて返ること。本文・出席者・場所を書き出さずに済むこと。依頼の書き出しから予定ファイルがローカルに現れるまでの往復時間が5分に収まること
   - だめだった場合: 「イベントの取得 (V4)」+ Filter Query(開始・終了の範囲指定)に切り替えて再確認する。この方法では繰り返し予定が回ごとに展開されないため、その場合は [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [9] を見直す。往復時間が5分に収まらない場合は [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [2] の上限を見直す
   - 対応: [requirements.md#開催者の予定のみ重なる枠の提示](requirements.md#開催者の予定のみ重なる枠の提示) [5][6][9] / [requirements.md#往復の待ち時間の上限](requirements.md#往復の待ち時間の上限) [2] / [design.md#power-automateフローの役割](design.md#power-automateフローの役割)
@@ -464,7 +464,7 @@ Teams通知とチャットの出力に開催者の予定のみ重なる枠の件
 
 - **開催者予定フローの構築は Power Automate の画面での手作業で、開催者(利用者)自身が行う。** フローは利用者のアカウントで動き、利用者自身の既定カレンダーを読むため、他の人が代わりに作っても目的のカレンダーを読めない。Claude は手順を書き、構築の結果を利用者から聞いて確認する
   - トリガー: OneDrive `auto/meetingSetting/organizerEventsRequest/` のファイル作成。ファイルの中身はバイナリで渡るため文字列へ変換してからJSONとして解析する
-  - アクション: Office 365 Outlookコネクタの「カレンダー ビューの取得 (V3)」を、開催者自身の既定カレンダー・依頼ファイルの `rangeStart`〜`rangeEnd` で呼ぶ
+  - アクション: Office 365 Outlookコネクタの「イベントのカレンダー ビューの取得 (V3)」を、開催者自身の既定カレンダー・依頼ファイルの `rangeStart`〜`rangeEnd` で呼ぶ
   - 書き出し: `auto/meetingSetting/organizerEvents/` へ `{"requestId", "error", "events": [{"subject", "showAs", "sensitivity", "start": {"dateTime", "timeZone"}, "end": {...}}]}` を書く。本文・出席者・場所は書き出さない。失敗時も失敗理由を `error` に入れたファイルを書き出す(これが無いとSkillは待ち上限まで待つ)
   - 書き出すファイルの名前は、読んだファイルの名前の先頭 `organizer-events-request-` を `organizer-events-` に置き換えて決める(他の2本(探索・作成)と同じ決め方。番号を解釈する分岐をフローに持たせない)
   - E8・E9はこのタスクの中で確かめ、結果を [requirements.md#未決事項](requirements.md#未決事項) に反映する。E9で確認した実際のアクション名・入力値をそのまま反映する
