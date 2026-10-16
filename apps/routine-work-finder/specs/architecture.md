@@ -56,7 +56,7 @@ flowchart TB
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | 実装中 |
+| [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | リリース済み |
 | [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | 仕様のみ(未実装) |
 
 ## 採用技術
