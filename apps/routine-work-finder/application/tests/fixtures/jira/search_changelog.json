@@ -1,0 +1,160 @@
+{
+  "issues": [
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "id": "10123",
+      "self": "https://example.atlassian.net/rest/api/3/issue/10123",
+      "key": "SAG-123",
+      "changelog": {
+        "startAt": 0,
+        "maxResults": 4,
+        "total": 4,
+        "histories": [
+          {
+            "id": "20004",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-09T17:00:00.000+0900",
+            "items": [
+              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10001", "fromString": "レビュー中", "to": "10002", "toString": "完了"}
+            ]
+          },
+          {
+            "id": "20003",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede99z",
+              "accountId": "5b10a2844c20165700ede99z",
+              "avatarUrls": {"48x48": "https://avatar.example.com/other-48.png"},
+              "displayName": "利用者B",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-07T10:00:00.000+0900",
+            "items": [
+              {"field": "assignee", "fieldtype": "jira", "fieldId": "assignee", "from": null, "fromString": null, "to": "5b10a2844c20165700ede21g", "toString": "利用者A", "tmpFromAccountId": null, "tmpToAccountId": "5b10a2844c20165700ede21g"}
+            ]
+          },
+          {
+            "id": "20002",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-06T14:05:10.000+0900",
+            "items": [
+              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10000", "fromString": "対応中", "to": "10001", "toString": "レビュー中"},
+              {"field": "duedate", "fieldtype": "jira", "fieldId": "duedate", "from": "2026-10-10", "fromString": "2026-10-10 00:00:00.0", "to": "2026-10-17", "toString": "2026-10-17 00:00:00.0"}
+            ]
+          },
+          {
+            "id": "20001",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-04T23:50:00.000+0900",
+            "items": [
+              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10003", "fromString": "未着手", "to": "10000", "toString": "対応中"}
+            ]
+          }
+        ]
+      },
+      "fields": {"summary": "進捗表の更新"}
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "id": "10130",
+      "self": "https://example.atlassian.net/rest/api/3/issue/10130",
+      "key": "SAG-130",
+      "changelog": {
+        "startAt": 0,
+        "maxResults": 2,
+        "total": 2,
+        "histories": [
+          {
+            "id": "20012",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-09T16:59:59.000+0900",
+            "items": [
+              {"field": "labels", "fieldtype": "jira", "fieldId": "labels", "from": null, "fromString": "議事録", "to": null, "toString": ""}
+            ]
+          },
+          {
+            "id": "20011",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-05T00:00:00.000+0900",
+            "items": [
+              {"field": "assignee", "fieldtype": "jira", "fieldId": "assignee", "from": null, "fromString": null, "to": "5b10a2844c20165700ede21g", "toString": "利用者A", "tmpFromAccountId": null, "tmpToAccountId": "5b10a2844c20165700ede21g"}
+            ]
+          }
+        ]
+      },
+      "fields": {"summary": "議事録TODOの起票"}
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "id": "10131",
+      "self": "https://example.atlassian.net/rest/api/3/issue/10131",
+      "key": "SAG-131",
+      "changelog": {
+        "startAt": 0,
+        "maxResults": 1,
+        "total": 1,
+        "histories": [
+          {
+            "id": "20021",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=557058:f58131cb-b67d-43c7-b30d-6b58d40bd077",
+              "accountId": "557058:f58131cb-b67d-43c7-b30d-6b58d40bd077",
+              "avatarUrls": {"48x48": "https://avatar.example.com/automation-48.png"},
+              "displayName": "Automation for Jira",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "app"
+            },
+            "created": "2026-10-08T09:00:00.000+0900",
+            "items": [
+              {"field": "Sprint", "fieldtype": "custom", "fieldId": "customfield_10020", "from": "", "fromString": "", "to": "41", "toString": "SAG Sprint 12"}
+            ]
+          }
+        ]
+      },
+      "fields": {"summary": "自動で動いたチケット"}
+    }
+  ],
+  "isLast": true
+}

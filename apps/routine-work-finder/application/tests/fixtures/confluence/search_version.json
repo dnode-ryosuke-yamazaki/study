@@ -1,0 +1,268 @@
+{
+  "results": [
+    {
+      "id": "1001",
+      "type": "page",
+      "status": "current",
+      "title": "定型業務の洗い出しの作業ページ",
+      "macroRenderedOutput": {},
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-06T01:23:45.678Z",
+        "friendlyWhen": "",
+        "message": "",
+        "number": 12,
+        "minorEdit": false,
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1001"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1001/version/12"
+        }
+      },
+      "extensions": {
+        "position": 1
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1001/restriction/byOperation",
+        "history": "/rest/api/content/1001/history",
+        "body": "",
+        "ancestors": "",
+        "children": "/rest/api/content/1001/child",
+        "descendants": "/rest/api/content/1001/descendant",
+        "space": "/rest/api/space/EXAMPLE"
+      },
+      "_links": {
+        "webui": "/spaces/EXAMPLE/pages/1001",
+        "edituiv2": "/pages/resumedraft.action?draftId=1001",
+        "tinyui": "/x/AbCd",
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1001"
+      }
+    },
+    {
+      "id": "1002",
+      "type": "page",
+      "status": "current",
+      "title": "他の人が後から直したページ",
+      "macroRenderedOutput": {},
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede99z",
+          "accountType": "atlassian",
+          "email": "",
+          "publicName": "利用者B",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede99z",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者B",
+          "isExternalCollaborator": false,
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede99z"
+          }
+        },
+        "when": "2026-10-07T03:00:00.000Z",
+        "friendlyWhen": "",
+        "message": "",
+        "number": 5,
+        "minorEdit": false,
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1002"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1002/version/5"
+        }
+      },
+      "extensions": {
+        "position": 1
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1002/restriction/byOperation",
+        "history": "/rest/api/content/1002/history",
+        "body": "",
+        "ancestors": "",
+        "children": "/rest/api/content/1002/child",
+        "descendants": "/rest/api/content/1002/descendant",
+        "space": "/rest/api/space/EXAMPLE"
+      },
+      "_links": {
+        "webui": "/spaces/EXAMPLE/pages/1002",
+        "edituiv2": "/pages/resumedraft.action?draftId=1002",
+        "tinyui": "/x/AbCd",
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1002"
+      }
+    },
+    {
+      "id": "1003",
+      "type": "page",
+      "status": "current",
+      "title": "金曜17時ちょうどに直したページ",
+      "macroRenderedOutput": {},
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-09T08:00:00.000Z",
+        "friendlyWhen": "",
+        "message": "",
+        "number": 3,
+        "minorEdit": false,
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1003"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1003/version/3"
+        }
+      },
+      "extensions": {
+        "position": 1
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1003/restriction/byOperation",
+        "history": "/rest/api/content/1003/history",
+        "body": "",
+        "ancestors": "",
+        "children": "/rest/api/content/1003/child",
+        "descendants": "/rest/api/content/1003/descendant",
+        "space": "/rest/api/space/EXAMPLE"
+      },
+      "_links": {
+        "webui": "/spaces/EXAMPLE/pages/1003",
+        "edituiv2": "/pages/resumedraft.action?draftId=1003",
+        "tinyui": "/x/AbCd",
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1003"
+      }
+    },
+    {
+      "id": "1004",
+      "type": "page",
+      "status": "current",
+      "title": "月曜0時ちょうどに直したページ",
+      "macroRenderedOutput": {},
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-04T15:00:00.000Z",
+        "friendlyWhen": "",
+        "message": "",
+        "number": 7,
+        "minorEdit": false,
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1004"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1004/version/7"
+        }
+      },
+      "extensions": {
+        "position": 1
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1004/restriction/byOperation",
+        "history": "/rest/api/content/1004/history",
+        "body": "",
+        "ancestors": "",
+        "children": "/rest/api/content/1004/child",
+        "descendants": "/rest/api/content/1004/descendant",
+        "space": "/rest/api/space/EXAMPLE"
+      },
+      "_links": {
+        "webui": "/spaces/EXAMPLE/pages/1004",
+        "edituiv2": "/pages/resumedraft.action?draftId=1004",
+        "tinyui": "/x/AbCd",
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1004"
+      }
+    }
+  ],
+  "start": 0,
+  "limit": 100,
+  "size": 4,
+  "_links": {
+    "base": "https://example.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://example.atlassian.net/wiki/rest/api/content/search?cql=type%3Dpage"
+  }
+}

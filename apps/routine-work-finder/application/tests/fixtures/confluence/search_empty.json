@@ -1,0 +1,11 @@
+{
+  "results": [],
+  "start": 0,
+  "limit": 100,
+  "size": 0,
+  "_links": {
+    "base": "https://example.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://example.atlassian.net/wiki/rest/api/content/search?cql=type%3Dpage"
+  }
+}

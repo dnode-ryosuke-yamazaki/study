@@ -1,0 +1,19 @@
+{
+  "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+  "accountId": "5b10a2844c20165700ede21g",
+  "accountType": "atlassian",
+  "emailAddress": "me@example.com",
+  "avatarUrls": {
+    "48x48": "https://avatar.example.com/me-48.png",
+    "24x24": "https://avatar.example.com/me-24.png",
+    "16x16": "https://avatar.example.com/me-16.png",
+    "32x32": "https://avatar.example.com/me-32.png"
+  },
+  "displayName": "利用者A",
+  "active": true,
+  "timeZone": "Asia/Tokyo",
+  "locale": "ja_JP",
+  "groups": {"size": 3, "items": []},
+  "applicationRoles": {"size": 1, "items": []},
+  "expand": "groups,applicationRoles"
+}
