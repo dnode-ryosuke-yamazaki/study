@@ -1,5 +1,7 @@
 # 定型業務の週次レポート タスク
 
+> 実装中: session study-11, branch: feature/weekly-automation-report-impl, started: 2026-10-16T13:12:47+09:00
+
 タスク 16件(claude 16 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
