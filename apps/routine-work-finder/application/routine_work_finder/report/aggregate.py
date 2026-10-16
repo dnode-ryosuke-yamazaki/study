@@ -92,6 +92,8 @@ class WeekAggregate:
     gaps: list
     title_unavailable: list
     skipped: int
+    # 開始・停止を除いた行と区分の組(時刻順)。Claude に渡す材料が前後のアプリと題名の組を集めるのに使う
+    classified: list = field(default_factory=list)
 
     @property
     def top(self):
@@ -116,6 +118,7 @@ def aggregate_week(data_paths, start, end):
         gaps=records.find_gaps(data_paths, start, end),
         title_unavailable=title_unavailable_times(record_range.lines),
         skipped=record_range.skipped,
+        classified=classified,
     )
 
 
