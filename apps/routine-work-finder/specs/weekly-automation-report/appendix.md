@@ -101,10 +101,12 @@ Claude Code の依頼文の冒頭200字に、次の順で当てる。
 | `isSidechain` | `true` でない |
 | `isCompactSummary` | `true` でない |
 | `entrypoint` | `"sdk-cli"`(ヘッドレスの `claude -p`)でない |
+| `origin` | 有る行は `origin.kind` が `"human"`。無い行(古い形式)は、下の「本文」が `<task-notification>`・`<local-command-stdout>`・`<local-command-stderr>`・`<command-name>` のどれかで始まらない |
 | `timestamp` | 対象の範囲(ISO の UTC を日本時間に直して比べる) |
 
 - リポジトリ名: `cwd` の最後の部分
-- 依頼文: 文字列ならそのまま、配列なら `text` の要素を改行でつないだもの
+- 本文: 文字列ならそのまま、配列なら `text` の要素を改行でつないだもの
+- 依頼文: 本文が `<command-message>` で始まる行(スラッシュコマンドで打った依頼)は、`<command-name>` の中身(`/` で始まるコマンド名)と `<command-args>` の中身を半角の空白1つでつないだもの(引数が空ならコマンド名だけ)。それ以外の行は本文そのもの
 
 ## JIRA と Confluence の検索の形
 
