@@ -1,0 +1,6 @@
+{"t":"2026-10-06T09:00:00+09:00","kind":"start"}
+{"t":"2026-10-06T09:00:00+09:00","kind":"sample","app":"Microsoft Excel","bundleId":"com.microsoft.Excel","monitor":2,"idleSec":1.4,"locked":false,"mic":false,"displaySleepPrevented":false,"title":"見積_2026.xlsx","sheet":"集計","focusRole":"AXLayoutArea"}
+{"t":"2026-10-06T09:00:05+09:00","kind":"sample","app":"Microsoft Teams","bundleId":"com.microsoft.teams2","monitor":1,"idleSec":3.0,"locked":false,"mic":true,"displaySleepPrevented":true,"title":"チャット | Microsoft Teams"}
+{"t":"2026-10-06T09:00:10+09:00","kind":"sample","app":"Microsoft Teams","bundleId":"com.microsoft.teams2","monitor":1,"idleSec":3.0,"locked":false,"mic":true,"displaySleepPrevented":true,"titleUnavailable":true,"titleReason":"timeout"}
+{"t":"2026-10-06T09:00:15+09:00","kind":"excluded"}
+{"t":"2026-10-06T18:00:00+09:00","kind":"stop","reason":"endsAtPassed"}

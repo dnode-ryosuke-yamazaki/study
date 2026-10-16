@@ -1,0 +1,5 @@
+[
+  {"app": "Microsoft Outlook", "bundleId": "com.microsoft.Outlook", "elapsedMs": 9, "focusedElementError": 0, "focusedWindowError": 0, "role": {"error": 0, "value": "AXTable"}, "sheet": {"childCount": 13, "childrenError": 0, "tabGroupFound": false}, "subrole": {"error": -25205}, "title": {"error": 0, "length": 39, "value": "TITLE"}, "trusted": true},
+  {"app": "Microsoft Outlook", "bundleId": "com.microsoft.Outlook", "elapsedMs": 119, "focusedElementError": -25212, "focusedWindowError": 0, "sheet": {"childCount": 7, "childrenError": 0, "tabGroupFound": false}, "title": {"error": 0, "length": 123, "value": "TITLE"}, "trusted": true},
+  {"app": "Microsoft Outlook", "bundleId": "com.microsoft.Outlook", "elapsedMs": 20, "focusedElementError": 0, "focusedWindowError": 0, "role": {"error": 0, "value": "AXWebArea"}, "sheet": {"childCount": 7, "childrenError": 0, "tabGroupFound": false}, "subrole": {"error": -25212}, "title": {"error": 0, "length": 123, "value": "TITLE"}, "trusted": true}
+]

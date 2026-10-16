@@ -105,7 +105,9 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 - 設定ファイルが読めない回は停止の行も通常の行も書かない。理由は状態のファイルの `configError` に書く
 - 設定ファイルが無い回は「終わりの日時が無い」として扱い、`configError` は `null` にする(停止の行の条件に当たれば `endsAtMissing` の停止の行を書く)
 - 周りの状態が取れなかった項目は `null`
-- 読む側は、知らない `kind`・知らない項目を読み飛ばす。最終行が書きかけ(JSON として読めない)の場合も読み飛ばす
+- 読む側は、知らない `kind`・知らない項目を読み飛ばす。最終行が書きかけ(JSON として読めない。日本語の途中で途切れて UTF-8 として読めない場合を含む)の場合も、その行だけを読み飛ばし、前の行は読む
+- 行は LF だけで区切る。題名・メモの文の中の U+2028 などの行区切りの文字では区切らない(記録係・操作スクリプトとも)
+- 書く側(記録係)は、その日のファイルの最終行が改行で終わっていない(前回の書きかけが残っている)場合、改行を補ってから書き足す。書きかけの行は消さない
 - 範囲を区切って読む側(`records.py`)は、範囲の直前の行(範囲より前のファイルの最後に読める行)で、範囲の始まりが記録している期間の内か外かを決める。直前の行が停止の行、または28日の保持で直前の行が無い場合は期間の外とする。期間の内で、直前の行から範囲内の最初の行までが30秒以上空いている場合は、範囲の始まりから最初の行までを記録が取れなかった時間とする。範囲の終わりは、範囲の最後の行が記録している期間の内(停止の行でない)で、範囲の終わりまで30秒以上空いている場合に、最後の行から範囲の終わりまでを記録が取れなかった時間とする。範囲の後の行は見ない
 
 ## メモのファイルの形
@@ -141,7 +143,9 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 |---|---|
 | 前面ウィンドウが取れない | `noWindow` |
 | `AXIsProcessTrusted()` が false | `denied` |
-| 1秒で終わらない | `timeout` |
+| 題名を読み終える前に1秒の打ち切りに達した・相手が応答しない | `timeout` |
+
+- 題名を読めたあとのシート名・部品の種類の問い合わせで打ち切った場合は、題名が取れた行として扱い、読めた題名を書く(記録しないことばの判定にも使う)。読めなかったシート名・部品の種類は書かない
 
 ## 周りの状態の取り方
 
@@ -174,7 +178,7 @@ codesign --verify --verbose "$HOME/Library/Application Support/routine-work-find
 ```
 
 - スクリプトの変数名は ASCII だけにする(launchd から動く /bin/bash 3.2 の制約に合わせる)
-- 署名のあと、システム設定の「プライバシーとセキュリティ → アクセシビリティ」の一覧に記録係(`bin/rwf-recorder`)を追加してオンにする(手元で行う)。署名していれば、作り直しても一覧の許可が残る見込み
+- 署名のあと、システム設定の「プライバシーとセキュリティ → アクセシビリティ」の一覧に記録係(`bin/rwf-recorder`)を追加してオンにする(手元で行う)。一覧への追加は最初の1回だけで、作り直して署名し置き直したときは一覧を触らない(許可が残る)
 - 続けて launchd のジョブを `launchctl bootout` → `bootstrap` で入れ直す(手元のターミナルで実行する)
 
 ## launchd の設定ファイルの形
@@ -250,6 +254,7 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 
 - 断ったとき: `{"ok": false, "error": "pastEndsAt" / "missingEndsAt" / "emptyWord" / "notFound" / "emptyText" / "tooLong" / "configUnreadable" / "badRequest" / "dataFolderUnwritable" / "badInputFile", "message": "…"}`
 - `dataFolderUnwritable`: その操作が書く場所(設定・メモのファイル、weekly-automation-report の作り直しで書く `requests/`)と `control.log` に書けない(データフォルダがまだ無いときは作れない。`Operation not permitted` など)ため、何も書かずに返したとき。入力ファイルを読む前に確かめ、入力ファイルは消さずに残し、結果に `"inputFile": "<入力ファイルの絶対パス>"`(`exclude-add` で `--bundle-ids-file` もあれば `"bundleIdsFile"` も)を入れる。`control.log` が書けないときもこの返し方にする。Skill は `cd <application の絶対パス>` と、同じサブコマンドにそのパスを渡す行だけのコマンドブロックを渡す(自由な文を書かず、ブロックの中で入力ファイルを作らない)。weekly-automation-report の作り直しの依頼もこの返し方に従う(作り直しは入力ファイルが無く、週は `data.week` で返す。weekly-automation-report の付録)
+- `notFound`: `exclude-app remove`・`exclude-word remove` で一覧に一致するものが無い、または `memo delete` で番号のメモが無いため、何も書き換えずに返したとき。`exclude-app`・`exclude-word` では今の一覧を `"data": {"excludedApps": [...], "excludedTitleWords": [...]}` で添える
 - `badInputFile`: 入力ファイルが無い・読めない、または `--input-file`・`--bundle-ids-file` の JSON の形が違うとき。`--request-file` の依頼文の1行目が決まり文句でないときは `badRequest`
 - `configUnreadable`: `config.json` があるが読めない・形が違うため、設定ファイルの書き換え(始める・止める・除外の追加と削除)を断ったとき
 - `exclude-add --request-file`(記録しない候補のまとめての追加)は、依頼文をファイルから読む。Skill は依頼文を分けずに入力ファイルに書く。手を加えるのは、1行目が決まり文句で始まらない(スラッシュコマンドの引数として渡り、コマンド名が外れた)ときに `/routine-work-finder ` を前に戻すことだけ。`--bundle-ids-file` には Skill が `/Applications` で分かったアプリのバンドルIDだけを書く。分からないアプリは名前だけで足し、`bundleId` は `null`
@@ -269,9 +274,12 @@ python3 -m routine_work_finder.control memo delete --id 20261006-101530-a1b2
 ## ログの書式
 
 ```
+2026-10-06T09:00:00+09:00 INFO recorder started
 2026-10-06T10:15:05+09:00 INFO recording started
 2026-10-06T10:20:10+09:00 WARN title unavailable reason=denied
+2026-10-06T11:02:35+09:00 INFO config reloaded
 2026-10-07T00:00:05+09:00 INFO purge removed=3
+2026-10-07T00:00:05+09:00 WARN purge failed count=1 files=records/2026-09-08.jsonl
 2026-10-09T17:40:12+09:00 INFO exclude added words=2 apps=1 alreadyExists=1 skipped=0
 ```
 

@@ -1,12 +1,14 @@
 # 操作の記録 タスク
 
+> 実装中: session study-a5, branch: feature/routine-work-finder-impl, started: 2026-10-07T16:12:47+09:00
+
 タスク 18件(claude 18 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
 全件を claude 担当にした理由: 委任用アカウントのクレジット残量の記録が、月次リセット日(2026-10-01)を過ぎて無効になっている(リセット日到達)。
 
-置き場所は、特に書かない限り `apps/routine-work-finder/application/` の下(以下このフォルダからの相対パス)。記録係のテストは `recorder/` で `swift test`、操作スクリプトのテストはこのフォルダで `python3 -m unittest discover -s tests -t .` で回す。`~/.claude/skills/` は Bash から書けないため、Skill のファイルは Write/Edit ツールで書く。
+置き場所は、特に書かない限り `apps/routine-work-finder/application/` の下(以下このフォルダからの相対パス)。記録係のテストは `recorder/` で `/bin/zsh scripts/swift_test.sh`(Swift Testing のマクロ部品の場所を明示して `swift test` を呼ぶ。Claude Code のサンドボックスでは `swift test` が動かないため `/bin/zsh scripts/swiftc_test.sh`)、操作スクリプトのテストはこのフォルダで `python3 -m unittest discover -s tests -t .` で回す。`~/.claude/skills/` は Bash から書けないため、Skill のファイルは Write/Edit ツールで書く。
 
 ## 先に確かめること
 
@@ -119,7 +121,7 @@
 - `Sources/rwf-recorder/AxReader.swift`(アクセシビリティの問い合わせ)と `Sources/RecorderCore/AxResultParser.swift`(結果の読み取りと理由の分類)
 - 読む属性は appendix.md「アクセシビリティの読み方」。前面ウィンドウの中を深く走査しない。部品の中の文字を返す属性は読まない。合わせて1秒で打ち切る
 - タスク1で保存した実機の応答(`tests/fixtures/ax/`)を使う。role 名(AXLayoutArea・AXWebArea など)はそのまま、題名・シート名は置き換える
-- テスト: ウィンドウの題名の記録-1・-2・-3 の契約(正常と失敗形)、-4(noWindow・denied・timeout の3理由)
+- テスト: ウィンドウの題名の記録-1・-2・-3 の契約(正常と失敗形)、-4(noWindow・denied・timeout の3理由と、題名を読めたあとの打ち切りは読めた題名を返す分岐)
 - 構造検証(`tests/test_recorder_forbidden_apis.py`、unittest): 記録しないもの-1〜4。`recorder/Sources/` を走査し、画面収録の関数・Apple Events・キー入力を受け取る関数・カメラの型・部品の中の文字を返す属性(`kAXSelectedTextAttribute` 等)を呼んでいないこと、`kAXValueAttribute` はタブの選択状態を見る1か所だけで使うこと、読む AX 属性が許可リストの8つ(`kAXFocusedWindowAttribute`・`kAXTitleAttribute`・`kAXFocusedUIElementAttribute`・`kAXRoleAttribute`・`kAXSubroleAttribute`・`kAXChildrenAttribute`・`kAXTabsAttribute`・`kAXValueAttribute`)に限られることを確かめる。禁止する名前の一覧は design.md のテスト戦略の備考に従う。否定確認として、禁止の呼び出しを1行足すと落ちることを見てから戻す
 
 </details>
@@ -273,6 +275,8 @@ Skill が書いた設定を、記録係が書きかけを読まずに次の回�
 
 ## 確認チェックリスト
 
-- [ ] 本番と同じ経路(launchd)で記録係が起動し、ログイン後に再開する → 結果
-- [ ] 成果物(記録・状態のファイル)が出る → 結果
-- [ ] 失敗させたとき(設定ファイルを壊す・許可を外す)の記録しない側への切り替えと、状態の確認・ログへの表示が届く → 結果
+- [x] 本番と同じ経路(launchd)で記録係が起動し、ログイン後に再開する → 2026-10-13〜15 に launchd から起動し、47時間落ちずに動いた。launchd に登録し直した時点(RunAtLoad)で記録係が起動し、開始の行から記録を再開した
+- [ ] ログアウトしてログインし直したあとに、記録係が launchd から起動し直して記録を再開する → 未確認(普段ログアウトしない運用のため、利用者の判断でスキップ)。外れた場合の影響: ログインし直したあと記録係が動かず、その間の操作が記録されない。状態の確認では「記録係が動いていない」(`recorderRunning: false`)と出て、週次レポートではその時間が記録が取れなかった時間になる。初めてログアウトしたあとに状態の確認で確かめる
+- [x] 成果物(記録・状態のファイル)が出る → 10/13 10:49〜10/14 18:00 に約22,400行が5秒ごとに抜けなく書かれ、読めない行0件。周りの状態の7項目の欠け(null)0件、題名の欠けは前面ウィンドウが無い6回だけ。除外中の行25件。終わりの日時ちょうど(18:00:00)に停止の行が1行だけ書かれた。題名は VS Code・Chrome・Teams・Outlook・Finder で入り、部品の種類は Outlook・Finder でほぼ毎回、Chrome・VS Code ではまれ(Chrome は読み上げソフトが使われていないと部品の情報を出さなくなる)、Teams では出ない。Excel のシート名はこの期間に Excel を使わず未確認(タスク1の実機確認では取れた)。状態のファイルは5秒ごとに更新。非機能-1: 記録係の CPU 使用率は起動からの47時間平均 0.21%(上限5%)。非機能-2: 1回の所要 1〜8ミリ秒(上限2,000)。Chrome・VS Code・Teams の CPU 使用率に、記録係による目立った増加は無い(記録係を止めた2分のほうが Chrome は高く、値は他の動きに左右された)。記録が取れなかった時間帯は、記録係を launchd から外した2分間を状態の確認が返した(このMacは給電中のスリープを常駐の caffeinate -s が止めるため、`pmset sleepnow` でもスリープせず、スリープ中の空きは同じ仕組みで扱われるものとして確認した)
+- [x] 失敗させたとき(設定ファイルを壊す)の記録しない側への切り替えと、状態の確認・ログへの表示が届く → 設定ファイルを壊すと10秒以内に記録が止まり、状態のファイル・操作スクリプトの状態の確認・ログの3つに理由 `invalidJson` が出た。直すと開始の行から再開した
+- [ ] アクセシビリティの許可を外したとき、題名に理由 `denied` が付き、状態の確認とログに許可が無いことが出る → 実機では未確認(許可を外す操作はシステム設定で管理者権限を求められ、利用者が行えないため)。許可が無いときの案内と題名の理由 `denied` は単体テストで確認した。外れた場合の影響: 許可が外れても状態の確認が「許可あり」と返し、題名が入らない理由が分からないまま記録が続く(アプリ名・周りの状態は記録され、題名・シート名・部品の種類だけが欠ける)。管理者権限で許可を外せる機会に確かめる
