@@ -1,7 +1,5 @@
 # 操作の記録 タスク
 
-> 実装中: session study-a5, branch: feature/routine-work-finder-impl, started: 2026-10-07T16:12:47+09:00
-
 タスク 18件(claude 18 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
