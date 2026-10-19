@@ -21,8 +21,8 @@ description: 2つ以上の機能開発・修正を並行して進めるときに
 worktree作成後、Git管理外のファイルを対象アプリからコピーする:
 
 ```bash
-cd ../study-<機能名>
-cp ../study/apps/<アプリ名>/infra/terraform.tfvars apps/<アプリ名>/infra/
+cd ~/worktrees/study-<機能名>
+cp ~/repo/study/apps/<アプリ名>/infra/terraform.tfvars apps/<アプリ名>/infra/
 # 依存関係のインストールは対象アプリのpackage.json等がある階層で行う
 ```
 
