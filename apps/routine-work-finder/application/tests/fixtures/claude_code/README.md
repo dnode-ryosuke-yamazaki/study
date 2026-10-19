@@ -19,7 +19,12 @@
 13. 月曜 0:00(日本時間)の依頼文(週の範囲の内)
 14. 添付(`type: attachment`)
 15. 会話の題名(`type: ai-title`)
+16. VS Code の拡張の知らせつきの依頼文(配列。1つ目の要素が `<ide_opened_file>…</ide_opened_file>` だけの文章、2つ目が人の打った文章)
+17. VS Code の拡張の知らせつきの依頼文(文字列。`<ide_selection>…</ide_selection>` のあとに改行と人の打った文章が続く)
+18. VS Code の拡張の知らせだけの行(配列。`<ide_opened_file>` の要素1つだけ。知らせを取り除くと本文が空になる)
 
 `11111111-…/subagents/agent-a0000000000000002.jsonl`: サブエージェントへの指示文(`isSidechain: true`)。
 
 実物の行の数の内訳(上の60ファイル): 人が打った依頼文(`origin.kind: human`)188、作業の終わりの知らせ102、スラッシュコマンド13、ローカルのコマンドの呼び出しと出力 各1。6〜9は appendix.md「会話の記録から依頼文を選ぶ条件」の表の条件をすべて満たす。
+
+16〜18 は 2026-10-19 時点の実物(`~/.claude/projects/*/*.jsonl` で `<ide_` を含む利用者の発言の行)のタグの名前・閉じタグ・知らせの文面の型(`The user opened the file <パス> in the IDE. This may or may not be related to the current task.`、`The user selected the lines <n> to <m> from <パス>:` のあとに選んだ行と空行、同じ結びの一文)を残し、パスと本文を置き換えたもの。実物では知らせは配列の独立した要素として現れ(`<ide_opened_file>` 60、`<ide_selection>` 1)、文字列の本文の中に知らせが入る形(17)と知らせだけの行(18)は実物に無く、仕様の条件を確かめるために作ったもの。

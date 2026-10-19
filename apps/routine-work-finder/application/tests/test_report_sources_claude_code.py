@@ -83,7 +83,7 @@ class ClaudeCodeContractTests(ClaudeCodeTestCase):
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3
     def test_人が打った依頼文だけを日時の順にリポジトリ名と日本時間の日時つきで読む(self):
         """ツールの結果・補助の印・要約・ヘッドレス・作業の終わりの知らせ・ローカルのコマンド・添付・題名・
-        返答の行は選ばない。画像つきの依頼は文章の要素を改行でつなぐ。
+        返答の行と、VS Code の拡張の知らせだけの行は選ばない。画像つきの依頼は文章の要素を改行でつなぐ。
         否定確認: 補助の印の条件を外すと「補助の本文」が入って落ちる。要約の印・ヘッドレスの条件・種類の条件・
         出どころの条件(人の入力だけ)もそれぞれ外すと落ちる"""
         self.copy_fixture()
@@ -95,13 +95,16 @@ class ClaudeCodeContractTests(ClaudeCodeTestCase):
             [("claudeCode", "sample", jst("2026-10-05T00:00:00")),
              ("claudeCode", "sample", jst("2026-10-06T10:00:00")),
              ("claudeCode", "sample", jst("2026-10-07T11:30:00")),
-             ("claudeCode", "sample", jst("2026-10-07T12:00:00"))],
+             ("claudeCode", "sample", jst("2026-10-07T12:00:00")),
+             ("claudeCode", "sample", jst("2026-10-08T11:00:00")),
+             ("claudeCode", "sample", jst("2026-10-08T12:00:00"))],
         )
         texts = self.texts(result)
         self.assertEqual(texts[0], "月曜0時の依頼文")
         self.assertTrue(texts[1].startswith(SPEC))
         self.assertEqual(texts[2], "画像を見て直してください。\n2つ目の文です。")
         self.assertEqual(texts[3], "/sample コマンドの引数の本文")
+        self.assertEqual(texts[4:], ["開いているファイルの手順を直してください。", "選んだ行を言い換えてください。"])
         self.assertEqual(set(result.requests[0]), {"source", "repo", "text", "time"})
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#社外へ送るもの-1
@@ -114,6 +117,52 @@ class ClaudeCodeContractTests(ClaudeCodeTestCase):
         self.assertNotIn("someone@example.com", text)
         self.assertNotIn("abcd1234EFGH5678ijkl9012MNOP", text)
         self.assertEqual(len(text), 200 - 19 + 5 - 28 + 5)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3
+    def test_VS_Codeの拡張が付ける知らせを取り除いて人が打った文だけを依頼文にし知らせだけの行は選ばない(self):
+        """開いているファイル・選んだ行の知らせは人が打った文ではなく、ローカルのファイルのパスを含む。
+        配列の要素として付く形・文字列の中に入る形のどちらも取り除き、前後の空白と改行を詰める。
+        否定確認: 知らせを取り除く処理を外すと知らせの文面とパスが依頼文に入って落ちる。
+        取り除いて空になった行を選ぶと空の依頼文が入って落ちる"""
+        self.write(f"{SESSION}.jsonl", fixture_lines()[15:18])
+        result = self.read()
+        self.assertEqual(self.texts(result), ["開いているファイルの手順を直してください。", "選んだ行を言い換えてください。"])
+        self.assertEqual(result.skipped, {})
+        for text in self.texts(result):
+            self.assertNotIn("/Users/example", text)
+            self.assertNotIn("ide_", text)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3
+    def test_知らせは本文の途中や複数あっても取り除き冒頭200字は取り除いたあとの本文から取る(self):
+        """知らせが長いと冒頭200字が知らせで埋まり、人が打った文が1字も残らなくなるのを防ぐ。
+        否定確認: 200字を取ってから知らせを取り除くと人が打った文が消えて落ちる。
+        最初の知らせだけを取り除くと2つ目の知らせが残って落ちる"""
+        notice = ("<ide_opened_file>The user opened the file /Users/example/repo/sample/" + "長い名前" * 60
+                  + ".md in the IDE. This may or may not be related to the current task.</ide_opened_file>")
+        selection = ("<ide_selection>The user selected the lines 1 to 2 from /Users/example/repo/sample/a.md:\n"
+                     "選んだ行\n\nThis may or may not be related to the current task.</ide_selection>")
+        self.write(f"{SESSION}.jsonl", [
+            human_line([{"type": "text", "text": notice}, {"type": "text", "text": "  前半の文。  "}]),
+            human_line(f"後半の前。\n{selection}\n後半の後。\n\n", "2026-10-06T02:00:00.000Z"),
+            human_line(f"{notice}{selection}二つの知らせのあと。", "2026-10-06T03:00:00.000Z"),
+        ])
+        self.assertEqual(self.texts(self.read()), ["前半の文。", "後半の前。\n\n後半の後。", "二つの知らせのあと。"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3
+    def test_本文の始まりは知らせを取り除いたあとの本文で見る(self):
+        """知らせが先頭に付いていても、スラッシュコマンドの依頼はコマンド名と引数になり、出どころの印が無い
+        古い形式のローカルのコマンドの出力は選ばない。
+        否定確認: 知らせを取り除く前の本文で始まりを見ると、スラッシュコマンドが本文のまま入り、
+        ローカルのコマンドの出力も入って落ちる"""
+        notice = {"type": "text", "text": "<ide_opened_file>The user opened the file /Users/example/repo/sample/a.md in the IDE. "
+                                          "This may or may not be related to the current task.</ide_opened_file>"}
+        slash = "<command-message>sample is running…</command-message>\n<command-name>/sample</command-name>\n<command-args>引数</command-args>"
+        self.write(f"{SESSION}.jsonl", [
+            human_line([notice, {"type": "text", "text": slash}]),
+            without(human_line([notice, {"type": "text", "text": "<local-command-stdout>出力</local-command-stdout>"}],
+                               "2026-10-06T02:00:00.000Z"), "origin"),
+        ])
+        self.assertEqual(self.texts(self.read()), ["/sample 引数"])
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-3
     def test_スラッシュコマンドで打った依頼はコマンド名と引数をつなぎ引数が空ならコマンド名だけにする(self):

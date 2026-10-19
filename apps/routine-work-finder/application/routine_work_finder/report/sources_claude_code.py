@@ -24,6 +24,8 @@ HUMAN = "human"
 # 出どころの印(origin)が無い行のうち、人の入力ではない行の本文の始まり
 NOT_TYPED_PREFIXES = ("<task-notification>", "<local-command-stdout>", "<local-command-stderr>", "<command-name>")
 SLASH_PREFIX = "<command-message>"
+# VS Code の拡張が自動で付ける知らせ(開いているファイル・選んだ行など)。人が打った文ではない
+IDE_NOTICE = re.compile(r"<(ide_[^\s>]*)>.*?</\1>", re.DOTALL)
 COMMAND_NAME = re.compile(r"<command-name>(.*?)</command-name>", re.DOTALL)
 COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -116,7 +118,7 @@ def _request(line, start, end):
     if line.get("entrypoint") == HEADLESS:
         return None
     body = _body(line.get("message"))
-    if body is None:
+    if not body:  # 文章の要素が無い、または知らせを取り除くと空になる
         return None
     if not _typed_by_human(line, body):
         return None
@@ -131,20 +133,23 @@ def _request(line, start, end):
 
 
 def _body(message):
-    """文字列ならそのまま、配列なら文章の要素を改行でつないだもの。文章の要素が無い配列は None"""
+    """文字列ならそのまま、配列なら文章の要素を改行でつないだものから、VS Code の拡張の知らせを取り除き
+    前後の空白と改行を詰めたもの。文章の要素が無い配列は None"""
     if not isinstance(message, dict):
         raise _BadField
     content = message.get("content")
     if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
+        text = content
+    elif isinstance(content, list):
+        texts = [part.get("text") for part in content if isinstance(part, dict) and part.get("type") == "text"]
+        if not texts:
+            return None
+        if not all(isinstance(text, str) for text in texts):
+            raise _BadField
+        text = "\n".join(texts)
+    else:
         raise _BadField
-    texts = [part.get("text") for part in content if isinstance(part, dict) and part.get("type") == "text"]
-    if not texts:
-        return None
-    if not all(isinstance(text, str) for text in texts):
-        raise _BadField
-    return "\n".join(texts)
+    return IDE_NOTICE.sub("", text).strip()
 
 
 def _typed_by_human(line, body):
