@@ -3,6 +3,9 @@
     python3 -m routine_work_finder.control start --until 2026-10-31T18:00:00+09:00
     python3 -m routine_work_finder.control stop
     python3 -m routine_work_finder.control status
+    python3 -m routine_work_finder.control remake --week 2026-W41
+
+作り直しの依頼(remake)の呼び方と結果の形は weekly-automation-report の appendix.md「操作スクリプトの作り直しの呼び方」。
 """
 
 import argparse
@@ -13,7 +16,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from routine_work_finder import config_store, paths, records
+from routine_work_finder import config_store, paths, records, weeks
 
 JST = records.JST
 RECORDER_STALE_AFTER = timedelta(seconds=30)
@@ -44,9 +47,10 @@ class Context:
         with os.fdopen(descriptor, "a", encoding="utf-8") as file:
             file.write(f"{timestamp(self.now)} {level} {message}\n")
 
-    def ensure_writable(self, write_config=False, inputs=None, memo_append=None, memo_replace=None):
+    def ensure_writable(self, write_config=False, inputs=None, memo_append=None, memo_replace=None, request_folder=False):
         """データフォルダと control.log(設定を書き換える操作では config.json.tmp、メモを書き足す操作ではメモのフォルダと
-        その日のメモのファイル、メモを消す操作ではメモのフォルダの一時ファイルも)に書けるかを、書く前に試して確かめる。
+        その日のメモのファイル、メモを消す操作ではメモのフォルダの一時ファイル、作り直しの依頼では依頼のフォルダの一時ファイルも)
+        に書けるかを、書く前に試して確かめる。
         書けなければ入力ファイルは消さずに残し、その絶対パスを結果に入れる(inputs は {結果のキー: パス})"""
         try:
             config_store.ensure_data_folder(self.paths)
@@ -68,6 +72,16 @@ class Context:
                     self.paths.memos.rmdir()
             if memo_replace is not None:
                 probe_replace(memo_replace.with_name(memo_replace.name + ".tmp"))
+            if request_folder:
+                # 確かめるために作ったフォルダは消す(断ったときに空のものを残さない。書くときに作り直す)
+                created_folder = not self.paths.requests.exists()
+                if created_folder:
+                    self.paths.requests.mkdir(mode=0o700)
+                try:
+                    probe_replace(self.paths.requests / ".probe.tmp")
+                finally:
+                    if created_folder:
+                        self.paths.requests.rmdir()
         except OSError as error:
             extra = {key: str(path) for key, path in (inputs or {}).items() if path is not None}
             raise ControlError("dataFolderUnwritable", f"データフォルダに書けません({error.strerror})", **extra) from error
@@ -414,6 +428,59 @@ def _is_memo_line(line, memo_id):
         return False
 
 
+MESSAGE_WEEK_WORDS = "「今週」「先週」「最新の週」か、2026-W41 のような週の番号で指定してください"
+
+
+def command_remake(context, args):
+    """週次レポートの作り直しの依頼ファイルを置く(weekly-automation-report の design.md「作り直しの依頼を受けて作り直す」1〜3)。
+    週は日本時間でここで決める。書けるかは週を決めてから確かめ、書けなければ決めた週を data.week に入れて返す"""
+    week = weeks.resolve(args.week, context.now)
+    if week is None:
+        if isinstance(args.week, str) and weeks.WEEK_NAME_PATTERN.match(args.week):
+            raise ControlError("invalidWeek", f"{args.week} という週はありません。2026-W41 のように指定してください")
+        raise ControlError("invalidWeek", MESSAGE_WEEK_WORDS)
+    if not weeks.within_retention(week, context.now):
+        raise ControlError("recordsPurged", f"{week.name} の記録はもう消えているため作り直せません")
+    if not has_record_files(context.paths, week):
+        raise ControlError("noRecordsForWeek", f"{week.name} の記録がないため作り直せません")
+    try:
+        context.ensure_writable(request_folder=True)
+    except ControlError as error:
+        raise ControlError("dataFolderUnwritable", "依頼のフォルダに書けなかったため、何も書いていません",
+                           data={"week": week.name}) from error
+    requested_at = weeks.to_tokyo(context.now)
+    request = {"week": week.name, "requestedAt": timestamp(requested_at)}
+    if not context.paths.requests.exists():
+        context.paths.requests.mkdir(mode=0o700)
+        os.chmod(context.paths.requests, 0o700)
+    write_bytes_replacing(new_request_path(context.paths.requests, requested_at),
+                          json.dumps(request, ensure_ascii=False).encode("utf-8"))
+    context.log("INFO", f"remake week={week.name}")
+    if week == weeks.current_week(context.now) and not weeks.is_closed(week, context.now):
+        message = f"{week.name} は今週のため、今の時点までの記録で作り直します。金曜17時の定期のレポートも届きます"
+    else:
+        message = f"{week.name} の作り直しを受け付けました。できたら Teams に届きます"
+    return {"message": message, "notices": [], "data": {"week": week.name}}
+
+
+def has_record_files(data_paths, week):
+    """その週(日本時間の月曜〜日曜の日付)の記録のファイルが1つでもあるか"""
+    first = week.monday.date()
+    days = {(first + timedelta(days=offset)).isoformat() for offset in range(7)}
+    if not data_paths.records.exists():
+        return False
+    return any((match := records.FILE_NAME_PATTERN.match(path.name)) and match.group(1) in days
+               for path in data_paths.records.iterdir())
+
+
+def new_request_path(folder, requested_at):
+    """依頼ファイルの名前 <YYYYmmdd-HHMMSS>-<16進4桁>.json。同じ名前があれば付け直す"""
+    while True:
+        path = folder / f"{requested_at:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}.json"
+        if not path.exists():
+            return path
+
+
 COMMANDS = {
     "start": command_start,
     "stop": command_stop,
@@ -423,6 +490,7 @@ COMMANDS = {
     "exclude-list": command_exclude_list,
     "exclude-add": command_exclude_add,
     "memo": command_memo,
+    "remake": command_remake,
 }
 
 
@@ -445,6 +513,8 @@ def build_parser():
     memo.add_argument("action", choices=["add", "list", "delete"])
     memo.add_argument("--input-file")
     memo.add_argument("--id")
+    remake = subparsers.add_parser("remake")
+    remake.add_argument("--week")
     return parser
 
 
