@@ -113,8 +113,10 @@ Claude Code の依頼文の冒頭200字に、次の順で当てる。
 JQL(サイトごと):
 
 ```
-issue in updatedBy(currentUser(), "2026-10-04", "2026-10-10") ORDER BY updated DESC
+issue in updatedBy("<自分の accountId>", "2026-10-04", "2026-10-10") ORDER BY updated DESC
 ```
+
+- `<自分の accountId>` は `/rest/api/3/myself` の `accountId`。JQL は関数の引数に関数を書けないため、`currentUser()` は使わない
 
 - 検索の日付は対象の週(2026-10-05〜2026-10-09 17:00)の前後1日を広げる。JQL・CQL の日付は Atlassian のプロフィールの時刻帯で解釈され、日本時間とずれることがあるため
 - 取る項目: `summary`、展開: `changelog`

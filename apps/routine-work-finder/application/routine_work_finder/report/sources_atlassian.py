@@ -26,7 +26,8 @@ from atlassian_rest.config import ConfigError, get_token_meta_for_host
 
 JST = timezone(timedelta(hours=9))
 PROFILES_PATH = Path.home() / ".claude" / "config" / "project-profiles.json"
-JQL_TEMPLATE = 'issue in updatedBy(currentUser(), "{start}", "{end}") ORDER BY updated DESC'
+# JQL は関数の引数に関数を書けない(updatedBy(currentUser(), …) は400になる)ため、自分は /myself のアカウントIDで指す
+JQL_TEMPLATE = 'issue in updatedBy("{account_id}", "{start}", "{end}") ORDER BY updated DESC'
 CQL_TEMPLATE = 'type = page AND contributor = currentUser() AND lastmodified >= "{start}" AND lastmodified < "{end}"'
 # 共通部品の search_pages は展開と件数を指定できないため、送る直前の URL に足す
 CONFLUENCE_SEARCH_PATH = "/wiki/rest/api/content/search?"
@@ -154,7 +155,7 @@ def _account_id(host, email, token, path, http_request):
 def _read_jira(host, email, token, start, end, http_request):
     me = _account_id(host, email, token, "/rest/api/3/myself", http_request)
     first, last = _search_dates(start, end)
-    jql = JQL_TEMPLATE.format(start=first.isoformat(), end=last.isoformat())
+    jql = JQL_TEMPLATE.format(account_id=me, start=first.isoformat(), end=last.isoformat())
     issues = client.search_issues(
         f"https://{host}", email, token, jql, fields=["summary"], expand="changelog", http_request=http_request
     )

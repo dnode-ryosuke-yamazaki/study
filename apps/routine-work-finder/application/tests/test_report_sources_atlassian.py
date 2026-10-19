@@ -131,10 +131,14 @@ class JiraContractTests(AtlassianSourceTestCase):
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-1
     def test_検索は週の前後1日を広げた日付で題名と変更履歴を取る(self):
+        """JIRA は関数の引数に関数を書けないため、自分は currentUser() ではなく先に調べたアカウントIDで指す
+
+        否定確認: 条件を updatedBy(currentUser(), …) に戻すと落ちる
+        """
         transport = FakeAtlassian({"example.atlassian.net": normal_site()})
         self.read(transport)
         [query] = transport.queries("example.atlassian.net", JIRA_SEARCH)
-        self.assertEqual(query["jql"], ['issue in updatedBy(currentUser(), "2026-10-04", "2026-10-10") ORDER BY updated DESC'])
+        self.assertEqual(query["jql"], ['issue in updatedBy("5b10a2844c20165700ede21g", "2026-10-04", "2026-10-10") ORDER BY updated DESC'])
         self.assertEqual(query["fields"], ["summary"])
         self.assertEqual(query["expand"], ["changelog"])
 
