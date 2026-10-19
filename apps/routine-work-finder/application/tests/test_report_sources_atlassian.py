@@ -112,10 +112,10 @@ class JiraContractTests(AtlassianSourceTestCase):
         self.assertEqual(
             [(r["key"], r["summary"], r["field"], r["from"], r["to"], r["time"]) for r in result.jira],
             [
-                ("SAG-130", "議事録TODOの起票", "assignee", None, "利用者A", jst("2026-10-05T00:00:00")),
-                ("SAG-123", "進捗表の更新", "status", "対応中", "レビュー中", jst("2026-10-06T14:05:10")),
-                ("SAG-123", "進捗表の更新", "duedate", "2026-10-10 00:00:00.0", "2026-10-17 00:00:00.0", jst("2026-10-06T14:05:10")),
-                ("SAG-130", "議事録TODOの起票", "labels", "議事録", "", jst("2026-10-09T16:59:59")),
+                ("EXAM-130", "議事録TODOの起票", "assignee", None, "利用者A", jst("2026-10-05T00:00:00")),
+                ("EXAM-123", "進捗表の更新", "status", "作業している", "確認待ち", jst("2026-10-06T14:05:10")),
+                ("EXAM-123", "進捗表の更新", "duedate", "2026-10-10 00:00:00.0", "2026-10-17 00:00:00.0", jst("2026-10-06T14:05:10")),
+                ("EXAM-130", "議事録TODOの起票", "Comment", "確認をお願いします", None, jst("2026-10-09T16:59:59")),
             ],
         )
         self.assertTrue(all(r["source"] == "jira" and r["site"] == "example.atlassian.net" for r in result.jira))

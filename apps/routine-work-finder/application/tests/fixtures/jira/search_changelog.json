@@ -1,21 +1,57 @@
 {
   "issues": [
     {
-      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
       "id": "10123",
       "self": "https://example.atlassian.net/rest/api/3/issue/10123",
-      "key": "SAG-123",
+      "key": "EXAM-123",
       "changelog": {
         "startAt": 0,
-        "maxResults": 4,
-        "total": 4,
+        "maxResults": 5,
+        "total": 5,
         "histories": [
+          {
+            "id": "20005",
+            "author": {
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+              "accountId": "5b10a2844c20165700ede21g",
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
+              "displayName": "利用者A",
+              "active": true,
+              "timeZone": "Asia/Tokyo",
+              "accountType": "atlassian"
+            },
+            "created": "2026-10-14T10:30:00.000+0900",
+            "items": [
+              {
+                "field": "duedate",
+                "fieldtype": "jira",
+                "fieldId": "duedate",
+                "from": "2026-10-17",
+                "fromString": "2026-10-17 00:00:00.0",
+                "to": "2026-10-24",
+                "toString": "2026-10-24 00:00:00.0"
+              }
+            ]
+          },
           {
             "id": "20004",
             "author": {
               "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
               "accountId": "5b10a2844c20165700ede21g",
-              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
               "displayName": "利用者A",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -23,15 +59,29 @@
             },
             "created": "2026-10-09T17:00:00.000+0900",
             "items": [
-              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10001", "fromString": "レビュー中", "to": "10002", "toString": "完了"}
+              {
+                "field": "status",
+                "fieldtype": "jira",
+                "fieldId": "status",
+                "from": "10001",
+                "fromString": "確認待ち",
+                "to": "10002",
+                "toString": "片付いた"
+              }
             ]
           },
           {
             "id": "20003",
             "author": {
-              "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede99z",
-              "accountId": "5b10a2844c20165700ede99z",
-              "avatarUrls": {"48x48": "https://avatar.example.com/other-48.png"},
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=712020%3A00000000-0000-4000-8000-0000000000b2",
+              "accountId": "712020:00000000-0000-4000-8000-0000000000b2",
+              "emailAddress": "other@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/other-48.png",
+                "24x24": "https://avatar.example.com/other-24.png",
+                "16x16": "https://avatar.example.com/other-16.png",
+                "32x32": "https://avatar.example.com/other-32.png"
+              },
               "displayName": "利用者B",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -39,7 +89,17 @@
             },
             "created": "2026-10-07T10:00:00.000+0900",
             "items": [
-              {"field": "assignee", "fieldtype": "jira", "fieldId": "assignee", "from": null, "fromString": null, "to": "5b10a2844c20165700ede21g", "toString": "利用者A", "tmpFromAccountId": null, "tmpToAccountId": "5b10a2844c20165700ede21g"}
+              {
+                "field": "assignee",
+                "fieldtype": "jira",
+                "fieldId": "assignee",
+                "from": null,
+                "fromString": null,
+                "to": "5b10a2844c20165700ede21g",
+                "toString": "利用者A",
+                "tmpFromAccountId": null,
+                "tmpToAccountId": "5b10a2844c20165700ede21g"
+              }
             ]
           },
           {
@@ -47,7 +107,13 @@
             "author": {
               "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
               "accountId": "5b10a2844c20165700ede21g",
-              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
               "displayName": "利用者A",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -55,8 +121,24 @@
             },
             "created": "2026-10-06T14:05:10.000+0900",
             "items": [
-              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10000", "fromString": "対応中", "to": "10001", "toString": "レビュー中"},
-              {"field": "duedate", "fieldtype": "jira", "fieldId": "duedate", "from": "2026-10-10", "fromString": "2026-10-10 00:00:00.0", "to": "2026-10-17", "toString": "2026-10-17 00:00:00.0"}
+              {
+                "field": "status",
+                "fieldtype": "jira",
+                "fieldId": "status",
+                "from": "10000",
+                "fromString": "作業している",
+                "to": "10001",
+                "toString": "確認待ち"
+              },
+              {
+                "field": "duedate",
+                "fieldtype": "jira",
+                "fieldId": "duedate",
+                "from": "2026-10-10",
+                "fromString": "2026-10-10 00:00:00.0",
+                "to": "2026-10-17",
+                "toString": "2026-10-17 00:00:00.0"
+              }
             ]
           },
           {
@@ -64,7 +146,13 @@
             "author": {
               "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
               "accountId": "5b10a2844c20165700ede21g",
-              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
               "displayName": "利用者A",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -72,18 +160,28 @@
             },
             "created": "2026-10-04T23:50:00.000+0900",
             "items": [
-              {"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "10003", "fromString": "未着手", "to": "10000", "toString": "対応中"}
+              {
+                "field": "status",
+                "fieldtype": "jira",
+                "fieldId": "status",
+                "from": "10003",
+                "fromString": "手つかず",
+                "to": "10000",
+                "toString": "作業している"
+              }
             ]
           }
         ]
       },
-      "fields": {"summary": "進捗表の更新"}
+      "fields": {
+        "summary": "進捗表の更新"
+      }
     },
     {
-      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
       "id": "10130",
       "self": "https://example.atlassian.net/rest/api/3/issue/10130",
-      "key": "SAG-130",
+      "key": "EXAM-130",
       "changelog": {
         "startAt": 0,
         "maxResults": 2,
@@ -94,7 +192,13 @@
             "author": {
               "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
               "accountId": "5b10a2844c20165700ede21g",
-              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
               "displayName": "利用者A",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -102,7 +206,15 @@
             },
             "created": "2026-10-09T16:59:59.000+0900",
             "items": [
-              {"field": "labels", "fieldtype": "jira", "fieldId": "labels", "from": null, "fromString": "議事録", "to": null, "toString": ""}
+              {
+                "field": "Comment",
+                "fieldtype": "jira",
+                "fieldId": "comment",
+                "from": null,
+                "fromString": "確認をお願いします",
+                "to": null,
+                "toString": null
+              }
             ]
           },
           {
@@ -110,7 +222,13 @@
             "author": {
               "self": "https://example.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
               "accountId": "5b10a2844c20165700ede21g",
-              "avatarUrls": {"48x48": "https://avatar.example.com/me-48.png"},
+              "emailAddress": "me@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/me-48.png",
+                "24x24": "https://avatar.example.com/me-24.png",
+                "16x16": "https://avatar.example.com/me-16.png",
+                "32x32": "https://avatar.example.com/me-32.png"
+              },
               "displayName": "利用者A",
               "active": true,
               "timeZone": "Asia/Tokyo",
@@ -118,18 +236,30 @@
             },
             "created": "2026-10-05T00:00:00.000+0900",
             "items": [
-              {"field": "assignee", "fieldtype": "jira", "fieldId": "assignee", "from": null, "fromString": null, "to": "5b10a2844c20165700ede21g", "toString": "利用者A", "tmpFromAccountId": null, "tmpToAccountId": "5b10a2844c20165700ede21g"}
+              {
+                "field": "assignee",
+                "fieldtype": "jira",
+                "fieldId": "assignee",
+                "from": null,
+                "fromString": null,
+                "to": "5b10a2844c20165700ede21g",
+                "toString": "利用者A",
+                "tmpFromAccountId": null,
+                "tmpToAccountId": "5b10a2844c20165700ede21g"
+              }
             ]
           }
         ]
       },
-      "fields": {"summary": "議事録TODOの起票"}
+      "fields": {
+        "summary": "議事録TODOの起票"
+      }
     },
     {
-      "expand": "operations,versionedRepresentations,editmeta,changelog,customfield_10010.requestTypePractice,renderedFields",
+      "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
       "id": "10131",
       "self": "https://example.atlassian.net/rest/api/3/issue/10131",
-      "key": "SAG-131",
+      "key": "EXAM-131",
       "changelog": {
         "startAt": 0,
         "maxResults": 1,
@@ -138,22 +268,38 @@
           {
             "id": "20021",
             "author": {
-              "self": "https://example.atlassian.net/rest/api/3/user?accountId=557058:f58131cb-b67d-43c7-b30d-6b58d40bd077",
-              "accountId": "557058:f58131cb-b67d-43c7-b30d-6b58d40bd077",
-              "avatarUrls": {"48x48": "https://avatar.example.com/automation-48.png"},
-              "displayName": "Automation for Jira",
+              "self": "https://example.atlassian.net/rest/api/3/user?accountId=557058%3A00000000-0000-4000-8000-0000000000a1",
+              "accountId": "557058:00000000-0000-4000-8000-0000000000a1",
+              "emailAddress": "automation@example.com",
+              "avatarUrls": {
+                "48x48": "https://avatar.example.com/automation-48.png",
+                "24x24": "https://avatar.example.com/automation-24.png",
+                "16x16": "https://avatar.example.com/automation-16.png",
+                "32x32": "https://avatar.example.com/automation-32.png"
+              },
+              "displayName": "自動化の係",
               "active": true,
               "timeZone": "Asia/Tokyo",
               "accountType": "app"
             },
             "created": "2026-10-08T09:00:00.000+0900",
             "items": [
-              {"field": "Sprint", "fieldtype": "custom", "fieldId": "customfield_10020", "from": "", "fromString": "", "to": "41", "toString": "SAG Sprint 12"}
+              {
+                "field": "開始日",
+                "fieldtype": "custom",
+                "fieldId": "customfield_10015",
+                "from": null,
+                "fromString": null,
+                "to": "2026-10-07",
+                "toString": "7/10/26"
+              }
             ]
           }
         ]
       },
-      "fields": {"summary": "自動で動いたチケット"}
+      "fields": {
+        "summary": "自動で動いたチケット"
+      }
     }
   ],
   "isLast": true

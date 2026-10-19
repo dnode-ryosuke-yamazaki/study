@@ -13,7 +13,13 @@
   "active": true,
   "timeZone": "Asia/Tokyo",
   "locale": "ja_JP",
-  "groups": {"size": 3, "items": []},
-  "applicationRoles": {"size": 1, "items": []},
+  "groups": {
+    "size": 2,
+    "items": []
+  },
+  "applicationRoles": {
+    "size": 1,
+    "items": []
+  },
   "expand": "groups,applicationRoles"
 }
