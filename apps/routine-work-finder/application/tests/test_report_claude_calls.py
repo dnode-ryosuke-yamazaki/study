@@ -12,7 +12,7 @@ import unittest
 from dataclasses import dataclass
 
 from routine_work_finder import config_store
-from routine_work_finder.report import claude_calls, claude_response, materials
+from routine_work_finder.report import aggregate, claude_calls, claude_response, materials
 from tests.claude_support import WEEK_END, WEEK_START, memo, run, untitled, week_of
 
 
@@ -85,6 +85,7 @@ def generate(headless, week=None, memos=(), config_read=None):
     )
 
 
+HOUR = 3600
 EXCLUSIONS_NONE = {"exclusions": []}
 
 
@@ -314,6 +315,15 @@ class ExclusionCallTests(unittest.TestCase):
         self.assertEqual(result.status, claude_calls.CLAUDE_FAILED)
         self.assertEqual((result.exclusions.status, [item["value"] for item in result.exclusions.candidates]),
                          ("generated", ["進捗表"]))
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-7、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-3
+    def test_作業が4時間59分55秒なら足りず5時間ちょうどと5時間5秒なら足りる(self):
+        """否定確認: 5時間との比べ方を「より大きい」にすると落ちる"""
+        def totals(seconds):
+            return {aggregate.WORK: seconds, aggregate.MEETING: 0, aggregate.AWAY: 0, aggregate.EXCLUDED: 0}
+        self.assertFalse(claude_calls.has_enough_work(totals(5 * HOUR - 5)))
+        self.assertTrue(claude_calls.has_enough_work(totals(5 * HOUR)))
+        self.assertTrue(claude_calls.has_enough_work(totals(5 * HOUR + 5)))
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#記録しない候補の提案-7、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-7
     def test_作業が5時間未満の週は記録しない候補だけを1回呼び週の状態は記録が足りない週のまま(self):

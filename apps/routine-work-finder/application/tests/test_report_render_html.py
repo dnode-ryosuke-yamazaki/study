@@ -247,15 +247,6 @@ class ProposalAreaTests(unittest.TestCase):
         self.assertEqual([p.text() for p in section(root, "h-proposals").with_class("empty")],
                          ["今週の作業の記録が1.2時間しかないため、自動化案は作っていません。作業の記録が5時間以上ある週に作ります。"])
 
-    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-7、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-3
-    def test_作業が4時間59分55秒なら足りず5時間ちょうどと5時間5秒なら足りる(self):
-        """否定確認: 5時間との比べ方を「より大きい」にすると落ちる"""
-        def totals(seconds):
-            return {aggregate.WORK: seconds, aggregate.MEETING: 0, aggregate.AWAY: 0, aggregate.EXCLUDED: 0}
-        self.assertFalse(render_html.has_enough_work(totals(5 * HOUR - 5)))
-        self.assertTrue(render_html.has_enough_work(totals(5 * HOUR)))
-        self.assertTrue(render_html.has_enough_work(totals(5 * HOUR + 5)))
-
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-8
     def test_作成に失敗した週は失敗したことと週の名前を添えた作り直しの頼み方を出す(self):
         """否定確認: 失敗の文から週の名前を外すと落ちる"""

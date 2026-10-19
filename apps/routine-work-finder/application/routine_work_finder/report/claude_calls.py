@@ -57,11 +57,16 @@ def build_prompt(name):
     return (PROMPTS_DIR / "common.md").read_text(encoding="utf-8") + "\n" + (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
 
 
+def has_enough_work(totals):
+    """作業の記録が5時間以上あれば自動化案と作業の要約を作る(5時間未満かの判定はここだけで行う)"""
+    return totals.get(aggregate.WORK, 0) >= MIN_WORK_SECONDS
+
+
 def generate_week(week_name, start, end, week, memos, records, reusable, config_read, run_headless=None, logger=None):
     """1週間分の自動化案・作業の要約・記録しない候補を作る。records は4つの既存の作業の記録をつないだ一覧"""
     run_headless = run_headless or _default_run_headless()
     logger = logger or LOGGER
-    if week.totals.get(aggregate.WORK, 0) < MIN_WORK_SECONDS:
+    if not has_enough_work(week.totals):
         result = ClaudeResults(INSUFFICIENT)
     else:
         result = _proposals_and_summaries(week_name, start, end, week, memos, records, reusable, run_headless, logger)

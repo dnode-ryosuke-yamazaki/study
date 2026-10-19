@@ -22,7 +22,6 @@ from routine_work_finder.report import aggregate
 JST = timezone(timedelta(hours=9))
 TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "report.html"
 WEEKDAYS = "月火水木金土日"
-ENOUGH_WORK_SECONDS = 5 * 3600
 EFFECT_CLASSES = {"大": "big", "中": "mid", "小": "small"}
 CATEGORY_PARTS = (
     (aggregate.WORK, "作業", "var(--accent)"),
@@ -92,17 +91,13 @@ def week_name(moment):
 
 
 def week_state(outcome, proposals):
-    """週の状態。自動化案と作業の要約の結果だけで決め、記録しない候補は見ない"""
+    """週の状態。自動化案と作業の要約の結果(claude_calls の status。5時間未満かの判定はそちらで行う)だけで決め、
+    記録しない候補は見ない"""
     if outcome == "insufficient":
         return "insufficient"
     if outcome == "claudeFailed":
         return "failed"
     return "normal" if proposals else "empty"
-
-
-def has_enough_work(totals):
-    """作業の記録が5時間以上あれば自動化案と作業の要約を作る"""
-    return totals[aggregate.WORK] >= ENOUGH_WORK_SECONDS
 
 
 def report_period_end(monday, requested_at):

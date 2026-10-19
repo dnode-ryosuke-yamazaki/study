@@ -26,6 +26,11 @@ class DataPaths:
         self.control_log = self.root / "control.log"
         self.records = self.root / "records"
         self.memos = self.root / "memos"
+        # 週次レポート係が使うファイル(weekly-automation-report の appendix.md「週次レポート係が使うファイル」)
+        self.report_state = self.root / "report-state.json"
+        self.report_lock = self.root / "report.lock"
+        self.reports = self.root / "reports"
+        self.requests = self.root / "requests"
 
 
 def data_paths(environ=None, home=None):
