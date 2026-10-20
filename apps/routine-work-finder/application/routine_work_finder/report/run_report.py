@@ -411,8 +411,10 @@ class Runner:
             for source in sources:
                 LOGGER.info("source=%s count=%d", source, sum(1 for record in picked if record.get("source") == source))
             for failure in failed:
-                LOGGER.warning("source=%s site=%s failed reason=%s", failure.get("source"), failure.get("site") or "-",
-                               failure.get("reason"))
+                outcome = "partial" if failure.get("reason") == "truncated" else "failed"
+                status = f" status={failure['status']}" if failure.get("status") is not None else ""
+                LOGGER.warning("source=%s site=%s %s reason=%s%s", failure.get("source"), failure.get("site") or "-",
+                               outcome, failure.get("reason"), status)
             found.extend(picked)
             failures.extend(failed)
         return found, failures

@@ -656,6 +656,14 @@ class RecordStatusTests(unittest.TestCase):
             "Confluence(example.atlassian.net): 認証に失敗したため、この週の Confluence の編集は使わずに作りました",
             "議事録: 議事録の控えのフォルダが見つからないため、この週の議事録は使わずに作りました",
         ])
+        partial = [{"source": "jira", "site": "example.atlassian.net", "reason": "request", "status": 400},
+                   {"source": "confluence", "site": "example.atlassian.net", "reason": "truncated"}]
+        status = kv(render(unreadable_sources=partial))
+        self.assertEqual([element.text() for element in status["読めなかった記録"].with_class("warnline")], [
+            "JIRA(example.atlassian.net): 検索が受け付けられなかったため、この週の JIRA の更新は使わずに作りました",
+            "Confluence(example.atlassian.net): 件数の上限で打ち切られ、この週の Confluence の編集の一部を読めていない恐れがあります。"
+            "読めた分で作りました",
+        ])
         ok = kv(render(unreadable_sources=[]))["読めなかった記録"]
         self.assertEqual(ok.text(), "なし(JIRA・Confluence・Claude Code の会話・議事録をすべて読めました)")
 

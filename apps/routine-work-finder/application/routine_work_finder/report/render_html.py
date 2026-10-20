@@ -41,6 +41,7 @@ SOURCE_USES = {"jira": " JIRA の更新", "confluence": " Confluence の編集",
 FAILURE_REASONS = {
     "auth": "認証に失敗したため",
     "network": "通信に失敗したため",
+    "request": "検索が受け付けられなかったため",
     "format": "応答の形が想定と違ったため",
     "config": "PJプロファイルが読めないため",
     "missing": "議事録の控えのフォルダが見つからないため",
@@ -451,8 +452,12 @@ def _unreadable_html(failures):
         name = SOURCE_NAMES.get(source, str(source))
         if failure.get("site"):
             name = f"{name}({failure['site']})"
+        use = SOURCE_USES.get(source, name)
+        if failure.get("reason") == "truncated":
+            lines.append(_warn(f"{name}: 件数の上限で打ち切られ、この週の{use}の一部を読めていない恐れがあります。読めた分で作りました"))
+            continue
         reason = FAILURE_REASONS.get(failure.get("reason"), f"読めなかったため(理由: {failure.get('reason')})")
-        lines.append(_warn(f"{name}: {reason}、この週の{SOURCE_USES.get(source, name)}は使わずに作りました"))
+        lines.append(_warn(f"{name}: {reason}、この週の{use}は使わずに作りました"))
     return "<br>".join(lines)
 
 

@@ -204,6 +204,40 @@ class JiraContractTests(AtlassianSourceTestCase):
         self.assertEqual(result.jira, [])
         self.assertIn({"source": "jira", "site": "example.atlassian.net", "reason": "network"}, result.failures)
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-5
+    def test_検索が400や404で断られたサイトは通信の失敗ではなく検索の失敗としてステータスつきで控える(self):
+        """否定確認: 401・403 以外の 4xx を通信の失敗にまとめると落ちる"""
+        for path, status in ((JIRA_SEARCH, 400), (JIRA_SEARCH, 404), (MYSELF, 404)):
+            with self.subTest(path=path, status=status):
+                site = normal_site()
+                site[path] = (status, {})
+                result = self.read(FakeAtlassian({"example.atlassian.net": site}))
+                self.assertEqual(result.jira, [])
+                self.assertIn({"source": "jira", "site": "example.atlassian.net", "reason": "request", "status": status},
+                              result.failures)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-5
+    def test_サーバーの異常が続いたサイトは通信の失敗として控える(self):
+        """否定確認: 5xx まで検索の失敗に入れると落ちる"""
+        site = normal_site()
+        site[JIRA_SEARCH] = (503, {})
+        result = self.read(FakeAtlassian({"example.atlassian.net": site}))
+        self.assertIn({"source": "jira", "site": "example.atlassian.net", "reason": "network"}, result.failures)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-6
+    def test_変更履歴が件数の上限で打ち切られたチケットがあれば読めた分は使い一部を読めていない恐れとして控える(self):
+        """否定確認: total が返った件数より多いのを見ないと落ちる"""
+        site = normal_site()
+        site[JIRA_SEARCH]["issues"][0]["changelog"]["total"] = 60
+        result = self.read(FakeAtlassian({"example.atlassian.net": site}))
+        self.assertEqual(len(result.jira), 4)
+        self.assertEqual(result.failures, [{"source": "jira", "site": "example.atlassian.net", "reason": "truncated"}])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-6
+    def test_変更履歴がすべて返ったときは一部を読めていない恐れとして控えない(self):
+        result = self.read(FakeAtlassian({"example.atlassian.net": normal_site()}))
+        self.assertEqual(result.failures, [])
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-1
     def test_自分のアカウントが確かめられないサイトは変更履歴を読まずに控える(self):
         """否定確認: 自分のアカウントIDが読めないときに止めずに続けると落ちる"""
@@ -306,6 +340,25 @@ class ConfluenceContractTests(AtlassianSourceTestCase):
         self.assertIn({"source": "confluence", "site": "example.atlassian.net", "reason": "network"}, result.failures)
         # JIRA は同じサイトでも独立に読む
         self.assertEqual(len(result.jira), 4)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-5
+    def test_検索が400で断られたサイトは通信の失敗ではなく検索の失敗としてステータスつきで控える(self):
+        site = normal_site()
+        site[CONFLUENCE_SEARCH] = (400, {})
+        result = self.read(FakeAtlassian({"example.atlassian.net": site}))
+        self.assertEqual(result.confluence, [])
+        self.assertIn({"source": "confluence", "site": "example.atlassian.net", "reason": "request", "status": 400},
+                      result.failures)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-6
+    def test_検索の結果に次のページがあれば読めた分は使い一部を読めていない恐れとして控える(self):
+        """否定確認: 次のページの有無を見ないと落ちる"""
+        site = normal_site()
+        site[CONFLUENCE_SEARCH]["_links"]["next"] = "/rest/api/content/search?cql=type%3Dpage&limit=100&start=100"
+        result = self.read(FakeAtlassian({"example.atlassian.net": site}))
+        self.assertEqual(len(result.confluence), 2)
+        self.assertEqual(result.failures,
+                         [{"source": "confluence", "site": "example.atlassian.net", "reason": "truncated"}])
 
 
 class PartialFailureTests(AtlassianSourceTestCase):

@@ -406,6 +406,22 @@ class RequestTests(ReportRunTestCase):
         self.assertEqual(self.results()["2026-W41"], "insufficient")
         self.assertEqual(len(self.bodies), 1)
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作り直し-7、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作り直し-1
+    def test_状態に無い同じ週の依頼が2件あれば1件目は定期の作成で状態に書き2件目は作り直しで状態に書かない(self):
+        """否定確認: 2件目も定期の作成として扱うと状態への書き込みが2回になって落ちる"""
+        self.write_state({"2026-W40": "generated"})
+        self.write_week_lines("2026-W41")
+        self.request("2026-W41", file_name="20261009-180000-0001.json")
+        self.request("2026-W41", file_name="20261009-180100-0002.json")
+        self.run_report()
+        self.assertEqual([payload["week"] for _, payload in self.headless.calls], ["2026-W41", "2026-W41"])
+        self.assertEqual(len(self.bodies), 2)
+        self.assertEqual(self.results(), {"2026-W40": "generated", "2026-W41": "insufficient"})
+        self.assertEqual(sum("state week=2026-W41" in line for line in self.logs), 1)
+        self.assertTrue(any("kind=schedule week=2026-W41" in line for line in self.logs))
+        self.assertTrue(any("kind=remake week=2026-W41" in line for line in self.logs))
+        self.assertEqual(self.remaining_requests(), [])
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-2
     def test_最後がW36でW38の依頼があればW38を先に作りW37とW39とW40を漏れなく作る(self):
         """否定確認: 対象の一覧を依頼の処理のあとに決めると W37 が落ちて落ちる"""
@@ -692,6 +708,20 @@ class SourceAndExclusionFlowTests(ReportRunTestCase):
         self.assertIn("Confluence(a.atlassian.net): 認証に失敗したため", html_text)
         self.assertIn("Claude Code の会話: 読めなかったため", html_text)
         self.assertTrue(any("WARN" in line and "source=claudeCode" in line for line in self.logs))
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#既存の作業の記録の取り込み-5
+    def test_検索で断られたサイトはステータスを打ち切られたサイトは一部のみと分けてログに書く(self):
+        """否定確認: ステータスを書かないと原因を切り分けられず落ちる"""
+        self.write_enough_week("2026-W41")
+        self.atlassian = lambda start, end: SimpleNamespace(
+            jira=[], confluence=[],
+            failures=[{"source": "jira", "site": "a.atlassian.net", "reason": "request", "status": 400},
+                      {"source": "confluence", "site": "a.atlassian.net", "reason": "truncated"}])
+        self.run_report()
+        self.assertTrue(any("WARN" in line and "source=jira site=a.atlassian.net failed reason=request status=400" in line
+                            for line in self.logs))
+        self.assertTrue(any("WARN" in line and "source=confluence site=a.atlassian.net partial reason=truncated" in line
+                            for line in self.logs))
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#記録しない候補の提案-7
     def test_作業が5時間未満の週も記録しない候補だけは呼び結果は記録が足りない週のまま(self):

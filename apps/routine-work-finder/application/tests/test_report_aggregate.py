@@ -351,6 +351,21 @@ class UnavailableTimeTests(WeekAggregateTestCase):
         self.assertEqual([(group.app, group.seconds) for group in result.top],
                          [("Microsoft Teams", 15), ("Finder", 5), ("Code", 5)])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-6
+    def test_題名が取れなかった時間の一覧は会議と離席の行も含めアプリ名だけの組は作業の行だけにする(self):
+        """否定確認: 一覧を作業の行に絞ると会議と離席の分が消えて落ちる"""
+        unavailable = {"title": None, "titleUnavailable": True, "titleReason": "timeout"}
+        lines = (run("2026-10-06T09:00:00", 1, app="Microsoft Teams", **unavailable)
+                 + run("2026-10-06T09:00:05", 2, app="Microsoft Teams", mic=True, **unavailable)
+                 + run("2026-10-06T09:00:15", 1, app="Microsoft Teams", locked=True, **unavailable))
+        for line in lines:
+            del line["title"]
+        self.write_lines(kind("2026-10-06T09:00:00", "start"), *lines,
+                         kind("2026-10-06T09:00:20", "stop", reason="stopRequested"))
+        result = self.aggregate_week()
+        self.assertEqual(result.title_unavailable, [{"app": "Microsoft Teams", "reason": "timeout", "seconds": 20}])
+        self.assertEqual([(group.app, group.seconds) for group in result.top], [("Microsoft Teams", 5)])
+
 
 class AutomationCandidateTests(unittest.TestCase):
     """同じアプリと題名の組の作業が30分以上あけて週2回以上現れたものを自動化案の候補にする(キー操作の中身は見ない)"""

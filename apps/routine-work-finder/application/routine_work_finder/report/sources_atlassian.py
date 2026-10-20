@@ -2,7 +2,8 @@
 
 PJプロファイルに登録したすべてのPJから JIRA と Confluence のサイトを集め、同じサイトは1回だけ読む。
 通信と認証は ~/.claude/lib/atlassian_rest を使う(変更しない)。読めなかったサイトはレポートを止めずに
-記録の名前・サイト・理由として控える(design.md「既存の作業の記録を読み込む」1〜3・7、
+記録の名前・サイト・理由として控える。件数の上限で打ち切られたサイトは、読めた分を使ったうえで
+一部を読めていない恐れとして控える(design.md「既存の作業の記録を読み込む」1〜3・7、
 appendix.md「JIRA と Confluence の検索の形」)。
 
 例外の文言には URL・トークン・本文を入れない。ログに書くのは記録の名前・サイト・理由だけにする。
@@ -117,21 +118,55 @@ def _failure(source, site, reason):
     return {"source": source, "site": site, "reason": reason}
 
 
+class _Transport:
+    """共通部品へ渡す通信。最後に受けたステータスと、Confluence の検索の結果に次のページがあったかを控える。
+    共通部品の例外はステータスを文言にしか持たないため、ここで控えて 4xx を通信の失敗と分ける"""
+
+    def __init__(self, http_request):
+        self.transport = http_request or client._default_http_request
+        self.last_status = None
+        self.has_next_page = False
+
+    def __call__(self, method, url, headers, body):
+        if CONFLUENCE_SEARCH_PATH in url:
+            url = url + CONFLUENCE_SEARCH_EXTRA
+        self.last_status = None
+        status, parsed = self.transport(method, url, headers, body)
+        self.last_status = status
+        if CONFLUENCE_SEARCH_PATH in url and isinstance(parsed, dict):
+            links = parsed.get("_links")
+            if isinstance(links, dict) and links.get("next"):
+                self.has_next_page = True
+        return status, parsed
+
+
 def _read_site(source, host, start, end, deps, failures):
-    """1サイト分を読む。失敗したらそのサイトの分は使わず、理由を控えて空を返す"""
+    """1サイト分を読む。失敗したらそのサイトの分は使わず、理由を控えて空を返す。
+    件数の上限で打ち切られていたら、読めた分を返したうえで一部を読めていない恐れとして控える"""
+    transport = _Transport(deps.http_request)
     try:
         email = deps.get_email(host)
         token = deps.get_token(host)
         if source == "jira":
-            return _read_jira(host, email, token, start, end, deps.http_request)
-        return _read_confluence(host, email, token, start, end, deps.http_request)
+            records, truncated = _read_jira(host, email, token, start, end, transport)
+        else:
+            records = _read_confluence(host, email, token, start, end, transport)
+            truncated = transport.has_next_page
+        if truncated:
+            failures.append(_failure(source, host, "truncated"))
+        return records
     except (client.AuthenticationError, TokenNotFoundError, ConfigError):
-        reason = "auth"
+        failure = _failure(source, host, "auth")
     except (client.RestDataError, FormatError):
-        reason = "format"
+        failure = _failure(source, host, "format")
     except client.RestApiError:
-        reason = "network"
-    failures.append(_failure(source, host, reason))
+        status = transport.last_status
+        if status is not None and 400 <= status < 500:
+            # 401・403 は認証の失敗として上で分けてある。残りの 4xx は送った検索が断られたもので、通信の失敗ではない
+            failure = {**_failure(source, host, "request"), "status": status}
+        else:
+            failure = _failure(source, host, "network")
+    failures.append(failure)
     return []
 
 
@@ -142,8 +177,7 @@ def _search_dates(start, end):
     return first, last
 
 
-def _account_id(host, email, token, path, http_request):
-    transport = http_request or client._default_http_request
+def _account_id(host, email, token, path, transport):
     headers = client._basic_auth_header(email, token)
     _status, body = client._request_with_retry(transport, "GET", f"https://{host}{path}", headers)
     account_id = body.get("accountId") if isinstance(body, dict) else None
@@ -153,6 +187,7 @@ def _account_id(host, email, token, path, http_request):
 
 
 def _read_jira(host, email, token, start, end, http_request):
+    """その週の自分の変更と、変更履歴が件数の上限で打ち切られたチケットがあったかを返す"""
     me = _account_id(host, email, token, "/rest/api/3/myself", http_request)
     first, last = _search_dates(start, end)
     jql = JQL_TEMPLATE.format(account_id=me, start=first.isoformat(), end=last.isoformat())
@@ -160,8 +195,13 @@ def _read_jira(host, email, token, start, end, http_request):
         f"https://{host}", email, token, jql, fields=["summary"], expand="changelog", http_request=http_request
     )
     records = []
+    truncated = False
     for issue in issues:
         key, summary, histories = _issue_parts(issue)
+        # 変更履歴はチケットごとに上限の件数までしか返らない(新しい順)。全件より少なければ古い変更が抜けている
+        total = issue["changelog"].get("total")
+        if isinstance(total, int) and total > len(histories):
+            truncated = True
         for history in histories:
             when, author, items = _history_parts(history)
             if author != me or not start <= when < end:
@@ -171,7 +211,7 @@ def _read_jira(host, email, token, start, end, http_request):
                     "source": "jira", "site": host, "key": key, "summary": summary,
                     "field": item["field"], "from": item["fromString"], "to": item["toString"], "time": when,
                 })
-    return records
+    return records, truncated
 
 
 def _issue_parts(issue):
@@ -220,23 +260,11 @@ def _parse_time(value):
     return parsed.astimezone(JST)
 
 
-def _with_version(http_request):
-    """Confluence の検索に版の情報の展開と件数を足して送る通信"""
-    transport = http_request or client._default_http_request
-
-    def request(method, url, headers, body):
-        if CONFLUENCE_SEARCH_PATH in url:
-            url = url + CONFLUENCE_SEARCH_EXTRA
-        return transport(method, url, headers, body)
-
-    return request
-
-
 def _read_confluence(host, email, token, start, end, http_request):
     me = _account_id(host, email, token, "/wiki/rest/api/user/current", http_request)
     first, last = _search_dates(start, end)
     cql = CQL_TEMPLATE.format(start=first.isoformat(), end=(last + timedelta(days=1)).isoformat())
-    pages = client.search_pages(f"https://{host}", email, token, cql, http_request=_with_version(http_request))
+    pages = client.search_pages(f"https://{host}", email, token, cql, http_request=http_request)
     records = []
     for page in pages:
         title, when, author = _page_parts(page)
