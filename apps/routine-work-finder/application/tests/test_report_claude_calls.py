@@ -134,7 +134,8 @@ class ProposalCheckTests(unittest.TestCase):
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-3
     def test_必須の項目が欠けた案や効果の値が違う案や渡していない番号がある案は応答全体が失敗の1回になる(self):
-        """否定確認: 効果の値の確認を外すと落ちる。番号が渡したものの中にあるかの確認を外すと落ちる"""
+        """否定確認: 効果の値の確認を外すと落ちる。番号が渡したものの中にあるかの確認を外すと落ちる。
+        番号が文字かの確認を外すと ResponseError でなく TypeError になって落ちる"""
         missing = proposal()
         del missing["seen"]
         cases = {
@@ -143,6 +144,8 @@ class ProposalCheckTests(unittest.TestCase):
             "効果が大中小でない": {"proposals": [proposal(effect="特大")]},
             "渡していない候補の番号": {"proposals": [proposal(candidateIds=["c9"])]},
             "渡していないメモの番号": {"proposals": [proposal(memoIds=["m9"])]},
+            "候補の番号が文字でない": {"proposals": [proposal(candidateIds=[["c1"]])]},
+            "メモの番号が文字でない": {"proposals": [proposal(memoIds=[{"id": "m1"}])]},
             "使える仕組みが一覧でない": {"proposals": [proposal(reuse="jira-progress")]},
         }
         for label, response in cases.items():

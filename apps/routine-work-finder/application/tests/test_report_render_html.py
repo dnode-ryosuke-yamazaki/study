@@ -500,6 +500,16 @@ class TimeUsageTests(unittest.TestCase):
                 self.assertEqual([li.text() for li in detail["具体例"].find_all("li")], ["(要約を作っていないため出していません)"])
                 self.assertEqual(detail["自動化案"].text(), "なし")
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#作業の要約-5
+    def test_推定で書いた要約には推定の印が付き推定でない要約には付かない(self):
+        """否定確認: 印の値を見ずに要約の文だけを出すと落ちる。全部に印を付けても落ちる"""
+        summaries = [{"id": "w1", "summary": "進捗表を直していたと思われる。", "estimated": True, "examples": []},
+                     {"id": "w2", "summary": "ボードを見ていた。", "estimated": False, "examples": []}]
+        root = render(proposals=[], summaries=summaries)
+        rows = root.by_id("bars").find_all("details")
+        self.assertEqual(rows[0].with_class("bsum")[0].text(), "(推定)進捗表を直していたと思われる。")
+        self.assertEqual(rows[1].with_class("bsum")[0].text(), "ボードを見ていた。")
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-5
     def test_題名が取れなかった組は題名の代わりに取れなかったことを出す(self):
         """否定確認: 題名が無い組の名前を空のまま出すと落ちる"""
