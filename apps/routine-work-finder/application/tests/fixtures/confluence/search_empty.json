@@ -1,0 +1,11 @@
+{
+  "results": [],
+  "start": 0,
+  "limit": 100,
+  "size": 0,
+  "_links": {
+    "base": "https://example.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://example.atlassian.net/wiki/rest/api/content/search?expand=version&cql=type%20%3D%20page%20AND%20contributor%20%3D%20currentUser%28%29%20AND%20lastmodified%20%3E%3D%20%222026-10-04%22%20AND%20lastmodified%20%3C%20%222026-10-11%22"
+  }
+}

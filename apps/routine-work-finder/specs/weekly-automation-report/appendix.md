@@ -101,22 +101,27 @@ Claude Code の依頼文の冒頭200字に、次の順で当てる。
 | `isSidechain` | `true` でない |
 | `isCompactSummary` | `true` でない |
 | `entrypoint` | `"sdk-cli"`(ヘッドレスの `claude -p`)でない |
+| `origin` | 有る行は `origin.kind` が `"human"`。無い行(古い形式)は、下の「本文」が `<task-notification>`・`<local-command-stdout>`・`<local-command-stderr>`・`<command-name>` のどれかで始まらない |
 | `timestamp` | 対象の範囲(ISO の UTC を日本時間に直して比べる) |
 
 - リポジトリ名: `cwd` の最後の部分
-- 依頼文: 文字列ならそのまま、配列なら `text` の要素を改行でつないだもの
+- 本文: 文字列ならそのまま、配列なら `text` の要素を改行でつないだもの。どちらも、VS Code の拡張が自動で付ける知らせ(`<ide_` で始まるタグで包まれた部分。`<ide_opened_file>…</ide_opened_file>`・`<ide_selection>…</ide_selection>` など)を取り除き、前後の空白と改行を詰めたもの。取り除いた結果が空になった行は選ばない
+- 依頼文: 本文が `<command-message>` で始まる行(スラッシュコマンドで打った依頼)は、`<command-name>` の中身(`/` で始まるコマンド名)と `<command-args>` の中身を半角の空白1つでつないだもの(引数が空ならコマンド名だけ)。それ以外の行は本文そのもの
 
 ## JIRA と Confluence の検索の形
 
 JQL(サイトごと):
 
 ```
-issue in updatedBy(currentUser(), "2026-10-04", "2026-10-10") ORDER BY updated DESC
+issue in updatedBy("<自分の accountId>", "2026-10-04", "2026-10-10") ORDER BY updated DESC
 ```
+
+- `<自分の accountId>` は `/rest/api/3/myself` の `accountId`。JQL は関数の引数に関数を書けないため、`currentUser()` は使わない
 
 - 検索の日付は対象の週(2026-10-05〜2026-10-09 17:00)の前後1日を広げる。JQL・CQL の日付は Atlassian のプロフィールの時刻帯で解釈され、日本時間とずれることがあるため
 - 取る項目: `summary`、展開: `changelog`
 - 変更履歴は `author.accountId` が `/rest/api/3/myself` の `accountId` と一致し、`created` を日本時間に直して月曜0時〜金曜17時の範囲にあるものだけを残す
+- 変更履歴はチケットごとに上限の件数までしか返らない(新しい順)。`changelog.total` が `changelog.histories` の件数より多いチケットが1つでもあれば、そのサイトを一部を読めていない恐れ(`truncated`)として控える
 
 CQL(サイトごと):
 
@@ -126,6 +131,20 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-04" AND
 
 - 検索の日付は JQL と同じく前後1日を広げる
 - 取る項目: `title`・`version.by`・`version.when`。`version.by` が自分で、`version.when` を日本時間に直して月曜0時〜金曜17時の範囲にあるものだけを残す
+- 1回の検索で `limit=100` まで取る。応答の `_links.next` があれば、そのサイトを一部を読めていない恐れ(`truncated`)として控える
+
+読めなかった記録の理由(記録の状態とログの `reason`):
+
+| reason | 起きる場面 | 記録の状態の文言 |
+|---|---|---|
+| `auth` | 401・403、キーチェーンにトークンが無い | `<記録の名前>(<サイト>): 認証に失敗したため、この週の<記録>は使わずに作りました` |
+| `network` | つながらない・時間切れ・5xx が続く | `…: 通信に失敗したため、この週の<記録>は使わずに作りました` |
+| `request` | 401・403 以外の 4xx(ログに `status=<ステータス>` を添える) | `…: 検索が受け付けられなかったため、この週の<記録>は使わずに作りました` |
+| `format` | 応答の形が想定と違う | `…: 応答の形が想定と違ったため、この週の<記録>は使わずに作りました` |
+| `config` | PJプロファイルが読めない | `…: PJプロファイルが読めないため、この週の<記録>は使わずに作りました` |
+| `missing` | 議事録の控えのフォルダが無い | `…: 議事録の控えのフォルダが見つからないため、この週の<記録>は使わずに作りました` |
+| `unreadable` | 会話の記録のフォルダが読めない、読み込みで思わぬ例外が起きた | `…: 読めなかったため、この週の<記録>は使わずに作りました` |
+| `truncated` | 件数の上限で一部しか返らなかった(読めた分は使う。ログは `failed` でなく `partial`) | `…: 件数の上限で打ち切られ、この週の<記録>の一部を読めていない恐れがあります。読めた分で作りました` |
 
 ## Claude に渡す材料の形
 
@@ -396,6 +415,8 @@ HTML 断片。値はエスケープする。
 2026-10-09T17:00:03+09:00 INFO start trigger=schedule week=2026-W41
 2026-10-09T17:00:04+09:00 INFO rows read=41234 skipped=1 work=1512m meeting=420m away=380m excluded=12m
 2026-10-09T17:00:09+09:00 WARN source=confluence site=example.atlassian.net failed reason=auth
+2026-10-09T17:00:10+09:00 WARN source=jira site=example.atlassian.net failed reason=request status=400
+2026-10-09T17:00:10+09:00 WARN source=jira site=example2.atlassian.net partial reason=truncated
 2026-10-09T17:02:40+09:00 INFO claude call=proposals attempt=1 ok=true seconds=151 chars=84210
 2026-10-09T17:02:58+09:00 INFO claude call=exclusions attempt=1 ok=true seconds=18 chars=21304
 2026-10-09T17:02:58+09:00 INFO exclusions kept=2 dropped=1

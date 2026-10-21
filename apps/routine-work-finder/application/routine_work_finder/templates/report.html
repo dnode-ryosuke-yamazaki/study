@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><!--TITLE--></title>
+<style>
+  :root {
+    --ground: #f2f5f4;
+    --surface: #ffffff;
+    --ink: #17262a;
+    --muted: #5e6e70;
+    --line: #d8e0df;
+    --accent: #0e6e66;
+    --accent-soft: #e1efed;
+    --bar: #8fbfb8;
+    --big: #b4521c;
+    --mid: #8a6a00;
+    --small: #5e6e70;
+    --danger: #a3312b;
+    --note: #fff6d6;
+    --font: "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
+      --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+      --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
+    --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+    --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
+  }
+  body { background: var(--ground); color: var(--ink); font-family: var(--font); line-height: 1.7; }
+  .wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 20px; }
+  header { display: grid; gap: 4px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); }
+  h1 { margin: 0; font-size: 26px; line-height: 1.3; text-wrap: balance; }
+  .period { color: var(--muted); font-size: 14px; }
+  .totals { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 8px; font-size: 14px; }
+  .totals b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 18px; margin-right: 2px; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 14px; }
+  h2 { margin: 0; font-size: 17px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2 small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .proposals { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .proposal { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; padding-block: 14px; border-top: 1px solid var(--line); }
+  .proposal:first-child { border-top: 0; padding-top: 0; }
+  .proposal input { margin-top: 6px; width: 18px; height: 18px; accent-color: var(--accent); }
+  .ptitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-weight: 700; }
+  .ptitle label { cursor: pointer; }
+  .hours { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
+  .effect { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .effect.big { color: var(--big); } .effect.mid { color: var(--mid); } .effect.small { color: var(--small); }
+  .pbody { grid-column: 2; display: grid; gap: 2px; font-size: 14px; }
+  .pbody dt { color: var(--muted); font-size: 12px; }
+  .pbody dd { margin: 0 0 4px; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  button { font: inherit; font-size: 14px; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: var(--accent); font-weight: 700; }
+  .manual { display: grid; gap: 6px; }
+  .manual[hidden] { display: none; }
+  .manual textarea { width: 100%; box-sizing: border-box; min-height: 72px; font-family: var(--mono); font-size: 13px; background: var(--ground); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .empty, .error { font-size: 14px; padding: 12px 14px; border-radius: 8px; margin: 0; }
+  .empty { background: var(--accent-soft); }
+  .error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--ink); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); }
+  .error b { color: var(--danger); }
+  .split { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--line); }
+  .split span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .bars { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .bars li { font-size: 13px; }
+  .bars summary { display: grid; grid-template-columns: 1em minmax(0, 15em) 1fr 4.5em; align-items: center; gap: 10px; cursor: pointer; list-style: none; padding-block: 2px; border-radius: 4px; }
+  .bars summary::-webkit-details-marker { display: none; }
+  .bars summary::before { content: "▸"; color: var(--muted); font-size: 11px; }
+  .bars details[open] summary::before { content: "▾"; }
+  .bars summary:hover { background: var(--accent-soft); }
+  .bars summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .bardetail { margin: 6px 0 10px 1.6em; padding: 10px 12px; border-left: 2px solid var(--bar); background: color-mix(in srgb, var(--accent-soft) 50%, transparent); display: grid; gap: 6px; }
+  .bsum { margin: 0; font-size: 14px; }
+  .ex { margin: 0; padding-left: 1.2em; }
+  .bardetail a { color: var(--accent); }
+  .bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .name small { color: var(--muted); }
+  .bars .track { height: 10px; background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 3px; }
+  .bars .fill { height: 100%; background: var(--bar); border-radius: 3px; }
+  .bars .h { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .pill { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .pill.off { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+  .warnline { background: var(--note); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  footer { font-size: 12px; color: var(--muted); }
+  @media (max-width: 520px) {
+    .bars summary { grid-template-columns: 1em 1fr 4em; }
+    .bars .track { grid-column: 2 / -1; order: 3; }
+    .bardetail { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow"><!--EYEBROW--></span>
+    <h1>今週の定型業務と自動化案</h1>
+    <span class="period" id="period"><!--PERIOD--></span>
+    <div class="totals" id="totals"><!--TOTALS--></div>
+  </header>
+
+  <section aria-labelledby="h-proposals">
+    <h2 id="h-proposals">自動化案 <small>週に使った時間が長い順・最大5件</small></h2>
+    <div id="proposals-area"><!--PROPOSALS--></div>
+  </section>
+
+  <section aria-labelledby="h-time">
+    <h2 id="h-time">時間の使い方 <small>作業時間の上位10件・行を押すと中身が開きます</small></h2>
+    <div class="split" id="split" aria-hidden="true"><!--SPLIT--></div>
+    <div class="legend" id="legend"><!--LEGEND--></div>
+    <ul class="bars" id="bars"><!--BARS--></ul>
+  </section>
+
+  <section aria-labelledby="h-excl">
+    <h2 id="h-excl">記録しない候補 <small>次の記録から外すかどうかを選べます・残っている記録は書き換えません</small></h2>
+    <div id="excl-area"><!--EXCLUSIONS--></div>
+  </section>
+
+  <section aria-labelledby="h-rec">
+    <h2 id="h-rec">記録の状態</h2>
+    <dl class="kv" id="rec"><!--RECORD_STATUS--></dl>
+  </section>
+
+  <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、前面ウィンドウの題名・Excelのシート名・カーソルのある部品の種類・時間帯・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像・ページの本文・URL・セルの位置や値は記録していません。</footer>
+</div>
+<script>
+"use strict";
+// 週次レポート係が埋め込むデータ。文字列の < は < に崩してある
+var REPORT = /*REPORT_DATA*/;
+
+// 依頼文(バックログに積む)の形: 1行目のあとに、選んだ案を番号の順に「番号. 題名」で並べる
+function backlogText(week, proposals, selected) {
+  var lines = [];
+  for (var i = 0; i < proposals.length; i++) {
+    if (selected.indexOf(proposals[i].number) >= 0) { lines.push(proposals[i].number + ". " + proposals[i].title); }
+  }
+  return "/backlog 定型業務の週次レポート " + week + " の自動化案から、次をバックログに積んでください。\n" + lines.join("\n");
+}
+
+// 依頼文(記録しないものに足す)の形: 決まり文句の1行目のあとに、選んだ候補を欄の表示の順に1行ずつ。末尾に改行1つ
+function exclusionText(exclusions, selected) {
+  var lines = [];
+  for (var i = 0; i < exclusions.length; i++) {
+    if (selected.indexOf(exclusions[i].number) >= 0) {
+      lines.push((exclusions[i].target === "word" ? "ことば" : "アプリ") + ": " + exclusions[i].value);
+    }
+  }
+  return "/routine-work-finder 記録しないものに次を足してください。\n" + lines.join("\n") + "\n";
+}
+
+// 会議設定の自動化の選択画面(templates/select.html の copySelection)と同じ3段構え
+// 1段目: 押した瞬間のユーザー操作が有効なうちに同期の execCommand を試す
+// 2段目: クリップボードの機能があれば navigator.clipboard.writeText を呼ぶ
+// 3段目: どちらも駄目なら手で選ぶ欄に依頼文を出して選択状態にし、手作業のコピーを案内する
+function copyWithFallback(text, ui) {
+  function copied() {
+    ui.status.textContent = "コピーしました。Claude Code のチャット欄に貼ってください";
+    ui.status.className = "status ok";
+  }
+  function notCopied() {
+    ui.manual.hidden = false;
+    ui.manualText.value = text;
+    ui.manualText.focus();
+    ui.manualText.select();
+    try { ui.manualText.setSelectionRange(0, text.length); } catch (e) { /* 対応しない環境 */ }
+    ui.status.textContent = "コピーできませんでした";
+    ui.status.className = "status";
+  }
+  var ok = false;
+  var area = null;
+  try {
+    area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    ok = document.execCommand("copy") === true;
+  } catch (e) {
+    ok = false;
+  }
+  if (area !== null) {
+    try { document.body.removeChild(area); } catch (e) { /* 付けられなかった */ }
+  }
+  if (ok) { copied(); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(copied, notCopied);
+    return;
+  }
+  notCopied();
+}
+
+// チェック欄とコピーのボタンをつなぐ。1件も選ばれていないあいだはボタンを押せない
+function setupPicker(name, ids, idleMessage, build) {
+  var button = document.getElementById(ids.button);
+  if (!button) { return; }
+  var ui = { status: document.getElementById(ids.status), manual: document.getElementById(ids.manual),
+             manualText: document.getElementById(ids.manualText) };
+  var boxes = document.querySelectorAll('input[data-pick="' + name + '"]');
+  function selected() {
+    var numbers = [];
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].checked) { numbers.push(Number(boxes[i].getAttribute("data-number"))); }
+    }
+    return numbers;
+  }
+  function refresh() {
+    var count = selected().length;
+    button.disabled = count === 0;
+    ui.status.textContent = count ? count + "件を選択中" : idleMessage;
+    ui.status.className = "status";
+  }
+  for (var i = 0; i < boxes.length; i++) { boxes[i].addEventListener("change", refresh); }
+  button.addEventListener("click", function () { copyWithFallback(build(selected()), ui); });
+  refresh();
+}
+
+setupPicker("proposal", { button: "copy-btn", status: "copy-status", manual: "manual", manualText: "manual-text" },
+  "積みたい案にチェックを入れてください",
+  function (numbers) { return backlogText(REPORT.week, REPORT.proposals, numbers); });
+setupPicker("exclusion", { button: "ex-copy-btn", status: "ex-copy-status", manual: "ex-manual", manualText: "ex-manual-text" },
+  "外したい候補にチェックを入れてください",
+  function (numbers) { return exclusionText(REPORT.exclusions, numbers); });
+</script>
+</body>
+</html>

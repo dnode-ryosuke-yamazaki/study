@@ -1,0 +1,27 @@
+{
+  "type": "known",
+  "accountId": "5b10a2844c20165700ede21g",
+  "accountType": "atlassian",
+  "email": "me@example.com",
+  "publicName": "利用者A",
+  "profilePicture": {
+    "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+    "width": 48,
+    "height": 48,
+    "isDefault": false
+  },
+  "displayName": "利用者A",
+  "isExternalCollaborator": false,
+  "isGuest": false,
+  "locale": "ja",
+  "accountStatus": "active",
+  "_expandable": {
+    "operations": "",
+    "personalSpace": ""
+  },
+  "_links": {
+    "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g",
+    "base": "https://example.atlassian.net/wiki",
+    "context": "/wiki"
+  }
+}

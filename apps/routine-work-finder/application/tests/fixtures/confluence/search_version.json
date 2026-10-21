@@ -1,0 +1,401 @@
+{
+  "results": [
+    {
+      "id": "1005",
+      "type": "page",
+      "ari": "ari:cloud:confluence:00000000-0000-4000-8000-00000000c0de:page/1005",
+      "base64EncodedAri": "YXJpOmNsb3VkOmNvbmZsdWVuY2U6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDBjMGRlOnBhZ2UvMTAwNQ==",
+      "status": "current",
+      "title": "土曜の朝に自動で直ったページ",
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "me@example.com",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "isGuest": false,
+          "locale": "ja",
+          "accountStatus": "active",
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-09T21:30:00.000Z",
+        "friendlyWhen": "10月 09, 2026",
+        "message": "",
+        "number": 4,
+        "minorEdit": false,
+        "ncsStepVersion": "4",
+        "ncsStepVersionSource": "ncs-ack",
+        "confRev": "confluence$content$1005.4",
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1005"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1005/version/4"
+        }
+      },
+      "macroRenderedOutput": {},
+      "extensions": {
+        "position": "none"
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1005/restriction/byOperation",
+        "history": "/rest/api/content/1005/history",
+        "body": "",
+        "descendants": "/rest/api/content/1005/descendant",
+        "space": "/rest/api/space/EXAMPLE",
+        "childTypes": "",
+        "schedulePublishInfo": "",
+        "operations": "",
+        "schedulePublishDate": "",
+        "children": "/rest/api/content/1005/child",
+        "ancestors": "",
+        "draftVersion": ""
+      },
+      "_links": {
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1005",
+        "tinyui": "/x/Ex1005",
+        "editui": "/pages/resumedraft.action?draftId=1005",
+        "webui": "/spaces/EXAMPLE/pages/1005/Example+page+1005",
+        "edituiv2": "/spaces/EXAMPLE/pages/edit-v2/1005"
+      }
+    },
+    {
+      "id": "1003",
+      "type": "page",
+      "ari": "ari:cloud:confluence:00000000-0000-4000-8000-00000000c0de:page/1003",
+      "base64EncodedAri": "YXJpOmNsb3VkOmNvbmZsdWVuY2U6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDBjMGRlOnBhZ2UvMTAwMw==",
+      "status": "current",
+      "title": "金曜17時ちょうどに直したページ",
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "me@example.com",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "isGuest": false,
+          "locale": "ja",
+          "accountStatus": "active",
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-09T08:00:00.000Z",
+        "friendlyWhen": "10月 09, 2026",
+        "message": "",
+        "number": 3,
+        "minorEdit": false,
+        "ncsStepVersion": "3",
+        "ncsStepVersionSource": "ncs-ack",
+        "confRev": "confluence$content$1003.3",
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1003"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1003/version/3"
+        }
+      },
+      "macroRenderedOutput": {},
+      "extensions": {
+        "position": "none"
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1003/restriction/byOperation",
+        "history": "/rest/api/content/1003/history",
+        "body": "",
+        "descendants": "/rest/api/content/1003/descendant",
+        "space": "/rest/api/space/EXAMPLE",
+        "childTypes": "",
+        "schedulePublishInfo": "",
+        "operations": "",
+        "schedulePublishDate": "",
+        "children": "/rest/api/content/1003/child",
+        "ancestors": "",
+        "draftVersion": ""
+      },
+      "_links": {
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1003",
+        "tinyui": "/x/Ex1003",
+        "editui": "/pages/resumedraft.action?draftId=1003",
+        "webui": "/spaces/EXAMPLE/pages/1003/Example+page+1003",
+        "edituiv2": "/spaces/EXAMPLE/pages/edit-v2/1003"
+      }
+    },
+    {
+      "id": "1002",
+      "type": "page",
+      "ari": "ari:cloud:confluence:00000000-0000-4000-8000-00000000c0de:page/1002",
+      "base64EncodedAri": "YXJpOmNsb3VkOmNvbmZsdWVuY2U6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDBjMGRlOnBhZ2UvMTAwMg==",
+      "status": "current",
+      "title": "他の人が後から直したページ",
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "712020:00000000-0000-4000-8000-0000000000b2",
+          "accountType": "atlassian",
+          "email": "other@example.com",
+          "publicName": "利用者B",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/712020:00000000-0000-4000-8000-0000000000b2",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者B",
+          "isExternalCollaborator": false,
+          "isGuest": false,
+          "locale": "ja",
+          "accountStatus": "active",
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=712020%3A00000000-0000-4000-8000-0000000000b2"
+          }
+        },
+        "when": "2026-10-07T03:00:00.000Z",
+        "friendlyWhen": "10月 07, 2026",
+        "message": "表記を揃えた",
+        "number": 5,
+        "minorEdit": false,
+        "ncsStepVersion": "5",
+        "ncsStepVersionSource": "ncs-ack",
+        "confRev": "confluence$content$1002.5",
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1002"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1002/version/5"
+        }
+      },
+      "macroRenderedOutput": {},
+      "extensions": {
+        "position": "none"
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1002/restriction/byOperation",
+        "history": "/rest/api/content/1002/history",
+        "body": "",
+        "descendants": "/rest/api/content/1002/descendant",
+        "space": "/rest/api/space/EXAMPLE",
+        "childTypes": "",
+        "schedulePublishInfo": "",
+        "operations": "",
+        "schedulePublishDate": "",
+        "children": "/rest/api/content/1002/child",
+        "ancestors": "",
+        "draftVersion": ""
+      },
+      "_links": {
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1002",
+        "tinyui": "/x/Ex1002",
+        "editui": "/pages/resumedraft.action?draftId=1002",
+        "webui": "/spaces/EXAMPLE/pages/1002/Example+page+1002",
+        "edituiv2": "/spaces/EXAMPLE/pages/edit-v2/1002"
+      }
+    },
+    {
+      "id": "1001",
+      "type": "page",
+      "ari": "ari:cloud:confluence:00000000-0000-4000-8000-00000000c0de:page/1001",
+      "base64EncodedAri": "YXJpOmNsb3VkOmNvbmZsdWVuY2U6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDBjMGRlOnBhZ2UvMTAwMQ==",
+      "status": "current",
+      "title": "定型業務の洗い出しの作業ページ",
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "me@example.com",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "isGuest": false,
+          "locale": "ja",
+          "accountStatus": "active",
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-06T01:23:45.678Z",
+        "friendlyWhen": "10月 06, 2026",
+        "message": "手順を追記",
+        "number": 12,
+        "minorEdit": false,
+        "ncsStepVersion": "12",
+        "ncsStepVersionSource": "ncs-ack",
+        "confRev": "confluence$content$1001.12",
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1001"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1001/version/12"
+        }
+      },
+      "macroRenderedOutput": {},
+      "extensions": {
+        "position": "none"
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1001/restriction/byOperation",
+        "history": "/rest/api/content/1001/history",
+        "body": "",
+        "descendants": "/rest/api/content/1001/descendant",
+        "space": "/rest/api/space/EXAMPLE",
+        "childTypes": "",
+        "schedulePublishInfo": "",
+        "operations": "",
+        "schedulePublishDate": "",
+        "children": "/rest/api/content/1001/child",
+        "ancestors": "",
+        "draftVersion": ""
+      },
+      "_links": {
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1001",
+        "tinyui": "/x/Ex1001",
+        "editui": "/pages/resumedraft.action?draftId=1001",
+        "webui": "/spaces/EXAMPLE/pages/1001/Example+page+1001",
+        "edituiv2": "/spaces/EXAMPLE/pages/edit-v2/1001"
+      }
+    },
+    {
+      "id": "1004",
+      "type": "page",
+      "ari": "ari:cloud:confluence:00000000-0000-4000-8000-00000000c0de:page/1004",
+      "base64EncodedAri": "YXJpOmNsb3VkOmNvbmZsdWVuY2U6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDBjMGRlOnBhZ2UvMTAwNA==",
+      "status": "current",
+      "title": "月曜0時ちょうどに直したページ",
+      "version": {
+        "by": {
+          "type": "known",
+          "accountId": "5b10a2844c20165700ede21g",
+          "accountType": "atlassian",
+          "email": "me@example.com",
+          "publicName": "利用者A",
+          "profilePicture": {
+            "path": "/wiki/aa-avatar/5b10a2844c20165700ede21g",
+            "width": 48,
+            "height": 48,
+            "isDefault": false
+          },
+          "displayName": "利用者A",
+          "isExternalCollaborator": false,
+          "isGuest": false,
+          "locale": "ja",
+          "accountStatus": "active",
+          "_expandable": {
+            "operations": "",
+            "personalSpace": ""
+          },
+          "_links": {
+            "self": "https://example.atlassian.net/wiki/rest/api/user?accountId=5b10a2844c20165700ede21g"
+          }
+        },
+        "when": "2026-10-04T15:00:00.000Z",
+        "friendlyWhen": "10月 04, 2026",
+        "message": "",
+        "number": 7,
+        "minorEdit": false,
+        "ncsStepVersionSource": "ncs-ack",
+        "confRev": "confluence$content$1004.7",
+        "contentTypeModified": false,
+        "_expandable": {
+          "collaborators": "",
+          "content": "/rest/api/content/1004"
+        },
+        "_links": {
+          "self": "https://example.atlassian.net/wiki/rest/api/content/1004/version/7"
+        }
+      },
+      "macroRenderedOutput": {},
+      "extensions": {
+        "position": 1004
+      },
+      "_expandable": {
+        "container": "/rest/api/space/EXAMPLE",
+        "metadata": "",
+        "restrictions": "/rest/api/content/1004/restriction/byOperation",
+        "history": "/rest/api/content/1004/history",
+        "body": "",
+        "descendants": "/rest/api/content/1004/descendant",
+        "space": "/rest/api/space/EXAMPLE",
+        "childTypes": "",
+        "schedulePublishInfo": "",
+        "operations": "",
+        "schedulePublishDate": "",
+        "children": "/rest/api/content/1004/child",
+        "ancestors": "",
+        "draftVersion": ""
+      },
+      "_links": {
+        "self": "https://example.atlassian.net/wiki/rest/api/content/1004",
+        "tinyui": "/x/Ex1004",
+        "editui": "/pages/resumedraft.action?draftId=1004",
+        "webui": "/spaces/EXAMPLE/pages/1004/Example+page+1004",
+        "edituiv2": "/spaces/EXAMPLE/pages/edit-v2/1004"
+      }
+    }
+  ],
+  "start": 0,
+  "limit": 100,
+  "size": 5,
+  "_links": {
+    "base": "https://example.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://example.atlassian.net/wiki/rest/api/content/search?expand=version&cql=type%20%3D%20page%20AND%20contributor%20%3D%20currentUser%28%29%20AND%20lastmodified%20%3E%3D%20%222026-10-04%22%20AND%20lastmodified%20%3C%20%222026-10-11%22"
+  }
+}
