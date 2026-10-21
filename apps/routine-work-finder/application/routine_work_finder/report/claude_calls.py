@@ -135,8 +135,11 @@ def validate_proposals(parsed, built):
         _require_fields(item, PROPOSAL_FIELDS, "自動化案")
         require(item["effect"] in EFFECTS, "効果が大・中・小のどれでもありません")
         require(all(isinstance(value, str) for value in item["reuse"]), "使える仕組みが文字の一覧ではありません")
-        require(all(value in built.candidates for value in item["candidateIds"]), "渡していない候補の番号があります")
-        require(all(value in built.memo_ids for value in item["memoIds"]), "渡していないメモの番号があります")
+        # 番号は文字であることを先に確かめる(リストや dict が入ると in の照合が TypeError になり、失敗の1回に数えられない)
+        require(all(isinstance(value, str) and value in built.candidates for value in item["candidateIds"]),
+                "渡していない候補の番号があります")
+        require(all(isinstance(value, str) and value in built.memo_ids for value in item["memoIds"]),
+                "渡していないメモの番号があります")
         if not item["candidateIds"] and not item["memoIds"]:
             continue
         candidate_ids = list(dict.fromkeys(item["candidateIds"]))

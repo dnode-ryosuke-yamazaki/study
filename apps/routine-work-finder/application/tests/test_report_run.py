@@ -434,6 +434,18 @@ class RequestTests(ReportRunTestCase):
         self.assertEqual(self.headless.weeks(), ["2026-W38", "2026-W37", "2026-W39", "2026-W40"])
         self.assertEqual(sorted(self.read_state()), ["2026-W36", "2026-W37", "2026-W38", "2026-W39", "2026-W40"])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-2、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作り直し-7
+    def test_状態の並びが週の順でなくても一番新しい週の次からを対象にする(self):
+        """否定確認: weeks の最後に書かれた週を最後の週にすると W40・W41 をもう一度作って落ちる。
+        古い週の依頼を定期の作成に切り替えると、その週が weeks の末尾に入る"""
+        self.clock = jst("2026-10-17T10:00:00")
+        self.write_state({"2026-W41": "generated", "2026-W39": "generated"})
+        for name in ("2026-W40", "2026-W41", "2026-W42"):
+            self.write_week_lines(name)
+        self.run_report()
+        self.assertEqual(self.headless.weeks(), ["2026-W42"])
+        self.assertEqual(self.results(), {"2026-W41": "generated", "2026-W39": "generated", "2026-W42": "insufficient"})
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-2
     def test_依頼を処理したら次の依頼へ戻りそのあとで対象の週を作る(self):
         """否定確認: 依頼より先に対象の週を作ると、依頼の W39 が作り直しとしてもう一度作られて落ちる"""

@@ -47,6 +47,7 @@ FAILURE_REASONS = {
     "missing": "議事録の控えのフォルダが見つからないため",
     "unreadable": "読めなかったため",
 }
+ESTIMATED_MARK = "(推定)"
 NO_SUMMARY = "この週は作業の要約を作っていません(自動化案の欄の理由と同じ)。時間帯だけを出しています。"
 NO_EXAMPLES = "(要約を作っていないため出していません)"
 MANUAL_GUIDE = "この画面ではコピーが使えませんでした。下の文を選んでコピーし、Claude Code のチャット欄に貼ってください。"
@@ -301,7 +302,11 @@ def _bars_html(report, state):
     rows = []
     for index, group in enumerate(top):
         summary = summaries.get(f"w{index + 1}")
-        summary_text = _e(summary["summary"]) if summary else ("" if with_summary else _e(NO_SUMMARY))
+        if summary:
+            # 推定で書いた要約には印を付ける(requirements.md 作業の要約[5])
+            summary_text = (ESTIMATED_MARK if summary["estimated"] else "") + _e(summary["summary"])
+        else:
+            summary_text = "" if with_summary else _e(NO_SUMMARY)
         if summary:
             examples = [_e(_example_label(example)) for example in summary["examples"]]
         else:
