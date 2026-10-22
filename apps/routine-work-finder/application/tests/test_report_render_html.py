@@ -686,8 +686,8 @@ class LayoutTests(unittest.TestCase):
     def test_切れ目のない長い文字列があっても列が広がらず折り返す指定が入っている(self):
         """否定確認: .wrap の列を minmax(0, 1fr) にしない、または body の overflow-wrap を外すと落ちる。
         グリッドの列に幅の下限が auto の 1fr が残っていても落ちる(長い文字列が列の最小幅を押し広げる)"""
-        style = re.search(r"<style>(.*?)</style>", render_html.render_report(report_input()), re.S).group(1)
-        style = re.sub(r"/\*.*?\*/", "", style, flags=re.S)
+        style = re.search(r"<style>(.*?)</style>", render_html.render_report(report_input()), re.DOTALL).group(1)
+        style = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL)
         rules = [(selector.strip(), body) for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", style)]
         by_selector = dict(rules)
         self.assertIn("overflow-wrap: anywhere", by_selector["body"])
