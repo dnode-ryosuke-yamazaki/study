@@ -38,7 +38,7 @@
   }
   body { background: var(--ground); color: var(--ink); font-family: var(--font); line-height: 1.7; overflow-wrap: anywhere; }
   /* 列は minmax(0, 1fr): 切れ目のない長い文字列(URL など)があっても列の最小幅が広がらず、body の overflow-wrap で折り返す */
-  .wrap { max-width: 1200px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .wrap { margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
   header { display: grid; gap: 4px; }
   .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); }
   h1 { margin: 0; font-size: 26px; line-height: 1.3; text-wrap: balance; }

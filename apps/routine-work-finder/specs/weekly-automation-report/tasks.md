@@ -236,13 +236,13 @@ launchd から OneDrive へ確実に書き、開けるリンクを Teams で届�
 
 ## 改修
 
-### 17. 切れ目のない長い文字列があってもレポートが横にはみ出さないようにし、本文の幅を広げる 【担当: claude】
+### 17. 切れ目のない長い文字列があってもレポートが横にはみ出さないようにし、本文を画面の幅いっぱいに広げる 【担当: claude】
 
 記録しない候補の「当たった題名の例」などに長い URL があっても、ビューアで右側が見切れずに読めるようにする。
 
 <details><summary>詳細を開く</summary>
 
-- `templates/report.html` と `mock.html` の CSS。`.wrap`・`section`・`.proposal`・`.kv`・`.bars summary` のグリッドの列を `minmax(0, 1fr)` にして列の最小幅が内容で広がらないようにし、`body` に `overflow-wrap: anywhere` を付けて長い文字列を折り返す。`.wrap` の最大幅は 1,200px
+- `templates/report.html` と `mock.html` の CSS。`.wrap`・`section`・`.proposal`・`.kv`・`.bars summary` のグリッドの列を `minmax(0, 1fr)` にして列の最小幅が内容で広がらないようにし、`body` に `overflow-wrap: anywhere` を付けて長い文字列を折り返す。`.wrap` に最大幅は設けず、左右16pxの余白だけで画面の幅いっぱいに広げる
 - テスト: UI/UX要件(切れ目のない長い文字列があっても列が広がらず折り返す指定が入っている。グリッドの列に幅の下限が auto の `1fr` が残っていれば落ちる)
 
 </details>
