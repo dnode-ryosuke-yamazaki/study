@@ -2,7 +2,7 @@
 
 > 実装中: session study-11, branch: feature/weekly-automation-report-impl, started: 2026-10-16T13:12:47+09:00
 
-タスク 16件(claude 16 / copilot 0)
+タスク 17件(claude 17 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
@@ -231,6 +231,19 @@ launchd から OneDrive へ確実に書き、開けるリンクを Teams で届�
 - レポートの作成と通知-2: 金曜17時をスリープ中に過ごし、起きたあとにその週が作られることを次の金曜に確かめる
 - 非機能-1: ログの全体の所要秒数が1,800以下
 - 下の確認チェックリストを埋める
+
+</details>
+
+## 改修
+
+### 17. 切れ目のない長い文字列があってもレポートが横にはみ出さないようにし、本文の幅を広げる 【担当: claude】
+
+記録しない候補の「当たった題名の例」などに長い URL があっても、ビューアで右側が見切れずに読めるようにする。
+
+<details><summary>詳細を開く</summary>
+
+- `templates/report.html` と `mock.html` の CSS。`.wrap`・`section`・`.proposal`・`.kv`・`.bars summary` のグリッドの列を `minmax(0, 1fr)` にして列の最小幅が内容で広がらないようにし、`body` に `overflow-wrap: anywhere` を付けて長い文字列を折り返す。`.wrap` の最大幅は 1,200px
+- テスト: UI/UX要件(切れ目のない長い文字列があっても列が広がらず折り返す指定が入っている。グリッドの列に幅の下限が auto の `1fr` が残っていれば落ちる)
 
 </details>
 
