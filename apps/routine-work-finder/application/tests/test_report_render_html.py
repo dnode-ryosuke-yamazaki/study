@@ -8,6 +8,7 @@
 import builtins
 import json
 import os
+import re
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -676,6 +677,25 @@ class RecordStatusTests(unittest.TestCase):
         ])
         ok = kv(render(unreadable_sources=[]))["読めなかった記録"]
         self.assertEqual(ok.text(), "なし(JIRA・Confluence・Claude Code の会話・議事録をすべて読めました)")
+
+
+class LayoutTests(unittest.TestCase):
+    """1列のレポートが、切れ目のない長い文字列(URL など)を含んでも横にはみ出さずに読める"""
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
+    def test_切れ目のない長い文字列があっても列が広がらず折り返す指定が入っている(self):
+        """否定確認: .wrap の列を minmax(0, 1fr) にしない、または body の overflow-wrap を外すと落ちる。
+        グリッドの列に幅の下限が auto の 1fr が残っていても落ちる(長い文字列が列の最小幅を押し広げる)"""
+        style = re.search(r"<style>(.*?)</style>", render_html.render_report(report_input()), re.DOTALL).group(1)
+        style = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL)
+        rules = [(selector.strip(), body) for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", style)]
+        by_selector = dict(rules)
+        self.assertIn("overflow-wrap: anywhere", by_selector["body"])
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", by_selector[".wrap"])
+        for selector, body in rules:
+            if "grid-template-columns" in body:
+                bare = re.sub(r"minmax\([^)]*\)", "", body)
+                self.assertNotIn("1fr", bare, msg=f"{selector} の列に幅の下限が auto の 1fr が残っている")
 
 
 if __name__ == "__main__":
