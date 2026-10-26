@@ -382,6 +382,21 @@ class PurgeTests(unittest.TestCase):
         self.assertEqual(claude_io.purge_old(self.root, self.now, self.logger), (1, 0))
         self.assertEqual(self.remaining(), [])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-4
+    def test_控えのフォルダの一覧は取れても中の種類を確かめられない作成回は消せなかった数に入れ起動は止まらない(self):
+        """否定確認: 種類の確認(is_symlink・is_dir)の PermissionError を拾わないと起動が止まって落ちる"""
+        stuck = self.folder(40)
+        os.chmod(self.root, 0o400)   # 一覧は読めるが中に入れないので、項目の種類(stat)が取れない
+        try:
+            with self.assertLogs("test.claude_io.purge", level="INFO") as captured:
+                self.assertEqual(claude_io.purge_old(self.root, self.now, self.logger), (0, 1))
+        finally:
+            os.chmod(self.root, 0o700)
+        self.assertIn("WARNING:test.claude_io.purge:claude-io purge failed dir=" + stuck.name + " errno=13", captured.output)
+        self.assertIn("INFO:test.claude_io.purge:claude-io purged=0 failed=1", captured.output)
+        self.assertEqual(claude_io.purge_old(self.root, self.now, self.logger), (1, 0))
+        self.assertEqual(self.remaining(), [])
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-6
     def test_控えのフォルダが無いときは何も消さずに数だけ書く(self):
         """否定確認: フォルダが無いときに iterdir すると落ちる"""

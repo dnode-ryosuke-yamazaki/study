@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import shutil
+import stat
 from datetime import datetime
 from pathlib import Path
 
@@ -135,7 +136,17 @@ def purge_old(root, now, logger=None):
     if entries:
         for path in entries:
             match = FOLDER_NAME.match(path.name)
-            if match is None or path.is_symlink() or not path.is_dir():
+            if match is None:
+                continue
+            try:
+                info = path.lstat()
+            except OSError as error:
+                # claude-io/ の一覧は読めても中に入れない(権限0400など)と項目の種類が取れない。
+                # 消せなかった数に入れて起動は止めない(Python の版によって is_symlink が例外を投げるか黙って False を返すかが違うため lstat で確かめる)
+                failed += 1
+                logger.warning("claude-io purge failed dir=%s errno=%s", path.name, error.errno)
+                continue
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
                 continue
             try:
                 day = datetime.strptime(match.group("day"), "%Y%m%d").date()
