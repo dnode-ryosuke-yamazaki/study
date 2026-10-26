@@ -20,7 +20,7 @@
 | 週次レポート係 | launchd(`com.example.routine-work-finder-report`)で毎週金曜17時と、作り直しの依頼のフォルダ(データフォルダの `requests/`)に依頼ファイルが置かれたときに起動する。金曜17時をスリープ中に過ごしても、次に起動したときにその週を作る。`claude -p`・PJプロファイル(`~/.claude/config/project-profiles.json`)・Teams 通知(`~/.claude/config/automation.json` の `routine-work-finder`)を使う |
 | 使ってよい期間 | クライアント業務に就いていない期間だけ。終わりの日時を決めない記録は始めない |
 
-データフォルダは `~/Library/Application Support/routine-work-finder/`(権限700、ファイルは600)。同期フォルダ(OneDrive・iCloud など)には置かない。記録・メモは28日を過ぎると記録係が自動で消す。
+データフォルダは `~/Library/Application Support/routine-work-finder/`(権限700、ファイルは600)。同期フォルダ(OneDrive・iCloud など)には置かない。記録・メモは28日を過ぎると記録係が自動で消す。週次レポート係が Claude へ送った材料と受け取った応答の控え(`claude-io/`)も同じフォルダに置き、作成から28日を過ぎると週次レポート係が起動のたびに消す(早く消したいときは `claude-io/` の中の作成回のフォルダを手で消してよい)。
 
 ## 開発コマンド
 
@@ -174,9 +174,10 @@ python3 -m routine_work_finder.control mic-meeting show
 |---|---|
 | `~/Library/Logs/routine-work-finder-recorder.log` | 記録係のログ(launchd の標準出力・標準エラー)。記録の開始・停止、設定が読めない理由、題名が取れない理由(変わったときだけ)、古い記録の削除の件数、書き込みの失敗 |
 | `~/Library/Application Support/routine-work-finder/control.log` | 操作スクリプトのログ。開始・停止・除外の追加と削除(件数だけ)・メモの追加と削除 |
-| `~/Library/Logs/routine-work-finder-report.log` | 週次レポート係のログ。起動の契機と週、読んだ行数と4区分の時間、読めなかった記録とその理由、Claude の呼び出しごとの成否・秒数・字数、保存と通知の結果、全体の所要秒数(`done seconds=`) |
+| `~/Library/Logs/routine-work-finder-report.log` | 週次レポート係のログ。起動の契機と週、読んだ行数と4区分の時間、読めなかった記録とその理由、Claude の呼び出しごとの成否・秒数・字数、控えのフォルダ(`claude-io dir=`)と消した控えの数(`claude-io purged=`)、保存と通知の結果、全体の所要秒数(`done seconds=`) |
 | `~/Library/Application Support/routine-work-finder/report-state.json` | 週次レポート係の状態。定期の作成で作った週と結果(`generated`・`insufficient`・`claudeFailed`・`saveFailed`・`failed`・`noRecords`)・通知できたか。作り直しは書かない |
 | `~/Library/Application Support/routine-work-finder/reports/` | 週次レポートのHTMLの控え(1週1ファイル。自動では消さない) |
+| `~/Library/Application Support/routine-work-finder/claude-io/<作成日時>-<週>/` | Claude とのやり取りの控え。呼び出しごとの指示文(`<種類>.prompt.md`)・標準入力に渡した材料(`<種類>-<何回目>.materials.json`)・検査前の応答(`.response.txt`)・成否(`.result.json`)と、作成回の情報(`build.json`)。自動化案が0件になった週の原因を調べるときに読む。作成から28日で自動で消える |
 | `~/Library/Application Support/routine-work-finder/recorder-status.json` | 記録係が5秒ごとに書き直す状態(最後に動いた日時・記録中か・1回の所要ミリ秒・設定が読めなかった理由・最後の書き込みエラー・アクセシビリティの許可) |
 
 どのログにも、題名・シート名・メモの文・記録しないことば・アプリ名・依頼文・Claude の応答の中身は書かない。

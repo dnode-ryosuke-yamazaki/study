@@ -1,5 +1,7 @@
 # 定型業務の週次レポート タスク
 
+> 実装中: session study-3a, branch: feature/routine-work-finder-claude-io-impl, started: 2026-10-26T12:58:09+09:00
+
 タスク 19件(claude 19 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。

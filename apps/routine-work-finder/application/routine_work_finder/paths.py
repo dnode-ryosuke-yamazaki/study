@@ -31,6 +31,7 @@ class DataPaths:
         self.report_lock = self.root / "report.lock"
         self.reports = self.root / "reports"
         self.requests = self.root / "requests"
+        self.claude_io = self.root / "claude-io"
 
 
 def data_paths(environ=None, home=None):
