@@ -64,19 +64,22 @@ class MicMeetingShowTests(ControlTestCase):
     def test_今の値を返し設定ファイルは書き換えない(self):
         """否定確認: show で設定ファイルを書き換えると落ちる"""
         self.write_config(micAsMeeting=False)
-        text = self.paths.config.read_text(encoding="utf-8")
+        before = self.paths.config.stat()
         result = self.run_control("mic-meeting", "show")
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["data"], {"micAsMeeting": False})
-        self.assertEqual(self.paths.config.read_text(encoding="utf-8"), text)
+        after = self.paths.config.stat()
+        # 同じ中身で書き戻されても気づけるよう、更新日時と inode も見る。control.log も作らない
+        self.assertEqual((after.st_mtime_ns, after.st_ino), (before.st_mtime_ns, before.st_ino))
+        self.assertFalse(self.paths.control_log.exists())
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-2
     def test_設定ファイルが無い・項目が無いときはtrueを返しファイルを作らない(self):
-        """否定確認: 設定ファイルが無いときに作ると落ちる"""
+        """否定確認: 設定ファイルが無いときに作る・書けるかを確かめてデータフォルダや control.log を作ると落ちる"""
         result = self.run_control("mic-meeting", "show")
         self.assertEqual(result["data"], {"micAsMeeting": True})
         self.assertEqual(result["message"], "マイクを会議とみなす設定です(既定)")
-        self.assertFalse(self.paths.config.exists())
+        self.assertFalse(self.root.exists())
         self.write_config()
         self.assertEqual(self.run_control("mic-meeting", "show")["data"], {"micAsMeeting": True})
         self.assertNotIn("micAsMeeting", self.read_config())
