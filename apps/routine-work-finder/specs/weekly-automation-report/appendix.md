@@ -63,11 +63,11 @@ claude-io/20261026-113404-2026-W43/
 {"ok": true, "reason": null, "detail": null, "seconds": 130, "chars": 38902, "finishedAt": "2026-10-26T12:02:15+09:00"}
 ```
 
-- `reason`: 失敗の分類。`launch` / `timeout` / `exitCode` / `headless`(起動側)、`invalidJson` / `invalidShape`(応答の検査)。成功は `null`
+- `reason`: 失敗の分類。`launch` / `timeout` / `exitCode` / `headless`(起動側)、`invalidJson` / `invalidShape` / `empty`(応答の検査。`empty` は自動化案で、候補かメモを渡したのに案が0件)。成功は `null`。3回目の応答を0件として受け取った自動化案の呼び出しも `ok: false, reason: "empty"` のまま残す(週の結果は `result.json` ではなく週次レポート係の状態のファイルで見る)
 - `detail`: 失敗の詳細。起動側は `run_headless` の `detail`(例: `exit=1`・`600秒`)、応答の検査は通らなかった項目。成功は `null`
 - `chars`: 標準入力に渡した材料の字数(ログの `chars` と同じ)
 - 起動の失敗・時間切れ・終了コード非0の呼び出しは `response.txt` が無い。検査で落ちた呼び出しは `response.txt` に検査前の本文がそのまま残る
-- 自動化案が0件・記録しない候補が0件の原因は、`result.json` だけでは分からない。`response.txt` の中身と、ログの `exclusions kept=… dropped=…` を突き合わせて調べる
+- 候補もメモも無い週の自動化案の0件は `ok: true` で残る。候補があるのに0件になった週は `reason` が `empty` の `result.json` と `response.txt` を読む。記録しない候補が0件の原因は `result.json` だけでは分からず、`response.txt` の中身とログの `exclusions kept=… dropped=…` を突き合わせて調べる
 
 ## 週次レポート係の状態のファイルの形
 
@@ -306,6 +306,8 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-04" AND
       "candidateIds": ["c1", "c4"],
       "memoIds": [],
       "effect": "大",
+      "importance": "大",
+      "importanceReason": "毎朝同じ時間帯に週5回あり、JIRA の更新と結び付く定型業務",
       "seen": "「進捗表.xlsx」の「集計」シートで表の中にカーソルがある時間が月・火の9時台に毎回20〜35分。同じ時間帯に JIRA の SAG-123 の状態を更新している…",
       "idea": "JQLで担当チケットを取り…",
       "reuse": ["jira-progress"]
@@ -314,10 +316,12 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-04" AND
 }
 ```
 
-- 必須: `title`・`candidateIds`・`memoIds`・`effect`・`seen`・`idea`・`reuse`
-- `effect`: `大` / `中` / `小`
+- 必須: `title`・`candidateIds`・`memoIds`・`effect`・`importance`・`importanceReason`・`seen`・`idea`・`reuse`
+- `effect`: `大` / `中` / `小`(自動化したときの効き目)
+- `importance`: `大` / `中` / `小`(繰り返しの確かさと自動化する価値を合わせた重要度。効果とは別の軸)
+- `importanceReason`: 重要度の根拠1文。100字まで
 - `reuse`: 渡した `reusable[].name` か `なし(新しく作る)`
-- 0件のときは `{"proposals": []}`
+- 0件 `{"proposals": []}` を返してよいのは、`candidates` も `memos` も空のときだけ
 
 作業の要約:
 
@@ -371,6 +375,8 @@ type = page AND contributor = currentUser() AND lastmodified >= "2026-10-04" AND
 自動化案だけに入れること:
 
 - 候補の中から、同じ操作の繰り返しで自動化の余地があるものを選ぶこと。メモに書かれた作業は回数によらず検討し、記録と突き合わせた結果を `seen` に書くこと
+- `candidates` か `memos` が1件以上あるときは、案を1件以上返すこと。「1週分の記録では毎週の作業か判断できない」という理由で全部を落とさず、繰り返す根拠が薄い候補は `importance` を `小` にして出すこと
+- `importance` は `effect` とは別に、その繰り返しが今後も続く見込み(繰り返しの確かさ)と自動化する価値を合わせて決めること。`大` は毎週続く定型業務で自動化の価値がはっきりしているもの、`中` は続く見込みはあるが1週分の記録では確信が持てないか価値が限られるもの、`小` は今週たまたま重なった作業や一時的な作業など繰り返す根拠が薄いもの。根拠を `importanceReason` に1文(100字まで)で書くこと
 - `reuse` は `reusable` の名前から選び、無ければ `なし(新しく作る)` とすること
 
 記録しない候補の指示文に入れること:
@@ -430,7 +436,8 @@ HTML 断片。値はエスケープする。
 
 | 状態 | 置き換える範囲 | 本文 |
 |---|---|---|
-| 自動化案が0件 | 自動化案の行 | `自動化案: 今週は見つかりませんでした` |
+| 自動化案が0件(候補もメモも無い週) | 自動化案の行 | `自動化案: 今週は見つかりませんでした` |
+| 自動化案が0件(候補かメモはあった週) | 自動化案の行 | `自動化案: 候補 12件・メモ 1件がありましたが案になりませんでした。チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと出ることがあります` |
 | 記録が足りない週 | 自動化案の行 | `自動化案: 記録が5時間未満のため作っていません` |
 | 作成に失敗 | 自動化案の行 | `自動化案: 作成に失敗しました。チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと作り直せます` |
 | 保存に失敗 | 本文全体 | `【定型業務の週次レポート】<br>2026-W41 のレポートを OneDrive に保存できませんでした。控え: <ローカルの控えのパス><br>チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと作り直せます` |
