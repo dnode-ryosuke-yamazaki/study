@@ -7,7 +7,7 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 ```
 ~/Library/Application Support/routine-work-finder/      # 権限 700
 ├── bin/rwf-recorder           # 署名した記録係(launchd が起動する)
-├── config.json                # 設定ファイル(操作スクリプトが書き、記録係が読む)
+├── config.json                # 設定ファイル(操作スクリプトが書き、記録係と週次レポート係が読む)
 ├── recorder-status.json       # 状態のファイル(記録係が5秒ごとに書き直す)
 ├── control.log                # 操作スクリプトのログ
 ├── records/<YYYY-MM-DD>.jsonl # 操作の記録(1行1回)
@@ -33,7 +33,8 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
     { "name": "キーチェーンアクセス", "bundleId": "com.apple.keychainaccess" },
     { "name": "システム設定", "bundleId": "com.apple.systempreferences" }
   ],
-  "excludedTitleWords": []
+  "excludedTitleWords": [],
+  "micAsMeeting": true
 }
 ```
 
@@ -41,7 +42,10 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 - `stoppedAt`: 「記録を止めて」で止めた日時。始めたときに `null` に戻す。必須の項目ではなく、欠けていたら `null` とみなす
 - `excludedApps[].bundleId`: 分からないときは `null`
 - `excludedTitleWords`: 題名に含まれると除外することばの一覧(例: `["給与", "人事"]`)
+- `micAsMeeting`: 週次レポートでマイクが使用中の時間を会議として数えるか。必須の項目ではなく、欠けていたら `true` とみなす。週次レポート係が読み、記録係は読まない。書き換えは週次レポートの付録「操作スクリプトのマイクの設定の呼び方」
 - 必須の項目: `version`・`endsAt`・`excludedApps`・`excludedTitleWords`。欠け・型違いは記録しない側に倒す
+- 必須でない項目(`stoppedAt`・`micAsMeeting`)も、型が違えば操作スクリプトと週次レポート係は形が違う設定ファイルとみなす
+- 操作スクリプトは設定ファイルを書き換えるとき、元のファイルにある項目を、この付録に載っていない項目も含めてそのまま残す(読み込みの結果に全項目を持たせ、書き換えた項目だけを変えて書き戻す)
 
 ## 状態のファイルの形
 

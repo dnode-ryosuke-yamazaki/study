@@ -156,6 +156,7 @@
       <button type="button" id="st-partial" data-state="partial" aria-pressed="false">今週を途中で作り直したレポート</button>
       <button type="button" id="st-pastcont" data-state="pastcont" aria-pressed="false">過去の週で記録を続けていた</button>
       <button type="button" id="st-cfgbad" data-state="cfgbad" aria-pressed="false">操作の記録の設定ファイルが読めない</button>
+      <button type="button" id="st-micoff" data-state="micoff" aria-pressed="false">マイクを会議とみなさない設定</button>
       <button type="button" id="st-exclnone" data-state="exclnone" aria-pressed="false">記録しない候補が0件</button>
       <button type="button" id="st-exclfail" data-state="exclfail" aria-pressed="false">記録しない候補を作れなかった</button>
       <button type="button" id="st-copyfail" data-state="copyfail" aria-pressed="false">コピーが使えない環境</button>
@@ -266,7 +267,8 @@
     normal: { work: 31.5, meeting: 6.0, away: 4.2, excluded: 0.3 },
     short: { work: 1.2, meeting: 0.2, away: 0.1, excluded: 0.0 },
     ended: { work: 25.5, meeting: 5.0, away: 3.3, excluded: 0.2 },
-    partial: { work: 16.0, meeting: 3.5, away: 2.0, excluded: 0.2 }
+    partial: { work: 16.0, meeting: 3.5, away: 2.0, excluded: 0.2 },
+    micoff: { work: 34.3, meeting: 0.0, away: 7.4, excluded: 0.3 }
   };
   let state = "normal";
   const selected = new Set();
@@ -427,7 +429,7 @@
     const rows = state === "short" ? SHORT_BARS : state === "ended" ? BARS_ENDED : state === "partial" ? BARS_PARTIAL : BARS;
     const max = rows[0][2];
     const noAI = state === "fail" || state === "short";
-    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail" && state !== "readfail" && state !== "partial" && state !== "pastcont" && state !== "cfgbad" && state !== "exclfail" && state !== "exclnone";
+    const noProposals = state !== "normal" && state !== "ended" && state !== "copyfail" && state !== "readfail" && state !== "partial" && state !== "pastcont" && state !== "cfgbad" && state !== "micoff" && state !== "exclfail" && state !== "exclnone";
     document.getElementById("bars").innerHTML = rows.map(([app, t, h, summary0, when, examples0, link0], i) => {
       const summary = noAI ? '<span class="status">この週は作業の要約を作っていません(自動化案の欄の理由と同じ)。時間帯だけを出しています。</span>' : summary0;
       const examples = noAI ? ["(要約を作っていないため出していません)"] : examples0;
@@ -463,6 +465,7 @@
       <dt>記録しないことば<br><small>(題名に含まれると記録しない)</small></dt><dd>${state === "cfgbad" ? '<span class="warnline">設定ファイルが読めない</span>' : "なし"}</dd>
       <dt>取れなかった時間</dt><dd>${short ? "なし" : '<span class="warnline">記録が取れなかった時間: 10月7日(水) 12:05〜12:55(Macのスリープなど)</span><br><span class="warnline">題名が取れなかった時間: Chrome 0.5時間(10月7日(水) 13:10〜13:40、アプリから応答なし。アプリ名だけ記録)</span>'}</dd>
       <dt>残しているデータ</dt><dd>2026-W38〜W41 の4週間分(それより古い週は消しています)</dd>
+      <dt>マイクの扱い</dt><dd>${state === "micoff" ? "会議として数えず、作業か離席に分けました" : state === "cfgbad" ? '<span class="warnline">設定ファイルが読めないため、使用中は会議として数えました</span>' : "使用中は会議として数えました"}</dd>
       <dt>読めなかった記録</dt><dd>${state === "readfail" ? '<span class="warnline">Confluence(example.atlassian.net): 認証に失敗したため、この週の Confluence の編集は使わずに作りました</span>' : "なし(JIRA・Confluence・Claude Code の会話・議事録をすべて読めました)"}</dd>`;
   }
 
