@@ -6,6 +6,8 @@ design.md の処理フローが使う書式だけを置く。手順・分岐は 
 
 ```
 ~/Library/Application Support/routine-work-finder/
+├── claude-io/                 # Claude とのやり取りの控え(28日で消す)
+│   └── <YYYYmmdd-HHMMSS>-<YYYY-Www>/
 ├── report-state.json          # 週次レポート係の状態
 ├── report.lock/               # ロック(フォルダ)。中に pid と日時の owner.json(日時は依頼を1件処理するたびに書き直す)
 ├── reports/<YYYY-Www>.html    # レポートのローカルの控え
@@ -18,6 +20,50 @@ OneDrive の保存先:
 - フォルダ: `~/Library/CloudStorage/OneDrive-Deloitte(O365D)/00_root/auto/routineWorkFinder/`
 - ファイル名: `<YYYY-Www>.html`(例: `2026-W41.html`)。書き込みの途中は `<YYYY-Www>.html.part`
 - ビューア形式のリンク: 議事録の自動生成の設定と同じビューアの基点とWebパスを使い、`build_viewer_url(ビューアの基点, "<Webパス>/routineWorkFinder", ファイル名)` の形で組み立てる
+
+## Claudeとのやり取りの控えの形
+
+`claude-io/<YYYYmmdd-HHMMSS>-<YYYY-Www>/`(例: `claude-io/20261026-113404-2026-W43/`。先頭はレポートの作成の回の開始日時(日本時間)、後ろは週の名前)。フォルダは権限700、ファイルは600。
+
+```
+claude-io/20261026-113404-2026-W43/
+├── build.json                     # この回の情報
+├── proposals.prompt.md            # 自動化案の指示文(common.md + proposals.md)
+├── proposals-1.materials.json     # 1回目に標準入力へ渡した材料そのまま
+├── proposals-1.response.txt       # 1回目の標準出力そのまま(検査する前)
+├── proposals-1.result.json        # 1回目の成否
+├── summaries.prompt.md            # 作業の要約の指示文(common.md + summaries.md)
+├── summaries-1.materials.json
+├── summaries-1.response.txt
+├── summaries-1.result.json
+├── exclusions.prompt.md           # 記録しない候補の指示文(exclusions.md)
+├── exclusions-1.materials.json
+├── exclusions-1.result.json       # 1回目が時間切れ(response.txt は無い)
+├── exclusions-2.materials.json    # 呼び直し
+├── exclusions-2.response.txt
+└── exclusions-2.result.json
+```
+
+`build.json`:
+
+```json
+{"week": "2026-W43", "kind": "remake", "partial": false, "startedAt": "2026-10-26T11:34:04+09:00", "periodEnd": "2026-10-23T17:00:00+09:00"}
+```
+
+- `kind`: `schedule`(定期の作成。依頼を定期の作成に切り替えた場合を含む)か `remake`(作り直し)
+- `partial`: 今の週の途中の作り直しなら `true`
+- `periodEnd`: 対象の範囲の終わり(金曜17時か、途中の作り直しでは依頼の時刻)
+
+`<種類>-<何回目>.result.json`:
+
+```json
+{"ok": false, "reason": "timeout", "seconds": 600, "chars": 38902, "finishedAt": "2026-10-26T11:58:37+09:00"}
+{"ok": true, "reason": null, "seconds": 130, "chars": 38902, "finishedAt": "2026-10-26T12:00:47+09:00"}
+```
+
+- `reason`: 失敗の分類。`launch` / `timeout` / `exitCode` / `headless`(起動側)、`invalidJson` / `invalidShape`(応答の検査)。成功は `null`
+- `chars`: 標準入力に渡した材料の字数(ログの `chars` と同じ)
+- 起動の失敗・時間切れの回は `response.txt` が無い。検査で落ちた回は `response.txt` に検査前の本文がそのまま残る
 
 ## 週次レポート係の状態のファイルの形
 
@@ -439,10 +485,13 @@ HTML 断片。値はエスケープする。
 
 ```
 2026-10-09T17:00:03+09:00 INFO start trigger=schedule week=2026-W41
+2026-10-09T17:00:03+09:00 INFO claude-io purged=1 failed=0
 2026-10-09T17:00:04+09:00 INFO rows read=41234 skipped=1 micAsMeeting=true work=1512m meeting=420m away=380m excluded=12m
 2026-10-09T17:00:09+09:00 WARN source=confluence site=example.atlassian.net failed reason=auth
 2026-10-09T17:00:10+09:00 WARN source=jira site=example.atlassian.net failed reason=request status=400
 2026-10-09T17:00:10+09:00 WARN source=jira site=example2.atlassian.net partial reason=truncated
+2026-10-09T17:00:10+09:00 INFO claude-io dir=/Users/example/Library/Application Support/routine-work-finder/claude-io/20261009-170003-2026-W41
+2026-10-09T17:00:10+09:00 WARN claude-io write failed file=proposals-1.materials.json errno=13
 2026-10-09T17:02:40+09:00 INFO claude call=proposals attempt=1 ok=true seconds=151 chars=84210
 2026-10-09T17:02:58+09:00 INFO claude call=exclusions attempt=1 ok=true seconds=18 chars=21304
 2026-10-09T17:02:58+09:00 INFO exclusions kept=2 dropped=1
@@ -450,4 +499,5 @@ HTML 断片。値はエスケープする。
 ```
 
 - 1行に1件。日時・レベル(INFO / WARN / ERROR)・英語の短い文と `キー=値`
-- 本文・依頼文・メモの文・Claude の応答の中身は書かない
+- 本文・依頼文・メモの文・Claude の材料と応答の中身は書かない(材料と応答は `claude-io/` の控えにだけ残す)
+- `claude-io purged=<消した回の数> failed=<消せなかった回の数>` は起動時に1行、`claude-io dir=<回のフォルダのパス>` は週ごとに1行。書けなかったときの `file=` はファイル名だけ
