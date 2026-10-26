@@ -18,9 +18,10 @@ FIXTURE_PATH = Path(__file__).resolve().parent.parent / "recorder" / "Tests" / "
 
 
 def fixture_config():
-    """記録係の契約テストが読む設定ファイルの中身(初期値に終わりの日時を足したもの)"""
+    """記録係の契約テストが読む設定ファイルの中身(初期値に終わりの日時とマイクの扱いを足したもの)"""
     config = config_store.default_config()
     config["endsAt"] = "2026-10-31T18:00:00+09:00"
+    config["micAsMeeting"] = True
     return config
 
 
@@ -157,6 +158,59 @@ class ReadConfigTests(TemporaryDataFolder):
         self.root.mkdir(parents=True)
         self.paths.config.write_bytes(b'{"version":1,"endsAt":null,"excludedApps":[],"excludedTitleWords":["\xe7\xb5"]}')
         self.assertEqual(config_store.read_config(self.paths), config_store.ConfigRead("unreadable", None, "invalidJson"))
+
+
+class MicAsMeetingConfigTests(TemporaryDataFolder):
+    """週次レポートがマイクを会議とみなすかの項目 micAsMeeting と、付録に無い項目を残す読み書き"""
+
+    BASE = '"version":1,"endsAt":null,"excludedApps":[],"excludedTitleWords":[]'
+
+    def write_raw(self, text):
+        self.root.mkdir(parents=True)
+        self.paths.config.write_text(text, encoding="utf-8")
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-1
+    def test_micAsMeetingの真偽値を読んで書き戻せる(self):
+        """否定確認: 読み込みで micAsMeeting を捨てると落ちる"""
+        for value in (True, False):
+            with self.subTest(value=value):
+                config_store.write_config(self.paths, {**config_store.default_config(), "micAsMeeting": value})
+                result = config_store.read_config(self.paths)
+                self.assertEqual(result.state, "ok")
+                self.assertIs(result.config["micAsMeeting"], value)
+                self.assertIs(config_store.mic_as_meeting(result.config), value)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-5
+    def test_項目が無い設定はみなす扱いで読め_項目を足さずに残す(self):
+        """否定確認: 欠けているときに false とみなす・読んだ結果へ勝手に項目を足すと落ちる"""
+        self.write_raw("{" + self.BASE + "}")
+        result = config_store.read_config(self.paths)
+        self.assertEqual(result.state, "ok")
+        self.assertNotIn("micAsMeeting", result.config)
+        self.assertIs(config_store.mic_as_meeting(result.config), True)
+        self.assertIs(config_store.mic_as_meeting(None), True)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-5
+    def test_micAsMeetingが真偽値でない設定は形が違うとみなす(self):
+        """否定確認: 真偽値の確かめを外す(0・文字列・null を通す)と落ちる"""
+        for text in ('0', '1', '"false"', 'null', '[]'):
+            with self.subTest(value=text):
+                self.write_raw('{' + self.BASE + ',"micAsMeeting":' + text + '}')
+                self.assertEqual(config_store.read_config(self.paths),
+                                 config_store.ConfigRead("unreadable", None, "invalidType:micAsMeeting"))
+                self.paths.config.unlink()
+                self.root.rmdir()
+
+    # 仕様: apps/routine-work-finder/specs/activity-recording/appendix.md#設定ファイルの形
+    def test_付録に無い項目も読み込みの結果に持ち_書き戻しても落とさない(self):
+        """否定確認: 既知の項目だけを書き戻すと落ちる"""
+        self.write_raw('{' + self.BASE + ',"futureField":{"a":[1,2]},"note":"x"}')
+        result = config_store.read_config(self.paths)
+        self.assertEqual(result.config["futureField"], {"a": [1, 2]})
+        config_store.write_config(self.paths, result.config)
+        written = json.loads(self.paths.config.read_text(encoding="utf-8"))
+        self.assertEqual(written["futureField"], {"a": [1, 2]})
+        self.assertEqual(written["note"], "x")
 
 
 class RecorderConfigFixtureTests(TemporaryDataFolder):

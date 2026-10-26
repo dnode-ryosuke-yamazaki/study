@@ -18,7 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from routine_work_finder import paths, weeks
+from routine_work_finder import config_store, paths, weeks
 from routine_work_finder.report import run_report
 
 HOUR = 3600
@@ -689,6 +689,68 @@ class ConfigTests(ReportRunTestCase):
         self.assertNotIn("に終わります", html_text)
         self.assertEqual(self.headless.names(), ["exclusions"])
         self.assertEqual(self.results()["2026-W41"], "insufficient")
+
+
+class MicSettingTests(ReportRunTestCase):
+    """マイクを会議とみなすかの設定を、レポートを作る時点で読んで集計・ログ・記録の状態に使う"""
+
+    now_text = "2026-10-10T09:00:00"
+
+    def setUp(self):
+        super().setUp()
+        self.write_state({"2026-W40": "generated", "2026-W41": "generated"})
+        # 月曜10時からの1時間、入力がありマイクが使用中の行
+        monday = weeks.parse_week_name("2026-W41").monday
+        self.paths.records.mkdir(exist_ok=True)
+        lines = [dict(sample_line(monday + timedelta(hours=10, seconds=5 * index)), mic=True) for index in range(720)]
+        with (self.paths.records / f"{lines[0]['t'][:10]}.jsonl").open("a", encoding="utf-8") as file:
+            file.write("".join(json.dumps(line) + "\n" for line in lines))
+
+    def remake(self, mic_setting):
+        config = config_store.default_config()
+        if mic_setting is not None:
+            config["micAsMeeting"] = mic_setting
+        config_store.write_config(self.paths, config)
+        self.logs.clear()
+        self.request("2026-W41")
+        self.run_report()
+        rows = next(line for line in self.logs if "rows read=" in line)
+        return rows, self.local_html("2026-W41")
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-4
+    def test_同じ週を設定を変えて作り直すと会議と作業の合計と記録の状態の文がそれぞれの設定どおりになる(self):
+        """否定確認: 週ごとの設定を残して使い回すと2回目の作り直しの値が変わらず落ちる"""
+        rows, html_text = self.remake(True)
+        self.assertIn("micAsMeeting=true", rows)
+        self.assertIn("work=0m meeting=60m", rows)
+        self.assertIn("使用中は会議として数えました", html_text)
+        rows, html_text = self.remake(False)
+        self.assertIn("micAsMeeting=false", rows)
+        self.assertIn("work=60m meeting=0m", rows)
+        self.assertIn("会議として数えず、作業か離席に分けました", html_text)
+        rows, _ = self.remake(True)
+        self.assertIn("work=0m meeting=60m", rows)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-5
+    def test_設定ファイルが無い・項目が無い・読めないときはマイクを会議として数える(self):
+        """否定確認: 読めない設定のときに会議とみなさない扱いに倒すと落ちる"""
+        rows, _ = self.remake(None)
+        self.assertIn("micAsMeeting=true", rows)
+        self.assertIn("meeting=60m", rows)
+        self.paths.config.unlink()
+        self.logs.clear()
+        self.request("2026-W41")
+        self.run_report()
+        self.assertIn("micAsMeeting=true", next(line for line in self.logs if "rows read=" in line))
+        self.paths.config.write_text('{"version":1,"endsAt":null,"excludedApps":[],"excludedTitleWords":[],"micAsMeeting":"no"}',
+                                     encoding="utf-8")
+        self.logs.clear()
+        self.request("2026-W41")
+        self.run_report()
+        rows = next(line for line in self.logs if "rows read=" in line)
+        self.assertIn("micAsMeeting=true", rows)
+        self.assertIn("meeting=60m", rows)
+        self.assertIn("設定ファイルが読めないため、使用中は会議として数えました", self.local_html("2026-W41"))
 
 
 class SourceAndExclusionFlowTests(ReportRunTestCase):

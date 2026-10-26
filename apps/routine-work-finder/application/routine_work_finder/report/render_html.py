@@ -466,6 +466,15 @@ def _unreadable_html(failures):
     return "<br>".join(lines)
 
 
+def _mic_html(config):
+    """集計で使った設定(run_report が同じ読み取りの結果から決める)に合わせた文。読めずに既定で数えたときは理由を添える"""
+    if config.state == "unreadable":
+        return _warn("設定ファイルが読めないため、使用中は会議として数えました")
+    if config_store.mic_as_meeting(config.config):
+        return "使用中は会議として数えました"
+    return "会議として数えず、作業か離席に分けました"
+
+
 def _status_html(report):
     apps, words = _excluded_lists(report.status.config)
     rows = [
@@ -474,6 +483,7 @@ def _status_html(report):
         ("面倒だった作業のメモ", _memos_html(report.status.memo_dates)),
         ("記録しないアプリ", apps),
         ("記録しないことば<br><small>(題名に含まれると記録しない)</small>", words),
+        ("マイクの扱い", _mic_html(report.status.config)),
         ("取れなかった時間", _lost_html(report.aggregate)),
         ("残しているデータ", _retained_html(report.status.retained_weeks)),
         ("読めなかった記録", _unreadable_html(report.unreadable_sources)),

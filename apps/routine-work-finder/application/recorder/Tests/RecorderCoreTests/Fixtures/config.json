@@ -16,5 +16,6 @@
       "bundleId": "com.apple.systempreferences"
     }
   ],
-  "excludedTitleWords": []
+  "excludedTitleWords": [],
+  "micAsMeeting": true
 }

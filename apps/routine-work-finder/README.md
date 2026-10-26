@@ -131,7 +131,17 @@ python3 -m routine_work_finder.control remake --week last
 | 「記録しないものの一覧を見せて」 | 今の一覧 |
 | 「メモ: 勤怠メールを毎回手で移している」「今週のメモを見せて」 | 面倒だった作業のメモ |
 | 「定型業務レポートを作り直して」「先週の定型業務レポートを作り直して」「2026-W41 の定型業務レポートを作り直して」 | 週次レポートを作り直す(週の指定は「今週」「先週」「最新の週」か `YYYY-Www`。指定なしは金曜17時を過ぎた最新の週)。記録が残っている28日以内の週だけ |
+| 「マイクを会議とみなさないで」「マイクを会議とみなして」「マイクの設定は?」 | 週次レポートでマイクが使用中の時間を会議として数えるかを切り替える・確かめる(既定は会議とみなす)。次に作るレポートから効き、作り直せば記録が残っている過去の週にも効く。記録係のマイクの記録は変わらない |
 | 週次レポートの「記録しない候補」でコピーした依頼文を貼る | 選んだ候補を記録しないものに足す |
+
+マイクの設定は、手元のターミナルでは次のように切り替える(操作の記録の設定ファイルの `micAsMeeting` に書く)。
+
+```
+cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application
+python3 -m routine_work_finder.control mic-meeting off
+python3 -m routine_work_finder.control mic-meeting on
+python3 -m routine_work_finder.control mic-meeting show
+```
 
 記録しないアプリの初期値は、macOS の「パスワード」・キーチェーンアクセス・システム設定の3つ。チャットのセッションによっては Bash からデータフォルダに書けないことがあり、その場合 Skill は同じ操作を手元のターミナルで実行するコマンドを渡す。
 
@@ -139,7 +149,7 @@ python3 -m routine_work_finder.control remake --week last
 
 週次レポートは OneDrive の `00_root/auto/routineWorkFinder/<週の名前>.html` に置き、Teams(スプリントレポート)にブラウザで開けるリンクを送る。データフォルダの `reports/` にも控えを残す。
 
-操作スクリプトの呼び方と結果の形は [specs/activity-recording/appendix.md](specs/activity-recording/appendix.md) の「操作スクリプトの呼び方」、作り直し(`remake`)と週次レポート係のファイルの形は [specs/weekly-automation-report/appendix.md](specs/weekly-automation-report/appendix.md)。
+操作スクリプトの呼び方と結果の形は [specs/activity-recording/appendix.md](specs/activity-recording/appendix.md) の「操作スクリプトの呼び方」、作り直し(`remake`)・マイクの設定(`mic-meeting`)と週次レポート係のファイルの形は [specs/weekly-automation-report/appendix.md](specs/weekly-automation-report/appendix.md)。
 
 ## 解除
 

@@ -108,10 +108,10 @@ class WeekAggregate:
         return int(sum((end - start).total_seconds() for start, end in self.gaps))
 
 
-def aggregate_week(data_paths, start, end):
-    """start 以上 end 未満の記録を集計する"""
+def aggregate_week(data_paths, start, end, mic_as_meeting=True):
+    """start 以上 end 未満の記録を集計する。mic_as_meeting は設定ファイルの micAsMeeting(週ごとには残さない)"""
     record_range = records.read_records(data_paths, start, end)
-    classified = classify(record_range.lines)
+    classified = classify(record_range.lines, mic_as_meeting)
     return WeekAggregate(
         totals=category_totals(classified),
         groups=group_work(classified),
@@ -122,10 +122,11 @@ def aggregate_week(data_paths, start, end):
     )
 
 
-def classify(lines):
-    """開始・停止を除いた行を時刻順に (行, 区分) の一覧で返す。離席は最後に入力した時刻まで遡って直してある"""
+def classify(lines, mic_as_meeting=True):
+    """開始・停止を除いた行を時刻順に (行, 区分) の一覧で返す。離席は最後に入力した時刻まで遡って直してある。
+    mic_as_meeting が False のときはマイクが使用中の行を会議にせず、ほかの行と同じく作業か離席に分ける"""
     counted = [line for line in lines if line["kind"] not in NOT_COUNTED_KINDS]
-    found = [_first_category(line) for line in counted]
+    found = [_first_category(line, mic_as_meeting) for line in counted]
     result = list(found)
     for index, line in enumerate(counted):
         if found[index] == AWAY and line.get("idleSec") is not None:
@@ -150,13 +151,13 @@ def category_totals(classified):
     return totals
 
 
-def _first_category(line):
+def _first_category(line, mic_as_meeting):
     """1行だけを見た区分。周りの状態が取れなかった(null の)項目は「そうでない」として次の判定へ進む"""
     if line["kind"] == "excluded":
         return EXCLUDED
     if line.get("locked") is True:
         return AWAY
-    if line.get("mic") is True:
+    if mic_as_meeting and line.get("mic") is True:
         return MEETING
     idle = line.get("idleSec")
     if idle is not None and idle >= AWAY_IDLE_SECONDS and line.get("displaySleepPrevented") is not True:

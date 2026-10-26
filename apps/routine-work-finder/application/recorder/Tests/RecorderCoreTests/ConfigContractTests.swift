@@ -26,6 +26,34 @@ struct ConfigContractTests {
         #expect(config.excludedTitleWords.isEmpty)
     }
 
+    // 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-1、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-6
+    /// 否定確認: 知らない項目を読めない設定として扱うと落ちる(記録が止まり、記録しない側に倒れる)
+    @Test("週次レポート用の micAsMeeting を含む設定ファイルを、記録係が読めて記録を続ける")
+    func readsConfigWithMicAsMeeting() throws {
+        var recordings: [Bool] = []
+        for value in [true, false] {
+            var object = try fixtureObject()
+            object["micAsMeeting"] = value
+            let result = parseConfig(try JSONSerialization.data(withJSONObject: object))
+            guard case .loaded(let config) = result else {
+                Issue.record("micAsMeeting=\(value) で読めなかった: \(result)")
+                return
+            }
+            #expect(config.endsAt == jst("2026-10-31T18:00:00"))
+            let decision = decideTick(config: result, now: jst("2026-10-07T09:00:00"), lastLine: .assumedStop, recordedPreviousTick: false)
+            #expect(decision.configError == nil)
+            recordings.append(decision.recording)
+        }
+        // 記録係は micAsMeeting を読まないため、true と false で記録の判定は変わらない
+        #expect(recordings.count == 2 && recordings[0] == recordings[1])
+    }
+
+    // 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-1
+    @Test("共有の fixture に micAsMeeting が入っている(操作スクリプトが書く形と一致させる)")
+    func fixtureHasMicAsMeeting() throws {
+        #expect(try fixtureObject()["micAsMeeting"] as? Bool == true)
+    }
+
     // 仕様: apps/routine-work-finder/specs/activity-recording/requirements.md#記録の始め方・止め方-1
     @Test("止めた日時の項目が欠けた設定ファイルも読める")
     func readsWithoutStoppedAt() throws {

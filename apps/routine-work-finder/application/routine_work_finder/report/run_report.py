@@ -355,10 +355,12 @@ class Runner:
             LOGGER.info("skip week=%s reason=noRecords", week.name)
             notified = self.notify(publish.remake_no_records_body(week.name)) if notify_no_records else False
             return Outcome(NO_RECORDS, notified)
-        week_aggregate = aggregate.aggregate_week(self.paths, start, end)
+        # 設定ファイルが無い・読めないときは会議とみなす既定で数える。同じ週の中で読み直さない
+        mic_as_meeting = config_store.mic_as_meeting(status.config.config)
+        week_aggregate = aggregate.aggregate_week(self.paths, start, end, mic_as_meeting=mic_as_meeting)
         totals = week_aggregate.totals
-        LOGGER.info("rows read=%d skipped=%d work=%dm meeting=%dm away=%dm excluded=%dm",
-                    len(week_aggregate.classified), week_aggregate.skipped,
+        LOGGER.info("rows read=%d skipped=%d micAsMeeting=%s work=%dm meeting=%dm away=%dm excluded=%dm",
+                    len(week_aggregate.classified), week_aggregate.skipped, str(mic_as_meeting).lower(),
                     *(totals[key] // 60 for key in aggregate.CATEGORIES))
         memos = records.read_memos(self.paths, start, end)
         source_records, failures = self.read_sources(start, end)
