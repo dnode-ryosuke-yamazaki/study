@@ -77,6 +77,31 @@ python3 -m routine_work_finder.control remake
 
 - `dataFolderUnwritable`: 依頼のフォルダ `requests/` やデータフォルダに書けない(`Operation not permitted` など)ため、何も書かずに返したとき。先に対象の週を決めてから書けるかを確かめるため、`current`・`previous`・`last`・指定なしも含め、決めた `YYYY-Www` が `data.week` に入る。Skill は同じ操作を手元のターミナルで実行するコマンドブロックを渡す(1行目 `cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application`、2行目 `python3 -m routine_work_finder.control remake --week <data.week の値>`。週は形の決まった値なので引数で渡す)。Skill は自分で週を計算しない
 
+## 操作スクリプトのマイクの設定の呼び方
+
+```bash
+cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application
+python3 -m routine_work_finder.control mic-meeting off
+python3 -m routine_work_finder.control mic-meeting on
+python3 -m routine_work_finder.control mic-meeting show
+```
+
+- `off` はマイクを会議とみなさない、`on` はみなす(既定)、`show` は今の設定を返すだけで書かない。値は操作の記録の設定ファイルの `micAsMeeting`(操作の記録の付録「設定ファイルの形」)
+- Skill は、チャットの「マイクを会議とみなさないで」の類いを `off`、「マイクを会議とみなして」の類いを `on`、「マイクの設定は?」の類いを `show` にする。入力ファイルは使わない
+
+結果:
+
+```json
+{"ok": true, "message": "マイクを会議とみなさない設定にしました。次に作る週次レポートから効き、作り直せば記録が残っている過去の週にも効きます", "data": {"micAsMeeting": false, "changed": true}}
+{"ok": true, "message": "すでにマイクを会議とみなす設定です", "data": {"micAsMeeting": true, "changed": false}}
+{"ok": true, "message": "マイクを会議とみなす設定です(既定)", "data": {"micAsMeeting": true}}
+{"ok": false, "error": "configUnreadable", "message": "設定ファイルが読めないため、マイクの設定を変えられません"}
+{"ok": false, "error": "dataFolderUnwritable", "message": "データフォルダに書けなかったため、何も書いていません"}
+```
+
+- `dataFolderUnwritable`: 設定ファイルか `control.log` に書けないため、何も書かずに返したとき。Skill は同じ操作を手元のターミナルで実行するコマンドブロックを渡す(1行目 `cd /Users/ryosyamazaki/repo/study/apps/routine-work-finder/application`、2行目 `python3 -m routine_work_finder.control mic-meeting off`(または `on`))
+- `show` で設定ファイルが無い・項目が無いときは `{"micAsMeeting": true}` を返し、ファイルは作らない
+
 ## 伏せ字の規則
 
 Claude Code の依頼文の冒頭200字に、次の順で当てる。
@@ -413,7 +438,7 @@ HTML 断片。値はエスケープする。
 
 ```
 2026-10-09T17:00:03+09:00 INFO start trigger=schedule week=2026-W41
-2026-10-09T17:00:04+09:00 INFO rows read=41234 skipped=1 work=1512m meeting=420m away=380m excluded=12m
+2026-10-09T17:00:04+09:00 INFO rows read=41234 skipped=1 micAsMeeting=true work=1512m meeting=420m away=380m excluded=12m
 2026-10-09T17:00:09+09:00 WARN source=confluence site=example.atlassian.net failed reason=auth
 2026-10-09T17:00:10+09:00 WARN source=jira site=example.atlassian.net failed reason=request status=400
 2026-10-09T17:00:10+09:00 WARN source=jira site=example2.atlassian.net partial reason=truncated

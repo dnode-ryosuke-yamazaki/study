@@ -50,14 +50,14 @@ flowchart TB
     reporter --> notify
 ```
 
-2つのファイルの組はどちらもこのMacのローカルのデータフォルダにある。Skill は設定(終わりの日時と記録しないアプリ・ことばの一覧)・メモ・作り直しの依頼を書き、記録係が書く状態のファイルを読んで状態の確認に答える。記録係が5秒ごとの操作と前面ウィンドウの題名を記録し、週次レポート係がそれと既存の作業の記録(JIRA・Confluence の自分の更新、Claude Code の会話、会議の議事録)を合わせてレポートを作る。通知は既存の共通部品 notify_teams(`~/.claude/lib/atlassian_rest/teams_notify.py`。通知先を設定ファイルで切り替える)で送る。各部品の詳細は各specの design.md で決める。
+2つのファイルの組はどちらもこのMacのローカルのデータフォルダにある。Skill は設定(終わりの日時と記録しないアプリ・ことばの一覧、週次レポートでマイクを会議とみなすか)・メモ・作り直しの依頼を書き、記録係が書く状態のファイルを読んで状態の確認に答える。記録係が5秒ごとの操作と前面ウィンドウの題名を記録し、週次レポート係がそれと既存の作業の記録(JIRA・Confluence の自分の更新、Claude Code の会話、会議の議事録)を合わせてレポートを作る。通知は既存の共通部品 notify_teams(`~/.claude/lib/atlassian_rest/teams_notify.py`。通知先を設定ファイルで切り替える)で送る。各部品の詳細は各specの design.md で決める。
 
 ## 機能一覧表(機能マップ)
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | リリース済み |
-| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | リリース済み |
+| [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | 実装中 |
+| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | 実装中 |
 
 ## 採用技術
 

@@ -1,6 +1,6 @@
 # 定型業務の週次レポート タスク
 
-タスク 17件(claude 17 / copilot 0)
+タスク 18件(claude 18 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
@@ -243,6 +243,22 @@ launchd から OneDrive へ確実に書き、開けるリンクを Teams で届�
 - `templates/report.html` と `mock.html` の CSS。`.wrap`・`section`・`.proposal`・`.kv`・`.bars summary` のグリッドの列を `minmax(0, 1fr)` にして列の最小幅が内容で広がらないようにし、`body` に `overflow-wrap: anywhere` を付けて長い文字列を折り返す。`.wrap` に最大幅は設けず、左右16pxの余白だけで画面の幅いっぱいに広げる
 - テスト: UI/UX要件(切れ目のない長い文字列があっても列が広がらず折り返す指定が入っている。グリッドの列に幅の下限が auto の `1fr` が残っていれば落ちる)
 - 表示確認(2026-10-22): 757字の URL を含む W43 を作り直して OneDrive のビューアで開き、本文がビューアの紙面の幅いっぱいに出て右の見切れが無いことを確認した。紙面の外側の灰色の余白はビューアのもので HTML からは変えられない(「開く → ブラウザで開く」なら画面いっぱいに出る)
+
+</details>
+
+### 18. マイクを会議とみなすかを設定で切り替え、みなさない設定では会議を数えずに作業と離席だけで数える 【担当: claude】
+
+ミュートのまま開いた会議の画面などでマイクが使われたままの週も、会議を0にして作業と離席だけで時間の使い方を読めるようにする。
+
+<details><summary>詳細を開く</summary>
+
+- `routine_work_finder/config_store.py`: 省略できる項目 `micAsMeeting`(真偽値。欠けていれば `true`、型違いは形が違う設定)を読み、書き戻すときに残す。手順は操作の記録の付録「設定ファイルの形」
+- `routine_work_finder/report/aggregate.py`: 区分の判定と遡りを `micAsMeeting` で切り替える(design.md「時間を集計する」2〜3)。`run_report.py` はレポートを作る時点で読んだ設定を渡す(「週次レポートを作って届ける」6)。ログの `rows` の行に `micAsMeeting` を出す
+- `routine_work_finder/report/render_html.py` と `templates/report.html`: 記録の状態に「マイクの扱い」の行を足す(手順11。モックの「マイクを会議とみなさない設定」と「操作の記録の設定ファイルが読めない」)
+- `routine_work_finder/control.py`: `mic-meeting on|off|show` を足す(design.md「マイクの数え方を切り替える」、appendix.md「操作スクリプトのマイクの設定の呼び方」)
+- `~/.claude/skills/routine-work-finder/SKILL.md`: 頼まれ方の対応表と手順に、マイクの切り替えと設定の確認を足す。`apps/routine-work-finder/README.md` のコマンドの一覧にも足す
+- テスト: 時間の集計-3、離席の判定-3、時間の集計-1(みなす設定の判定の順)、マイクの数え方の切り替え-1〜7(-1 の契約テストは記録係の Swift のテストで `micAsMeeting` を含む設定ファイルを読む)
+- 環境スモーク: チャットで「マイクを会議とみなさないで」「マイクの設定は?」と頼み、W42 を作り直して会議が0で出ること、記録の状態に「会議として数えず、作業か離席に分けました」と出ることを確かめる。確かめたら設定を利用者の望む値にしておく
 
 </details>
 
