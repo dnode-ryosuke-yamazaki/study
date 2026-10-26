@@ -56,10 +56,10 @@ class FakeHeadless:
         elif name == "exclusions" and name not in self.responses:
             value = {"exclusions": []}
         else:
-            return SimpleNamespace(success=False, output="", failure_category="タイムアウト")
+            return SimpleNamespace(success=False, output="", failure_category="タイムアウト", detail="600秒")
         if isinstance(value, Exception):
             raise value
-        return SimpleNamespace(success=True, output=json.dumps(value, ensure_ascii=False), failure_category="")
+        return SimpleNamespace(success=True, output=json.dumps(value, ensure_ascii=False), failure_category="", detail="")
 
     def names(self):
         return [name for name, _ in self.calls]

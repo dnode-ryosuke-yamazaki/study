@@ -10,7 +10,7 @@ launchd が金曜17時と作り直しの依頼のフォルダの変化で起動�
 - weeks に無く金曜17時を過ぎた週の依頼は、作り直しではなく定期の作成として作り、対象の週の一覧から除く
 - 思わぬ例外は全体を囲んでログと Teams に出し、定期の作成の途中なら weeks に failed と書き、
   作り直しの依頼の処理中ならその依頼ファイルを消す。ロックは必ず外す
-- ログは appendix.md「ログの書式」。題名・依頼文・メモの文・Claude の応答の中身は書かない
+- ログは appendix.md「ログの書式」。題名・依頼文・メモの文・Claude の材料と応答の中身は書かない(控え claude-io/ にだけ残す)
 """
 
 import json
@@ -30,6 +30,7 @@ from routine_work_finder import config_store, paths, records, weeks
 from routine_work_finder.report import (
     aggregate,
     claude_calls,
+    claude_io,
     exclusions,
     materials,
     onedrive_write,
@@ -263,6 +264,8 @@ class Runner:
         self.request_path = None     # 処理中の依頼ファイル
 
     def run(self):
+        # ロックを取ったあと、状態のファイルを読む前に28日を過ぎた控えを消す(手順2)
+        claude_io.purge_old(self.paths.claude_io, self.deps.now(), LOGGER)
         self.done = self.load_state()
         targets = target_weeks(self.done, self.deps.now())
         LOGGER.info("targets weeks=%s", ",".join(week.name for week in targets) or "-")
@@ -336,7 +339,8 @@ class Runner:
     def build_periodic(self, week, trigger):
         self.week, self.periodic = week, True
         LOGGER.info("start trigger=%s kind=schedule week=%s", trigger, week.name)
-        outcome = self.build(week, week.closing, partial=False, notify_no_records=trigger == TRIGGER_REQUEST)
+        outcome = self.build(week, week.closing, partial=False, notify_no_records=trigger == TRIGGER_REQUEST,
+                             kind="schedule")
         self.record(week, outcome)
         self.week, self.periodic = None, False
 
@@ -344,11 +348,11 @@ class Runner:
         self.week = week
         end, partial = render_html.report_period_end(week.monday, requested_at)
         LOGGER.info("start trigger=request kind=remake week=%s partial=%s", week.name, str(partial).lower())
-        self.build(week, end, partial=partial, notify_no_records=True)
+        self.build(week, end, partial=partial, notify_no_records=True, kind="remake")
         self.week = None
 
-    def build(self, week, end, partial, notify_no_records):
-        """手順5〜14。範囲は月曜0時から end まで"""
+    def build(self, week, end, partial, notify_no_records, kind):
+        """手順5〜14。範囲は月曜0時から end まで。kind は控えに書く定期(schedule)か作り直し(remake)か"""
         start = week.monday
         status = render_html.read_status_inputs(self.paths, start, end)
         if status.last_kind is None:
@@ -364,9 +368,11 @@ class Runner:
                     *(totals[key] // 60 for key in aggregate.CATEGORIES))
         memos = records.read_memos(self.paths, start, end)
         source_records, failures = self.read_sources(start, end)
+        # この週の Claude とのやり取りの控えの作成回のフォルダ(手順7)
+        store = claude_io.ExchangeStore.open(self.paths.claude_io, week.name, kind, partial, end, self.deps.now, LOGGER)
         results = claude_calls.generate_week(
             week.name, start, end, week_aggregate, memos, source_records, self.deps.collect_reusable(), status.config,
-            run_headless=self.deps.run_headless, logger=LOGGER)
+            run_headless=self.deps.run_headless, logger=LOGGER, store=store)
         now = self.deps.now()
         report = render_html.ReportInput(
             week=week.name,

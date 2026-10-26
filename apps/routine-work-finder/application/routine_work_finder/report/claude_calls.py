@@ -5,6 +5,7 @@
 記録しない候補は前の2回と独立に呼び、片方の失敗でもう片方を出せなくしない。
 claude -p は失敗しても終了コード0を返すことがあるため、応答の JSON が検査を通ったときだけ成功とする。
 ログには種類・何回目か・成否・失敗の分類・所要秒数・材料の字数だけを書き、材料と応答の中身は書かない。
+材料と応答は Claude とのやり取りの控え(claude_io)にだけ残す。
 """
 
 import logging
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from routine_work_finder.report import aggregate, exclusions, materials
+from routine_work_finder.report import aggregate, claude_io, exclusions, materials
 from routine_work_finder.report.claude_response import ResponseError, parse_json_object, require
 
 TIMEOUT_SECONDS = 600
@@ -62,61 +63,73 @@ def has_enough_work(totals):
     return totals.get(aggregate.WORK, 0) >= MIN_WORK_SECONDS
 
 
-def generate_week(week_name, start, end, week, memos, records, reusable, config_read, run_headless=None, logger=None):
-    """1週間分の自動化案・作業の要約・記録しない候補を作る。records は4つの既存の作業の記録をつないだ一覧"""
+def generate_week(week_name, start, end, week, memos, records, reusable, config_read, run_headless=None, logger=None,
+                  store=None):
+    """1週間分の自動化案・作業の要約・記録しない候補を作る。records は4つの既存の作業の記録をつないだ一覧。
+    store は Claude とのやり取りの控え(無ければ残さない)"""
     run_headless = run_headless or _default_run_headless()
     logger = logger or LOGGER
+    store = store or claude_io.ExchangeStore.disabled()
     if not has_enough_work(week.totals):
         result = ClaudeResults(INSUFFICIENT)
     else:
-        result = _proposals_and_summaries(week_name, start, end, week, memos, records, reusable, run_headless, logger)
-    result.exclusions = _exclusions(week_name, week, config_read, run_headless, logger)
+        result = _proposals_and_summaries(week_name, start, end, week, memos, records, reusable, run_headless, logger, store)
+    result.exclusions = _exclusions(week_name, week, config_read, run_headless, logger, store)
     return result
 
 
-def _proposals_and_summaries(week_name, start, end, week, memos, records, reusable, run_headless, logger):
+def _proposals_and_summaries(week_name, start, end, week, memos, records, reusable, run_headless, logger, store):
     automation = materials.build_automation_materials(week_name, week, memos, records, reusable)
     proposals = call_with_retries("proposals", build_prompt("proposals"), automation.payload,
-                                  lambda parsed: validate_proposals(parsed, automation), run_headless, logger)
+                                  lambda parsed: validate_proposals(parsed, automation), run_headless, logger, store)
     if proposals is None:
         return ClaudeResults(CLAUDE_FAILED)
     summary = materials.build_summary_materials(week_name, week, memos, records)
     summaries = call_with_retries("summaries", build_prompt("summaries"), summary.payload,
-                                  lambda parsed: validate_summaries(parsed, summary, start, end, proposals), run_headless, logger)
+                                  lambda parsed: validate_summaries(parsed, summary, start, end, proposals), run_headless, logger,
+                                  store)
     if summaries is None:
         return ClaudeResults(CLAUDE_FAILED)
     return ClaudeResults(GENERATED, proposals, summaries)
 
 
-def _exclusions(week_name, week, config_read, run_headless, logger):
+def _exclusions(week_name, week, config_read, run_headless, logger, store):
     built = exclusions.build_exclusion_materials(week_name, week)
     if not built.windows:
         return exclusions.ExclusionResult(exclusions.SKIPPED)
     current = exclusions.current_list(config_read)
     checked = call_with_retries("exclusions", exclusions.build_prompt(), built.payload,
-                                lambda parsed: exclusions.validate_exclusions(parsed, built, current), run_headless, logger)
+                                lambda parsed: exclusions.validate_exclusions(parsed, built, current), run_headless, logger,
+                                store)
     if checked is None:
         return exclusions.ExclusionResult(exclusions.FAILED)
     logger.info("exclusions kept=%d dropped=%d", len(checked.kept), checked.dropped)
     return exclusions.ExclusionResult(exclusions.GENERATED, checked.kept)
 
 
-def call_with_retries(name, prompt, payload, validate, run_headless, logger=None):
-    """同じ材料で3回まで呼び、検査を通った値を返す。3回続けて失敗したら None"""
+def call_with_retries(name, prompt, payload, validate, run_headless, logger=None, store=None):
+    """同じ材料で3回まで呼び、検査を通った値を返す。3回続けて失敗したら None。
+    呼ぶ前に指示文と材料、受け取ったら検査の前に本文と成否を控え(store)に書く"""
     logger = logger or LOGGER
+    store = store or claude_io.ExchangeStore.disabled()
     stdin_text = materials.serialize(payload)
+    store.save_prompt(name, prompt)
     for attempt in range(1, MAX_ATTEMPTS + 1):
         began = time.monotonic()
-        reason, value = None, None
+        reason, detail, value = None, None, None
+        store.save_materials(name, attempt, stdin_text)
         result = run_headless(prompt, stdin_text, TIMEOUT_SECONDS)
         if not result.success:
             reason = HEADLESS_REASONS.get(result.failure_category, "headless")
+            detail = result.detail or None
         else:
+            store.save_response(name, attempt, result.output)
             try:
                 value = validate(parse_json_object(result.output))
             except ResponseError as error:
-                reason = error.reason
+                reason, detail = error.reason, str(error)
         seconds = round(time.monotonic() - began)
+        store.save_result(name, attempt, reason is None, reason, detail, seconds, len(stdin_text))
         if reason is None:
             logger.info("claude call=%s attempt=%d ok=true seconds=%d chars=%d", name, attempt, seconds, len(stdin_text))
             return value
