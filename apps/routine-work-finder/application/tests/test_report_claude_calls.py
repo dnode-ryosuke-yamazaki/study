@@ -350,6 +350,17 @@ class EmptyResponseTests(unittest.TestCase):
         self.assertEqual((result.status, result.proposals, result.summaries), (claude_calls.CLAUDE_FAILED, [], []))
         self.assertEqual(headless.names(), ["proposals"] * 3 + ["exclusions"])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-4
+    def test_候補が無くてもメモがある週の0件は呼び直し3回とも0件なら0件の週として受け取る(self):
+        """否定確認: 呼び直す条件を候補の有無だけにして(メモを見ない)1回で受け取ると落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": []}] * 3, summaries=[{"items": [summary_item("w1")]}],
+                                exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless, week=self.no_candidate_week(), memos=[memo("2026-10-05T10:00:00", "メールを手で移す")])
+        self.assertEqual((result.status, result.proposals), (claude_calls.GENERATED, []))
+        self.assertEqual(headless.names(), ["proposals"] * 3 + ["summaries", "exclusions"])
+        self.assertEqual(headless.calls[0][2]["candidates"], [])
+        self.assertEqual(len(headless.calls[0][2]["memos"]), 1)
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-6、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
     def test_候補もメモも無い週の0件は1回目でそのまま受け取る(self):
         """否定確認: 候補の有無を見ずに0件を呼び直すと3回呼んで落ちる"""

@@ -257,11 +257,17 @@ class ProposalAreaTests(unittest.TestCase):
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-6、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
     def test_候補かメモがあった週の0件は候補の数とメモの数と案にしなかったことと作り直しの頼み方を出す(self):
-        """否定確認: 候補の数を Claude に渡した数でなく集計の候補の全数にしないと落ちる(集計は2件)。メモが0件のときに数を省くと落ちる"""
+        """否定確認: 候補の数を Claude に渡す上限の15件で切った数にすると(16件の週で)落ちる。候補の有無を見ずに文を出す向きは
+        候補もメモも無い週のテストで落ちる。メモが0件のときに数を省くと落ちる"""
+        many = [group("Google Chrome", f"ページ{index}", None, f"2026-10-0{5 + index % 5}T{9 + 2 * (index // 5):02d}:00:00",
+                      f"2026-10-0{5 + index % 5}T{10 + 2 * (index // 5):02d}:00:00", lines_each=60) for index in range(16)]
+        many_summaries = [{"id": f"w{index}", "summary": "ページを見ていた。", "estimated": False, "examples": []}
+                          for index in range(1, 11)]
         cases = {
             (2, 2): render(proposals=[]),
             (2, 0): render(proposals=[], status=status_inputs(memo_dates=[])),
             (0, 2): render(proposals=[], aggregate=week_aggregate(groups=[default_groups()[2]]), summaries=[default_summaries()[2]]),
+            (16, 2): render(proposals=[], aggregate=week_aggregate(groups=many), summaries=many_summaries),
         }
         for (candidates, memos), root in cases.items():
             with self.subTest(candidates=candidates, memos=memos):
