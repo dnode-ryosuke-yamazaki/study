@@ -393,7 +393,8 @@ class Runner:
         published = publish.publish_report(
             render_html.render_report(report), week.name, render_html.week_state(results.status, results.proposals),
             len(results.proposals), local_dir=self.paths.reports, onedrive_dir=self.deps.onedrive_dir,
-            notifier=self.deps.notifier, sleep=self.deps.sleep, copy=self.deps.copy)
+            notifier=self.deps.notifier, sleep=self.deps.sleep, copy=self.deps.copy,
+            candidate_count=len(week_aggregate.candidates), memo_count=len(memos))
         result = SAVE_FAILED if published.save_failed else results.status
         LOGGER.info("week=%s result=%s saved=%s notified=%s", week.name, result, str(published.saved).lower(),
                     str(published.notified).lower())

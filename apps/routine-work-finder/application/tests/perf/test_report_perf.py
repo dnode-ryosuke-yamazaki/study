@@ -62,8 +62,9 @@ class FakeHeadless:
         if "candidates" in payload:
             name = "proposals"
             ids = [entry["id"] for entry in payload["candidates"][:2]]
-            value = {"proposals": [{"title": "定型の転記", "candidateIds": ids, "memoIds": [], "effect": "大",
-                                    "seen": "毎朝同じ表を更新している", "idea": "表の更新を自動で行う", "reuse": ["jira-progress"]}]}
+            value = {"proposals": [{"title": "定型の転記", "candidateIds": ids, "memoIds": [], "effect": "大", "importance": "大",
+                                    "importanceReason": "毎朝続く", "seen": "毎朝同じ表を更新している",
+                                    "idea": "表の更新を自動で行う", "reuse": ["jira-progress"]}]}
         elif "items" in payload:
             name = "summaries"
             value = {"items": [{"id": entry["id"], "summary": "表を更新していた。", "estimated": False, "examples": []}

@@ -196,6 +196,23 @@ class NotificationBodyTests(unittest.TestCase):
                 lines = fragment_lines(publish.base_body("2026-W41", state, 0, URL_W41))
                 self.assertEqual(lines, ["【定型業務の週次レポート】", "週: 2026-W41", line, "レポート: 2026-W41.html"])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-4、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_自動化案が0件でも候補かメモがあった週は候補の数とメモの数と案にならなかったことと作り直しの頼み方の行になる(self):
+        """否定確認: 候補とメモの数を見ずに「今週は見つかりませんでした」を出すと落ちる"""
+        expected = {
+            (12, 1): "自動化案: 候補 12件・メモ 1件がありましたが案になりませんでした。"
+                     "チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと出ることがあります",
+            (3, 0): "自動化案: 候補 3件・メモ 0件がありましたが案になりませんでした。"
+                    "チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと出ることがあります",
+            (0, 1): "自動化案: 候補 0件・メモ 1件がありましたが案になりませんでした。"
+                    "チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと出ることがあります",
+            (0, 0): "自動化案: 今週は見つかりませんでした",
+        }
+        for (candidates, memos), line in expected.items():
+            with self.subTest(candidates=candidates, memos=memos):
+                body = publish.base_body("2026-W41", "empty", 0, URL_W41, candidate_count=candidates, memo_count=memos)
+                self.assertEqual(fragment_lines(body), ["【定型業務の週次レポート】", "週: 2026-W41", line, "レポート: 2026-W41.html"])
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-4
     def test_リンクがhttpsで始まらないときはリンクにせずファイル名だけを出す(self):
         """否定確認: https で始まるかを確かめずにリンクにすると落ちる"""

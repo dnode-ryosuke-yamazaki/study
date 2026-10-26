@@ -4,6 +4,8 @@
 1週あたり、自動化案・作業の要約・記録しない候補の3回を呼ぶ。作業が5時間未満の週は記録しない候補だけを呼ぶ。
 記録しない候補は前の2回と独立に呼び、片方の失敗でもう片方を出せなくしない。
 claude -p は失敗しても終了コード0を返すことがあるため、応答の JSON が検査を通ったときだけ成功とする。
+自動化案は、候補かメモを渡したのに0件の応答も検査不合格(理由 empty)として呼び直し、3回目の応答が0件なら
+それまでの失敗の種類によらず失敗にせず0件として受け取る(「バリデーション」)。
 ログには種類・何回目か・成否・失敗の分類・所要秒数・材料の字数だけを書き、材料と応答の中身は書かない。
 材料と応答は Claude とのやり取りの控え(claude_io)にだけ残す。
 """
@@ -26,9 +28,14 @@ MAX_EXAMPLES = 3
 TITLE_LIMIT = 60
 TEXT_LIMIT = 400
 SUMMARY_LIMIT = 200
+REASON_LIMIT = 100
 EFFECTS = ("大", "中", "小")
+IMPORTANCES = ("大", "中", "小")
+IMPORTANCE_ORDER = {name: index for index, name in enumerate(IMPORTANCES)}
 NO_REUSE = "なし(新しく作る)"
-PROPOSAL_FIELDS = {"title": str, "candidateIds": list, "memoIds": list, "effect": str, "seen": str, "idea": str, "reuse": list}
+EMPTY = "empty"  # 候補かメモを渡したのに自動化案が0件の応答の失敗の分類
+PROPOSAL_FIELDS = {"title": str, "candidateIds": list, "memoIds": list, "effect": str, "importance": str,
+                   "importanceReason": str, "seen": str, "idea": str, "reuse": list}
 SUMMARY_FIELDS = {"id": str, "summary": str, "estimated": bool, "examples": list}
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 LIB_DIR = Path.home() / ".claude" / "lib"
@@ -109,6 +116,8 @@ def _exclusions(week_name, week, config_read, run_headless, logger, store):
 
 def call_with_retries(name, prompt, payload, validate, run_headless, logger=None, store=None):
     """同じ材料で3回まで呼び、検査を通った値を返す。3回続けて失敗したら None。
+    ただし3回目の応答が「候補かメモを渡したのに0件」(理由 empty)で通らなかったときだけは失敗にせず空の一覧を返す
+    (控えの result.json はその回も ok=false, reason=empty のまま)。
     呼ぶ前に指示文と材料、受け取ったら検査の前に本文と成否を控え(store)に書く"""
     logger = logger or LOGGER
     store = store or claude_io.ExchangeStore.disabled()
@@ -135,18 +144,23 @@ def call_with_retries(name, prompt, payload, validate, run_headless, logger=None
             return value
         logger.warning("claude call=%s attempt=%d ok=false reason=%s seconds=%d chars=%d",
                        name, attempt, reason, seconds, len(stdin_text))
+    if reason == EMPTY:
+        logger.warning("claude call=%s accepted empty attempts=%d", name, MAX_ATTEMPTS)
+        return []
     logger.error("claude call=%s failed attempts=%d", name, MAX_ATTEMPTS)
     return None
 
 
 def validate_proposals(parsed, built):
-    """自動化案の応答を確かめ、結び付いた候補の合計の時間が長い順に5件まで残す。メモだけの案は時間を None として後ろへ"""
+    """自動化案の応答を確かめ、重要度の高い順(同じ重要度の中は結び付いた候補の合計の時間が長い順)に5件まで残す。
+    メモだけの案は時間を None として同じ重要度の最後へ。候補かメモを渡したのに案が0件なら理由 empty の検査不合格"""
     items = parsed.get("proposals")
     require(isinstance(items, list), "proposals が一覧ではありません")
     proposals = []
     for item in items:
         _require_fields(item, PROPOSAL_FIELDS, "自動化案")
         require(item["effect"] in EFFECTS, "効果が大・中・小のどれでもありません")
+        require(item["importance"] in IMPORTANCES, "重要度が大・中・小のどれでもありません")
         require(all(isinstance(value, str) for value in item["reuse"]), "使える仕組みが文字の一覧ではありません")
         # 番号は文字であることを先に確かめる(リストや dict が入ると in の照合が TypeError になり、失敗の1回に数えられない)
         require(all(isinstance(value, str) and value in built.candidates for value in item["candidateIds"]),
@@ -161,12 +175,17 @@ def validate_proposals(parsed, built):
             "candidateIds": candidate_ids,
             "memoIds": list(dict.fromkeys(item["memoIds"])),
             "effect": item["effect"],
+            "importance": item["importance"],
+            "importanceReason": item["importanceReason"][:REASON_LIMIT],
             "seen": item["seen"][:TEXT_LIMIT],
             "idea": item["idea"][:TEXT_LIMIT],
             "reuse": _reuse(item["reuse"], built.reusable_names),
             "seconds": sum(built.candidates[value].seconds for value in candidate_ids) if candidate_ids else None,
         })
-    proposals.sort(key=lambda proposal: (proposal["seconds"] is None, -(proposal["seconds"] or 0)))
+    if not proposals and (built.candidates or built.memo_ids):
+        raise ResponseError(EMPTY, "候補かメモを渡したのに自動化案が0件です")
+    proposals.sort(key=lambda proposal: (IMPORTANCE_ORDER[proposal["importance"]], proposal["seconds"] is None,
+                                         -(proposal["seconds"] or 0)))
     kept = proposals[:MAX_PROPOSALS]
     for number, proposal in enumerate(kept, 1):
         proposal["number"] = number

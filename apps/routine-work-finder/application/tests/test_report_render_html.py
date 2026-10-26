@@ -57,16 +57,17 @@ def default_groups():
     ]
 
 
-def proposal(title, candidate_ids, memo_ids=(), effect="大"):
+def proposal(title, candidate_ids, memo_ids=(), effect="大", importance="大"):
     return {"title": title, "candidateIds": list(candidate_ids), "memoIds": list(memo_ids), "effect": effect,
-            "seen": f"{title}の繰り返しが見えた", "idea": f"{title}を自動にする", "reuse": ["jira-progress"]}
+            "importance": importance, "importanceReason": f"{title}は毎週続く", "seen": f"{title}の繰り返しが見えた",
+            "idea": f"{title}を自動にする", "reuse": ["jira-progress"]}
 
 
 def default_proposals():
     return [
         proposal("JIRAの状態を進捗表へ転記する作業", ["c1"]),
-        proposal("ボードの確認", ["c2"], effect="中"),
-        proposal("勤怠の通知メールのフォルダ分け", [], ["m1"], effect="小"),
+        proposal("ボードの確認", ["c2"], effect="中", importance="中"),
+        proposal("勤怠の通知メールのフォルダ分け", [], ["m1"], effect="小", importance="小"),
     ]
 
 
@@ -208,12 +209,12 @@ class WeekStateTests(unittest.TestCase):
 
 
 class ProposalAreaTests(unittest.TestCase):
-    """自動化案の欄。番号・題名・週の時間・効果の下に、見えた繰り返し・自動化の案・使える仕組みを出す"""
+    """自動化案の欄。番号・題名・週の時間・重要度・効果の下に、重要度の根拠・見えた繰り返し・自動化の案・使える仕組みを出す"""
 
-    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
-    def test_案ごとに番号と題名と週の時間と効果と3つの説明が並ぶ(self):
-        """否定確認: 週の時間を候補の時間の合計にせず最初の候補だけにすると落ちる"""
-        both = proposal("2つの候補をまとめた案", ["c1", "c2"])
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-3
+    def test_案ごとに番号と題名と週の時間と重要度と効果と4つの説明が並ぶ(self):
+        """否定確認: 週の時間を候補の時間の合計にせず最初の候補だけにすると落ちる。重要度の目印を効果の目印の後ろに置くと落ちる"""
+        both = proposal("2つの候補をまとめた案", ["c1", "c2"], importance="中")
         root = render(proposals=[both, default_proposals()[2]])
         items = section(root, "h-proposals").with_class("proposal")
         self.assertEqual(len(items), 2)
@@ -222,23 +223,54 @@ class ProposalAreaTests(unittest.TestCase):
         self.assertEqual(first.find("label").attrs["for"], "pick-1")
         # c1 は 240行(20分)、c2 は 120行(10分) → 0.5h
         self.assertEqual(first.with_class("hours")[0].text(), "週 0.5h")
-        self.assertEqual(first.with_class("effect")[0].text(), "効果 大")
-        self.assertIn("big", first.with_class("effect")[0].classes())
-        self.assertEqual([dt.text() for dt in first.find_all("dt")], ["見えた繰り返し", "自動化の案", "使える仕組み"])
+        badges = first.with_class("effect")
+        self.assertEqual([badge.text() for badge in badges], ["重要度 中", "効果 大"])
+        self.assertIn("importance", badges[0].classes())
+        self.assertIn("mid", badges[0].classes())
+        self.assertNotIn("importance", badges[1].classes())
+        self.assertIn("big", badges[1].classes())
+        self.assertEqual([dt.text() for dt in first.find_all("dt")], ["重要度の根拠", "見えた繰り返し", "自動化の案", "使える仕組み"])
         self.assertEqual([dd.text() for dd in first.find_all("dd")],
-                         ["2つの候補をまとめた案の繰り返しが見えた", "2つの候補をまとめた案を自動にする", "jira-progress"])
+                         ["2つの候補をまとめた案は毎週続く", "2つの候補をまとめた案の繰り返しが見えた",
+                          "2つの候補をまとめた案を自動にする", "jira-progress"])
         self.assertEqual(items[1].with_class("hours")[0].text(), "週の時間は記録では見えない")
+        self.assertEqual([badge.text() for badge in items[1].with_class("effect")], ["重要度 小", "効果 小"])
         self.assertIn("small", items[1].with_class("effect")[0].classes())
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-3
+    def test_自動化案の欄の見出しに重要度の高い順で最大5件と添える(self):
+        """否定確認: ひな形の添え書きを「週に使った時間が長い順」に戻すと落ちる"""
+        root = render()
+        heading = root.by_id("h-proposals")
+        self.assertEqual(heading.find("small").text(), "重要度の高い順・最大5件")
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-6
-    def test_自動化案が0件の週は見つからなかったことと候補になる条件を出す(self):
-        """否定確認: 0件のときに空の一覧を出すと落ちる"""
-        root = render(proposals=[])
+    def test_候補もメモも無い週の0件は見つからなかったことと候補になる条件を出す(self):
+        """否定確認: 0件のときに空の一覧を出すと落ちる。候補の有無を見ずに候補の数の文を出すと落ちる"""
+        root = render(proposals=[], aggregate=week_aggregate(groups=[default_groups()[2]]),
+                      summaries=[default_summaries()[2]], status=status_inputs(memo_dates=[]))
         area = section(root, "h-proposals")
         self.assertEqual([p.text() for p in area.with_class("empty")],
                          ["今週は自動化案になる繰り返しが見つかりませんでした。同じ操作が週2回以上あると候補になります。"])
         self.assertIsNone(root.by_id("copy-btn"))
         self.assertEqual(area.with_class("proposal"), [])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-6、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_候補かメモがあった週の0件は候補の数とメモの数と案にしなかったことと作り直しの頼み方を出す(self):
+        """否定確認: 候補の数を Claude に渡した数でなく集計の候補の全数にしないと落ちる(集計は2件)。メモが0件のときに数を省くと落ちる"""
+        cases = {
+            (2, 2): render(proposals=[]),
+            (2, 0): render(proposals=[], status=status_inputs(memo_dates=[])),
+            (0, 2): render(proposals=[], aggregate=week_aggregate(groups=[default_groups()[2]]), summaries=[default_summaries()[2]]),
+        }
+        for (candidates, memos), root in cases.items():
+            with self.subTest(candidates=candidates, memos=memos):
+                area = section(root, "h-proposals")
+                expected = (f"繰り返しの候補が{candidates}件、面倒だった作業のメモが{memos}件ありましたが、Claude は自動化案にしませんでした。"
+                            "チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと、作り直しで案が出ることがあります。")
+                self.assertEqual([p.text() for p in area.with_class("empty")], [expected])
+                self.assertIsNone(root.by_id("copy-btn"))
+                self.assertEqual(area.with_class("proposal"), [])
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-7
     def test_記録が足りない週は作業の時間と5時間の条件を理由に出す(self):
