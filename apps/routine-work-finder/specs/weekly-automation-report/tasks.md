@@ -1,6 +1,6 @@
 # 定型業務の週次レポート タスク
 
-タスク 19件(claude 19 / copilot 0)
+タスク 20件(claude 20 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
 
@@ -278,10 +278,27 @@ launchd から OneDrive へ確実に書き、開けるリンクを Teams で届�
 
 </details>
 
+### 20. 自動化案に効果とは別の重要度の目印を付け、候補かメモがある週の0件の応答は呼び直し、重要度の高い順に並べる 【担当: claude】
+
+候補があるのに Claude の判断の揺れで自動化案が0件になる週を減らし(3回目も0件なら理由つきで0件のまま出す)、繰り返す根拠が薄い案は重要度「小」の目印と根拠とともに出す。
+
+<details><summary>詳細を開く</summary>
+
+- `routine_work_finder/report/prompts/proposals.md`: 応答の形に `importance`・`importanceReason` を足し、重要度の3段階の基準、候補かメモがあれば1件以上返すこと、根拠の薄い候補は「小」で出すことを頼みごとに足す(appendix.md「指示文の骨子」「Claude の応答の形」)
+- `routine_work_finder/report/claude_calls.py`: `validate_proposals` に重要度の値の検査と根拠の100字までの切り詰めを足し、候補かメモを渡したのに0件なら検査不合格(理由 `empty`)にし、並びを重要度の順→時間の長い順にする。`call_with_retries` は3回目の応答が `empty` で通らなかったときだけ失敗にせず空の一覧を返す(design.md「Claude に自動化案と作業の要約を作らせる」5・6、「バリデーション」、「ログ」)
+- `routine_work_finder/report/render_html.py`・`routine_work_finder/templates/report.html`: 案の1行目に重要度の目印、その下に重要度の根拠を出し、欄の見出しの添え書きを「重要度の高い順・最大5件」にする。0件の週の文を、候補もメモも無い週と候補かメモがあった週で分ける(「レポートのHTMLを作る」2・6)。候補の数は集計の候補の組の全数、メモの数はその週のメモの件数で、どちらも `ReportInput` にある集計とメモの一覧から表示側が数える(0件も数で出す)。画面モック `specs/weekly-automation-report/mock.html` と同じ配置にする
+- `routine_work_finder/report/publish.py`(通知の本文): 自動化案が0件の週の自動化案の行を、候補もメモも無い週と候補かメモがあった週で分ける(appendix.md「Teams の通知の本文」)。`run_report.py` は候補の数とメモの数を通知側へ渡す
+- `routine_work_finder/report/claude_io.py`: 控えの `result.json` の失敗の分類に `empty` を足す(appendix.md「Claudeとのやり取りの控えの形」)
+- テスト: 自動化案-2・-3(応答の検査と、HTMLの重要度の目印・根拠・見出しの添え書きの構造検証)・-6・-9・-10、レポートの作成と通知-4(0件の2種類の通知の行)、Claudeとのやり取りの控え-2(`empty`)(design.md「テスト戦略」)。既存の `test_report_claude_calls.py`・`test_report_render_html.py`・`test_report_run.py`・`test_report_publish.py` の偽物の応答に `importance`・`importanceReason` を足す
+- 環境スモーク: 実装PRのマージ後に 2026-W43 を作り直し、自動化案が1件以上出ること、各案の1行目に重要度の目印と下に根拠が出ること、重要度の高い順に並ぶこと、`claude-io/` の応答に `importance` と `importanceReason` が入っていることを確かめる。結果はバックログ BL-062 の作業ページに書く
+
+</details>
+
 ## 確認チェックリスト
 
 - [x] 本番と同じ経路(launchd の金曜17時と依頼のフォルダの監視、`claude -p`)で起動する → 確認済み(2026-10-20〜2026-10-23)。**金曜17時の定期起動**: 2026-10-23 17:00:00 に launchd から `trigger=schedule kind=schedule week=2026-W43` で起動し、`claude -p` の3回(自動化案192秒・作業の要約120秒・記録しない候補106秒)がすべて1回目で検査を通過、17:13:01 に `result=generated`、状態のファイルに `2026-W43: generated, notified: true` が書かれた(所要582秒)。この週の集計は作業545分・会議385分・離席3307分(自動化案の対象になる5時間を超えた週)。スリープ明けに遅れて起動する経路(作成と通知-2)は、17:00:00ちょうどに起動したため今回は通っていない。**依頼のフォルダの監視**: 2026-10-20 に2回確認した(10:09 に W42 を定期の作成として、10:14 に W42 の作り直し)。依頼のフォルダがまだ無い状態から操作スクリプトが作っても起動した。作り直し-8 は「今週」→ 2026-W43(記録が無いときは `noRecordsForWeek` で断る)、「先週」「最新の週」→ 2026-W42 になった。作り直し-9 は「来週」と頼むと記録の操作Skillが操作スクリプトを呼ばずに言い直しを求めた。**自動化案-3**: 2026-10-22 13:56 の今週途中の作り直しで、自動化案59秒・作業の要約71秒・記録しない候補67秒がすべて1回目で合格し、自動化案3件の `result=generated`(所要208秒)。外れたとき(launchd から `claude -p` が通らない)は、その週が `claudeFailed` になり「作成に失敗」の本文で届く。金曜17時に起動しなかったときは、その週の通知が届かないことで気づき、作り直しを頼めば定期の作成として作られる
 - [x] 成果物(OneDrive のHTML・Teams の通知)が出る → 確認済み(2026-10-20〜2026-10-23)。**W43(定期の作成、2026-10-23 17:13)**: ローカルの控えと OneDrive(`routineWorkFinder/2026-W43.html`)に保存され(`save onedrive ok=true attempt=1`)、`notify ok=true attempt=1`、記録しない候補は5件のうち2件を残して3件を捨てた(`exclusions kept=2 dropped=3`)。**W42(記録が足りない週、2026-10-20)**: OneDrive とローカルの控えに `2026-W42.html` が保存され(作成と通知-3)、Teams(スプリントレポート)に通知が届き、リンクはビューア形式で開いた(作成と通知-4)。状態のファイルには `2026-W42: insufficient, notified: true` と書かれ、所要は37秒(非機能-1)。HTML の JavaScript の構文検証も通った。**バックログに積む依頼文-3**: ビューアの依頼文のコピーが成功した(自動化案が出る W43 の作り直しで確認)。**作り直し-4(今の週の途中の作り直し)**: 2026-10-21 16:10 の W43 の作り直しは `partial=true`・`result=insufficient` で、状態のファイルには書かれなかった。そのため金曜17時の定期の作成は行われ、2026-10-23 17:00 に W43 が作られた(今の週の途中の作り直しが状態に書かれていれば、この定期の作成は行われなかった)。所要は 582秒で30分以内(非機能-1)、Claude の呼び出しは3回で10回以下(非機能-2)。外れたときの影響: 依頼文のコピーが効かなければ、手で選んでコピーする欄が出る
 - [x] 失敗させたとき(Claude を3回失敗させる・OneDrive に書けなくする)の通知とログが届く → 確認済み(2026-10-20、2026-10-22)。**OneDrive に書けなくする(2026-10-20)**: 保存先のフォルダの書き込み権限を外して W42 の作り直しを頼むと、ログに `save onedrive ok=false attempt=1〜3 errno=13` と `result=saveFailed` が書かれ、Teams には「保存に失敗」の本文が届いた。作り直しなので状態のファイルは変わらず、権限は元に戻した。**Claude を3回失敗させる(2026-10-22 13:52)**: plist の `EnvironmentVariables` に `SKILL_AUTOMATION_CLAUDE=/usr/bin/false` を入れて登録し直し W43 の作り直しを頼むと、自動化案の呼び出しが3回(`exitCode`)失敗して `result=claudeFailed`、Teams には「作成に失敗」の本文が届いた(13:51:50 の開始から13:52:01 の終了まで11秒)。13:56 に plist を元に戻して作り直すと `result=generated` になった。外れたとき(失敗の本文が届かない)は、Claude が使えない週に知らせが来ないため、ログの `claude call=… failed` でしか気づけない
 - [x] タスク19の環境スモーク(Claudeとのやり取りの控え) → 確認済み(2026-10-26)。実装PR #94 のマージ後、手元のターミナルで `remake --week 2026-W43` を実行した(18:54 受け付け、18:58 完了、所要238秒)。ログに起動時の `claude-io purged=0 failed=0` と週の `claude-io dir=…/claude-io/20261026-185510-2026-W43` が出て、`claude-io write failed` は出なかった。そのフォルダに `build.json`(kind=remake・partial=false・periodEnd=2026-10-23T17:00)、3種類の `prompt.md`、呼び出しごとの `materials.json` / `response.txt` / `result.json`(3回とも ok=true、1回目で合格。proposals 109秒・summaries 74秒・exclusions 41秒)の13ファイルが残り、フォルダは700・ファイルは600だった。OneDrive の `routineWorkFinder/` には `2026-W43.html` だけがあり、控えは写っていない。自動化案は5件生成され(0件の再現なし)、応答の読み取り結果は BL-061 の作業ページに書いた。元の確認項目: 実装PRのマージ後に 2026-W43 を作り直し、`claude-io/<作成日時>-2026-W43/` に `build.json`・3種類の `prompt.md`・呼び出しごとの `materials.json` / `response.txt` / `result.json` が残ること、ログに `claude-io dir=` と `claude-io purged=` が出ること、フォルダが700・ファイルが600で、OneDrive に控えが写っていないことを確かめる。外れたとき(控えが無い・ログに `claude-io write failed` が出る)は、データフォルダの権限と `RWF_DATA_DIR` の有無を見る
+- [ ] タスク20の環境スモーク(自動化案の重要度の目印) → 実装PRのマージ後に手元のターミナルで `remake --week 2026-W43` を実行し、自動化案が1件以上出ること、各案の1行目に「重要度 大/中/小」の目印と効果の目印が並び、その下に重要度の根拠が出ること、重要度の高い順に並ぶこと、欄の見出しに「重要度の高い順・最大5件」と出ること、`claude-io/<作成日時>-2026-W43/proposals-1.response.txt` に `importance` と `importanceReason` が入っていることを確かめる。外れたとき(0件のまま・目印が出ない)は、応答の控えと `claude call=proposals` のログの失敗の分類(`empty`)を見る
 - [x] タスク18の環境スモーク(マイクの設定の切り替え) → 確認済み(2026-10-26)。実装PR #91 のマージ後、手元のターミナルで `mic-meeting off`(`changed: true`)・`mic-meeting show`(`micAsMeeting: false`、「マイクを会議とみなさない設定です」)を実行し、`remake --week 2026-W42` で作り直した。ログは `rows read=22905 skipped=0 micAsMeeting=false work=761m meeting=0m away=1144m excluded=2m`、`week=2026-W42 result=generated saved=true notified=true`(11:19 の受け付けから11:22:39 の完了まで約3分半)。W42 のレポートの記録の状態に「会議として数えず、作業か離席に分けました」が出た(OneDrive のレポートは上書きされ、Teams に通知が届いた)。チャットのSkill経由の切り替え(「マイクを会議とみなさないで」)は、このセッションの Bash がデータフォルダに書けず `dataFolderUnwritable` で断られたため手元のターミナルで同じ操作を実行して確かめた(Skill が渡す手元用のコマンドブロックの経路)。設定は `micAsMeeting=false` のままにしてある。外れたときの影響: 切り替えが効かないと、ミュートのまま開いた会議の画面などでマイクが使われた週の会議が長く出たままになる

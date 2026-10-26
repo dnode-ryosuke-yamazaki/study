@@ -56,6 +56,7 @@
   .hours { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
   .effect { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
   .effect.big { color: var(--big); } .effect.mid { color: var(--mid); } .effect.small { color: var(--small); }
+  .effect.importance { background: color-mix(in srgb, currentColor 12%, transparent); }
   .pbody { grid-column: 2; display: grid; gap: 2px; font-size: 14px; }
   .pbody dt { color: var(--muted); font-size: 12px; }
   .pbody dd { margin: 0 0 4px; }
@@ -123,7 +124,7 @@
   </header>
 
   <section aria-labelledby="h-proposals">
-    <h2 id="h-proposals">自動化案 <small>週に使った時間が長い順・最大5件</small></h2>
+    <h2 id="h-proposals">自動化案 <small>重要度の高い順・最大5件</small></h2>
     <div id="proposals-area"></div>
   </section>
 
@@ -148,7 +149,8 @@
     <h2 id="h-mock">モック用の操作 <small>この欄は実際の画面にはありません</small></h2>
     <div class="btns" role="group" aria-label="表示する状態">
       <button type="button" id="st-normal" data-state="normal" aria-pressed="true">通常</button>
-      <button type="button" id="st-empty" data-state="empty" aria-pressed="false">自動化案が0件</button>
+      <button type="button" id="st-empty" data-state="empty" aria-pressed="false">自動化案が0件(候補なし)</button>
+      <button type="button" id="st-emptycand" data-state="emptycand" aria-pressed="false">自動化案が0件(候補はあった)</button>
       <button type="button" id="st-short" data-state="short" aria-pressed="false">記録が足りない週</button>
       <button type="button" id="st-fail" data-state="fail" aria-pressed="false">作成に失敗</button>
       <button type="button" id="st-ended" data-state="ended" aria-pressed="false">記録が終了した週</button>
@@ -168,26 +170,31 @@
 
 <script>
   const PROPOSALS = [
-    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 5.2, effect: "big",
+    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 5.2, effect: "big", importance: "big",
+      why: "毎朝同じ時間帯に週5回あり、JIRA の更新と結び付く定型業務",
       seen: "「進捗管理.xlsx — 案件一覧」シートで表の中にカーソルがある時間が、毎朝9時台に毎回20〜30分(週5回)。毎回同じ時間帯に JIRA の SAG-123・SAG-131 などの状態・期日の更新が続いている",
       idea: "JQLで担当チケットの状態と期日を取り、進捗管理.xlsx の案件一覧へ書き込むバッチを毎朝8:30に動かす",
       reuse: "jira-progress Skill のチケット取得" },
-    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 2.4, effect: "mid",
+    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 2.4, effect: "mid", importance: "mid",
+      why: "週4回の決まった時間帯の確認だが、見るだけの作業で自動化の価値は限られる",
       seen: "Chrome の「マイルストーン進捗 - Confluence」でページの中にカーソルがある時間が、月・火・木・金の9:50〜10:00に毎回8分ほど(週4回)。同じ時間帯に Confluence の編集の記録は無く、見ているだけ",
       idea: "毎朝9:45に、マイルストーン進捗の表の要点をTeamsの自分宛てに送る",
       reuse: "confluence-progress-update Skill の進捗表の読み取り" },
-    { id: 3, title: "勤怠のCSVの列の手直し", hours: 0.9, effect: "mid",
+    { id: 3, title: "勤怠のCSVの列の手直し", hours: 0.9, effect: "mid", importance: "mid",
+      why: "メモに「毎回」とあり続く見込みは高いが、1回あたりは短い",
       seen: "Numbers の「勤怠_202610.csv」で表の中にカーソルがある時間が、月・水・金の17時台に毎回15〜20分(週3回)。面倒だった作業のメモに「CSVの列を毎回手で消している」(10/7 17:15)とある",
       idea: "ダウンロードフォルダを見張り、決まった列だけを残したCSVを自動で作る",
       reuse: "create-automation-batch のフォルダ監視" },
-    { id: 4, title: "日報の投稿", hours: 0.5, effect: "small",
-      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月〜木の18時台に7分ほど(週4回)",
-      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
-      reuse: "daily-report-to-teams Skill" },
-    { id: 5, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small",
+    { id: 4, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small", importance: "mid",
+      why: "メモに「毎回」とあり続く見込みは高いが、記録では時間が見えない",
       seen: "面倒だった作業のメモに「勤怠の通知メールを毎回手でフォルダに移している」(10/6)とある。Outlook の題名はメールごとに変わるため、記録の繰り返しとしてはまとまらない",
       idea: "Outlook の仕分けルールで勤怠の通知メールを決まったフォルダへ自動で移す設定の手順を作る",
-      reuse: "なし(新しく作る)" }
+      reuse: "なし(新しく作る)" },
+    { id: 5, title: "日報の投稿", hours: 0.5, effect: "small", importance: "small",
+      why: "週4回あるが1回7分で、既存の日報Skillが入口を持つため新たに自動化する価値は薄い",
+      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月〜木の18時台に7分ほど(週4回)",
+      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
+      reuse: "daily-report-to-teams Skill" }
   ];
   const BARS = [
     ["Excel", "進捗管理.xlsx — 案件一覧", 5.2, "案件一覧シートの表で作業していた。毎朝 JIRA のチケットの更新と同じ時間帯に使っており、チケットの状態や期日を表に反映していたと推定しています", "毎朝 9:00〜10:00(5日とも)", ["表の中にカーソルがある時間が 9:05〜9:32。同じ時間帯に JIRA の SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6)", "表の中にカーソルがある時間が 9:10〜9:35。同じ時間帯に SAG-131 の期日を10/15→10/20に変更(10/7)", "表の中にカーソルがある時間が 9:08〜9:30(10/8)"], 1],
@@ -230,22 +237,26 @@
     .sort((a, b) => b[2] - a[2]);
   // 「今週を途中で作り直したレポート」(10月7日(水) 14:30 に作り直しを頼んだ)用。月曜0時〜水曜14:30 の記録だけで作る
   const PROPOSALS_PARTIAL = [
-    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 3.1, effect: "big",
+    { id: 1, title: "JIRAのチケットの状態を進捗管理表へ反映する作業", hours: 3.1, effect: "big", importance: "big",
+      why: "月〜水の毎朝同じ時間帯にあり、JIRA の更新と結び付く定型業務",
       seen: "「進捗管理.xlsx — 案件一覧」シートで表の中にカーソルがある時間が、月〜水の9時台に毎回20〜30分(週3回)。毎回同じ時間帯に JIRA の SAG-123・SAG-131 の状態・期日の更新がある",
       idea: "JQLで担当チケットの状態と期日を取り、進捗管理.xlsx の案件一覧へ書き込むバッチを毎朝8:30に動かす",
       reuse: "jira-progress Skill のチケット取得" },
-    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 1.2, effect: "mid",
+    { id: 2, title: "朝のマイルストーン進捗ページの確認", hours: 1.2, effect: "mid", importance: "mid",
+      why: "月・火と続いているが、見るだけの作業で自動化の価値は限られる",
       seen: "Chrome の「マイルストーン進捗 - Confluence」でページの中にカーソルがある時間が、月・火の9:50〜10:00に毎回8分ほど(週2回)。同じ時間帯に Confluence の編集の記録は無く、見ているだけ",
       idea: "毎朝9:45に、マイルストーン進捗の表の要点をTeamsの自分宛てに送る",
       reuse: "confluence-progress-update Skill の進捗表の読み取り" },
-    { id: 3, title: "日報の投稿", hours: 0.2, effect: "small",
-      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月・火の18時台に7分ほど(週2回)",
-      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
-      reuse: "daily-report-to-teams Skill" },
-    { id: 4, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small",
+    { id: 3, title: "勤怠の通知メールのフォルダ分け", hours: null, effect: "small", importance: "mid",
+      why: "メモに「毎回」とあり続く見込みは高いが、記録では時間が見えない",
       seen: "面倒だった作業のメモに「勤怠の通知メールを毎回手でフォルダに移している」(10/6)とある。Outlook の題名はメールごとに変わるため、記録の繰り返しとしてはまとまらない",
       idea: "Outlook の仕分けルールで勤怠の通知メールを決まったフォルダへ自動で移す設定の手順を作る",
-      reuse: "なし(新しく作る)" }
+      reuse: "なし(新しく作る)" },
+    { id: 4, title: "日報の投稿", hours: 0.2, effect: "small", importance: "small",
+      why: "月・火の2回だけで、週の途中の記録では続く定型業務か分からない",
+      seen: "Teams の「日報 | 開発チーム | Microsoft Teams」で入力欄にカーソルがある時間が、月・火の18時台に7分ほど(週2回)",
+      idea: "既存の日報Skillを夕方に自動で動かし、下書きだけをTeamsの自分宛てに送る",
+      reuse: "daily-report-to-teams Skill" }
   ];
   const BARS_PARTIAL = [
     ["Excel", "進捗管理.xlsx — 案件一覧", 3.1, "案件一覧シートの表で作業していた。毎朝 JIRA のチケットの更新と同じ時間帯に使っており、チケットの状態や期日を表に反映していたと推定しています", "毎朝 9:00〜10:00(月〜水)", ["表の中にカーソルがある時間が 9:05〜9:32。同じ時間帯に JIRA の SAG-123 の状態を「対応中」→「レビュー中」に更新(10/6)", "表の中にカーソルがある時間が 9:10〜9:35。同じ時間帯に SAG-131 の期日を10/15→10/20に変更(10/7)"], 1],
@@ -339,6 +350,10 @@
       area.innerHTML = '<p class="empty">今週は自動化案になる繰り返しが見つかりませんでした。同じ操作が週2回以上あると候補になります。</p>';
       return;
     }
+    if (state === "emptycand") {
+      area.innerHTML = '<p class="empty">繰り返しの候補が12件、面倒だった作業のメモが1件ありましたが、Claude は自動化案にしませんでした。チャットで「2026-W41 の定型業務レポートを作り直して」と頼むと、作り直しで案が出ることがあります。</p>';
+      return;
+    }
     if (state === "short") {
       area.innerHTML = '<p class="empty">今週の作業の記録が1.2時間しかないため、自動化案は作っていません。作業の記録が5時間以上ある週に作ります。</p>';
       return;
@@ -353,9 +368,11 @@
         <div class="ptitle">
           <label for="pick-${p.id}">${p.id}. ${p.title}</label>
           <span class="hours">${p.hours == null ? "週の時間は記録では見えない" : `週 ${p.hours.toFixed(1)}h`}</span>
+          <span class="effect importance ${p.importance}">重要度 ${{ big: "大", mid: "中", small: "小" }[p.importance]}</span>
           <span class="effect ${p.effect}">効果 ${{ big: "大", mid: "中", small: "小" }[p.effect]}</span>
         </div>
         <dl class="pbody">
+          <dt>重要度の根拠</dt><dd>${p.why}</dd>
           <dt>見えた繰り返し</dt><dd>${p.seen}</dd>
           <dt>自動化の案</dt><dd>${p.idea}</dd>
           <dt>使える仕組み</dt><dd>${p.reuse}</dd>

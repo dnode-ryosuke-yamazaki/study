@@ -59,7 +59,7 @@ flowchart TB
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
 | [activity-recording](activity-recording/requirements.md) | チャットで終わりの日時を決めて、使ったアプリと前面ウィンドウの題名を記録し、面倒だった作業のメモを書き足す | 記録 | なし | リリース済み |
-| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | リリース済み |
+| [weekly-automation-report](weekly-automation-report/requirements.md) | 毎週金曜に時間の使い方と自動化案のレポートを受け取り、選んだ案をバックログに積む。レポートの記録しない候補(ことば・アプリ)から選んだものを、次の記録から外す依頼にできる | 集計・レポート | activity-recording | 実装中 |
 
 ## 採用技術
 
@@ -107,7 +107,7 @@ flowchart TB
 | JIRA・Confluence(`~/.claude/lib/atlassian_rest` の REST。サイトは PJプロファイルで決まる) | 受ける | JIRA は JQL で選んだチケットの変更履歴、Confluence は CQL で選んだページの最後の版の作者と日時を JSON で読む。自分の分だけを残す | 週次レポートの作成ごと | 認証の失敗・通信の失敗・形の違いが起きた記録は使わず、名前と理由をレポートの記録の状態に出す。サイトが複数ある場合は読めたサイトの分だけを使う | 週次レポート係の契約テスト(実応答由来の fixture)と環境スモーク |
 | OneDrive(本人の自動化フォルダ `00_root/auto/routineWorkFinder/`) | 送る | ローカルの控えを先に書き、`.part` に書いてから `<YYYY-Www>.html` へ名前を付け替える | 金曜17時を過ぎて最初の起動・作り直しの依頼 | 10秒あけて3回まで書き直す。それでも失敗したらローカルの控えを残し、Teams で失敗と控えの場所・作り直しの頼み方を知らせる。自動では作り直さない | 週次レポート係の環境スモークで、launchd から保存先にHTMLが書かれること |
 | Teams(notify_teams。通知先は設定ファイルで決まり、本人宛て) | 送る | `notify_teams("routine-work-finder", "weekly-report", 本文)`。本文はHTML断片で、レポートのビューア形式のリンクを含む | レポートの保存のあと・保存の失敗時 | 10秒あけて3回まで送り直す。それでも失敗したらログに書き、定期の作成では週次レポート係の状態のファイルにも通知の失敗を書く(作り直しでは状態のファイルに書かない)。自動では送り直さない | 週次レポート係の環境スモークで通知が届くこと |
-| Claude(`claude -p`、`~/.claude/lib/claude_headless.py`) | 送る・受ける | 材料を標準入力の JSON で渡し、JSON の答えを受け取って形を検査する。送るものは `weekly-automation-report/requirements.md#社外へ送るもの` に限る | 週次レポートの作成ごとに3回(自動化案・作業の要約・記録しない候補) | 検査を通らない・時間切れも失敗の1回と数え、3回続けて失敗したらその部分を除いてレポートを出す | 週次レポート係の環境スモーク |
+| Claude(`claude -p`、`~/.claude/lib/claude_headless.py`) | 送る・受ける | 材料を標準入力の JSON で渡し、JSON の答えを受け取って形を検査する。送るものは `weekly-automation-report/requirements.md#社外へ送るもの` に限る | 週次レポートの作成ごとに3回(自動化案・作業の要約・記録しない候補) | 検査を通らない・時間切れも失敗の1回と数え、3回続けて失敗したらその部分を除いてレポートを出す。自動化案は、候補があるのに0件の応答も失敗の1回に数えて呼び直し、3回目が0件なら0件のまま出す | 週次レポート係の環境スモーク |
 
 - 認証情報(JIRA・Confluence・OneDrive・Teams の通知先・Claude)の置き場所は既存の共通部品の設定に従い、ここには書かない
 - 記録係と操作スクリプトは外と何もやり取りしない
