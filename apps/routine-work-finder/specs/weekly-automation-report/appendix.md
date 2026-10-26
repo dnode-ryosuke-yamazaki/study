@@ -23,15 +23,15 @@ OneDrive の保存先:
 
 ## Claudeとのやり取りの控えの形
 
-`claude-io/<YYYYmmdd-HHMMSS>-<YYYY-Www>/`(例: `claude-io/20261026-113404-2026-W43/`。先頭はレポートの作成の回の開始日時(日本時間)、後ろは週の名前)。フォルダは権限700、ファイルは600。
+`claude-io/<YYYYmmdd-HHMMSS>-<YYYY-Www>/`(例: `claude-io/20261026-113404-2026-W43/`。先頭はレポートの作成回のフォルダを作った日時(日本時間・秒まで)、後ろは週の名前。同じ名前があれば `claude-io/20261026-113404-2026-W43-2/` のように連番を付ける)。フォルダは権限700、ファイルは600。
 
 ```
 claude-io/20261026-113404-2026-W43/
-├── build.json                     # この回の情報
+├── build.json                     # この作成回の情報
 ├── proposals.prompt.md            # 自動化案の指示文(common.md + proposals.md)
-├── proposals-1.materials.json     # 1回目に標準入力へ渡した材料そのまま
-├── proposals-1.response.txt       # 1回目の標準出力そのまま(検査する前)
-├── proposals-1.result.json        # 1回目の成否
+├── proposals-1.materials.json     # 1回目の呼び出しで標準入力へ渡した材料そのまま
+├── proposals-1.response.txt       # 1回目の呼び出しの本文そのまま(検査する前。前後の空白は除かれている)
+├── proposals-1.result.json        # 1回目の呼び出しの成否
 ├── summaries.prompt.md            # 作業の要約の指示文(common.md + summaries.md)
 ├── summaries-1.materials.json
 ├── summaries-1.response.txt
@@ -53,17 +53,21 @@ claude-io/20261026-113404-2026-W43/
 - `kind`: `schedule`(定期の作成。依頼を定期の作成に切り替えた場合を含む)か `remake`(作り直し)
 - `partial`: 今の週の途中の作り直しなら `true`
 - `periodEnd`: 対象の範囲の終わり(金曜17時か、途中の作り直しでは依頼の時刻)
+- `startedAt`: フォルダを作った日時(フォルダ名の先頭と同じ)
 
 `<種類>-<何回目>.result.json`:
 
 ```json
-{"ok": false, "reason": "timeout", "seconds": 600, "chars": 38902, "finishedAt": "2026-10-26T11:58:37+09:00"}
-{"ok": true, "reason": null, "seconds": 130, "chars": 38902, "finishedAt": "2026-10-26T12:00:47+09:00"}
+{"ok": false, "reason": "timeout", "detail": "600秒", "seconds": 600, "chars": 38902, "finishedAt": "2026-10-26T11:58:37+09:00"}
+{"ok": false, "reason": "invalidShape", "detail": "proposals[0].title", "seconds": 88, "chars": 38902, "finishedAt": "2026-10-26T12:00:05+09:00"}
+{"ok": true, "reason": null, "detail": null, "seconds": 130, "chars": 38902, "finishedAt": "2026-10-26T12:02:15+09:00"}
 ```
 
 - `reason`: 失敗の分類。`launch` / `timeout` / `exitCode` / `headless`(起動側)、`invalidJson` / `invalidShape`(応答の検査)。成功は `null`
+- `detail`: 失敗の詳細。起動側は `run_headless` の `detail`(例: `exit=1`・`600秒`)、応答の検査は通らなかった項目。成功は `null`
 - `chars`: 標準入力に渡した材料の字数(ログの `chars` と同じ)
-- 起動の失敗・時間切れの回は `response.txt` が無い。検査で落ちた回は `response.txt` に検査前の本文がそのまま残る
+- 起動の失敗・時間切れ・終了コード非0の呼び出しは `response.txt` が無い。検査で落ちた呼び出しは `response.txt` に検査前の本文がそのまま残る
+- 自動化案が0件・記録しない候補が0件の原因は、`result.json` だけでは分からない。`response.txt` の中身と、ログの `exclusions kept=… dropped=…` を突き合わせて調べる
 
 ## 週次レポート係の状態のファイルの形
 
@@ -500,4 +504,4 @@ HTML 断片。値はエスケープする。
 
 - 1行に1件。日時・レベル(INFO / WARN / ERROR)・英語の短い文と `キー=値`
 - 本文・依頼文・メモの文・Claude の材料と応答の中身は書かない(材料と応答は `claude-io/` の控えにだけ残す)
-- `claude-io purged=<消した回の数> failed=<消せなかった回の数>` は起動時に1行、`claude-io dir=<回のフォルダのパス>` は週ごとに1行。書けなかったときの `file=` はファイル名だけ
+- `claude-io purged=<消した作成回の数> failed=<消せなかった作成回の数>` は起動時に1行、`claude-io dir=<作成回のフォルダのパス>` は週ごとに1行。書けなかったときの `file=` はファイル名だけ
