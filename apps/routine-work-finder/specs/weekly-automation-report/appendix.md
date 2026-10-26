@@ -93,6 +93,7 @@ python3 -m routine_work_finder.control mic-meeting show
 
 ```json
 {"ok": true, "message": "マイクを会議とみなさない設定にしました。次に作る週次レポートから効き、作り直せば記録が残っている過去の週にも効きます", "data": {"micAsMeeting": false, "changed": true}}
+{"ok": true, "message": "マイクを会議とみなす設定にしました。次に作る週次レポートから効き、作り直せば記録が残っている過去の週にも効きます", "data": {"micAsMeeting": true, "changed": true}}
 {"ok": true, "message": "すでにマイクを会議とみなす設定です", "data": {"micAsMeeting": true, "changed": false}}
 {"ok": true, "message": "マイクを会議とみなす設定です(既定)", "data": {"micAsMeeting": true}}
 {"ok": false, "error": "configUnreadable", "message": "設定ファイルが読めないため、マイクの設定を変えられません"}
