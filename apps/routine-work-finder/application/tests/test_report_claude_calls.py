@@ -21,6 +21,7 @@ class FakeResult:
     success: bool
     output: str = ""
     failure_category: str = ""
+    detail: str = ""
 
 
 class FakeHeadless:

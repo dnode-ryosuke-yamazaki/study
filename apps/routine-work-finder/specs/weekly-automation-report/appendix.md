@@ -489,7 +489,8 @@ HTML 断片。値はエスケープする。
 
 ```
 2026-10-09T17:00:03+09:00 INFO start trigger=schedule week=2026-W41
-2026-10-09T17:00:03+09:00 INFO claude-io purged=1 failed=0
+2026-10-09T17:00:03+09:00 WARN claude-io purge failed dir=20260901-170003-2026-W36 errno=13
+2026-10-09T17:00:03+09:00 INFO claude-io purged=1 failed=1
 2026-10-09T17:00:04+09:00 INFO rows read=41234 skipped=1 micAsMeeting=true work=1512m meeting=420m away=380m excluded=12m
 2026-10-09T17:00:09+09:00 WARN source=confluence site=example.atlassian.net failed reason=auth
 2026-10-09T17:00:10+09:00 WARN source=jira site=example.atlassian.net failed reason=request status=400
@@ -504,4 +505,4 @@ HTML 断片。値はエスケープする。
 
 - 1行に1件。日時・レベル(INFO / WARN / ERROR)・英語の短い文と `キー=値`
 - 本文・依頼文・メモの文・Claude の材料と応答の中身は書かない(材料と応答は `claude-io/` の控えにだけ残す)
-- `claude-io purged=<消した作成回の数> failed=<消せなかった作成回の数>` は起動時に1行、`claude-io dir=<作成回のフォルダのパス>` は週ごとに1行。書けなかったときの `file=` はファイル名だけ
+- `claude-io purged=<消した作成回の数> failed=<消せなかった作成回の数>` は起動時に1行、`claude-io dir=<作成回のフォルダのパス>` は週ごとに1行。書けなかったときの `file=` はファイル名だけ、消せなかったときの `dir=` は作成回のフォルダ名だけ(`claude-io/` 自体が読めないときは `dir=claude-io`)

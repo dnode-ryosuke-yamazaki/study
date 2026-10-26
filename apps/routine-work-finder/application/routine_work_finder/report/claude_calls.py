@@ -121,7 +121,7 @@ def call_with_retries(name, prompt, payload, validate, run_headless, logger=None
         result = run_headless(prompt, stdin_text, TIMEOUT_SECONDS)
         if not result.success:
             reason = HEADLESS_REASONS.get(result.failure_category, "headless")
-            detail = getattr(result, "detail", "") or None
+            detail = result.detail or None
         else:
             store.save_response(name, attempt, result.output)
             try:

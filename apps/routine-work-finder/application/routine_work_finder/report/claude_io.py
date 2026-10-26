@@ -9,6 +9,7 @@ claude-io/<作成日時>-<週の名前>/ に残す。自動化案が0件にな�
 - ログに材料と応答の中身は書かない(控えにだけ残す)
 """
 
+import errno
 import json
 import logging
 import os
@@ -114,7 +115,7 @@ def _unique_folder(root, base_name):
     while candidate.exists() or candidate.is_symlink():
         sequence += 1
         if sequence > MAX_SEQUENCE:
-            raise OSError(None, "同じ名前のフォルダが多すぎます")
+            raise OSError(errno.EEXIST, "同じ名前のフォルダが多すぎます")
         candidate = root / f"{base_name}-{sequence}"
     return candidate
 
@@ -125,8 +126,14 @@ def purge_old(root, now, logger=None):
     root = Path(root)
     today = weeks.to_tokyo(now).date()
     purged = failed = 0
-    if root.is_dir():
-        for path in sorted(root.iterdir()):
+    try:
+        entries = sorted(root.iterdir()) if root.is_dir() else []
+    except OSError as error:
+        # claude-io/ 自体が読めなくても起動は止めない(手順6・エラーハンドリング)
+        logger.warning("claude-io purge failed dir=%s errno=%s", root.name, error.errno)
+        entries = []
+    if entries:
+        for path in entries:
             match = FOLDER_NAME.match(path.name)
             if match is None or path.is_symlink() or not path.is_dir():
                 continue

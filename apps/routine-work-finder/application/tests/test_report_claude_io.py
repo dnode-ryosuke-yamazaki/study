@@ -12,12 +12,11 @@ import shutil
 import stat
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from routine_work_finder import paths
 from routine_work_finder.report import claude_calls, claude_io, materials
 from tests.test_report_run import ReportRunTestCase, jst
 
@@ -130,7 +129,7 @@ class ExchangeRunTests(ReportRunTestCase):
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-3、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#社外へ送るもの-4
     def test_控えはデータフォルダの下に700と600で置かれ材料の項目は増えずレポートと通知とログに中身が入らない(self):
-        """否定確認: フォルダの mkdir の mode とファイルの opener の mode を外すと umask 022 で 755・644 になり落ちる。ログに材料の文字列を書くと落ちる"""
+        """否定確認: フォルダの mkdir の mode と os.chmod の両方を外すと umask 022 で 755 になり落ちる。ファイルの opener の mode と os.chmod の両方を外すと 644 になり落ちる。ログに材料の文字列を書くと落ちる"""
         self.write_enough_week("2026-W41")
         memo_text = "目印のメモ 月末の請求書を手で移している"
         self.paths.memos.mkdir(exist_ok=True)
@@ -200,6 +199,19 @@ class ExchangeRunTests(ReportRunTestCase):
         self.request("2026-W41")
         self.run_report()
         self.assertTrue((self.paths.claude_io / "20261009-170600-2026-W41" / "summaries-1.response.txt").exists())
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-5
+    def test_控えのフォルダが読めなくても起動は止まらず週は作られる(self):
+        """否定確認: 古い控えの一覧を取る OSError を拾わないと起動が止まり落ちる"""
+        self.write_enough_week("2026-W41")
+        self.paths.claude_io.mkdir(mode=0o000)
+        try:
+            self.run_report()
+        finally:
+            os.chmod(self.paths.claude_io, 0o700)
+        self.assertEqual(self.results(), {"2026-W41": "generated"})
+        self.assertIn("WARNING:routine_work_finder.report:claude-io purge failed dir=claude-io errno=13", self.logs)
+        self.assertNotIn("ERROR", "\n".join(self.logs))
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-4
     def test_起動のたびに28日を過ぎた作成回を消して数をログに書く(self):
@@ -346,6 +358,15 @@ class PurgeTests(unittest.TestCase):
                                             keep.name, "memo-20260801", "target"])
         self.assertTrue(target.exists())
         self.assertIn("INFO:test.claude_io.purge:claude-io purged=2 failed=0", captured.output)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-4
+    def test_日付の境目は日本時間で数える(self):
+        """否定確認: today を UTC の日付で取ると、日本時間0時台の起動で29日前の作成回が28日前と数えられ残って落ちる"""
+        self.now = jst("2026-10-10T00:30:00")
+        self.folder(28)   # 2026-09-12: 日本時間では28日前(残す)
+        old = self.folder(29)   # 2026-09-11: 日本時間では29日前(消す)。UTC(10-09)なら28日前
+        self.assertEqual(claude_io.purge_old(self.root, self.now, self.logger), (1, 0))
+        self.assertFalse(old.exists())
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-4
     def test_消せない作成回は警告を書いて数え次の起動で消える(self):
