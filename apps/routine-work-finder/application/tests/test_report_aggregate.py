@@ -299,6 +299,67 @@ class WeekAggregateTestCase(unittest.TestCase):
         return aggregate.aggregate_week(self.paths, jst("2026-10-05T00:00:00"), jst("2026-10-09T17:00:00"))
 
 
+class MicNotMeetingTests(WeekAggregateTestCase):
+    """マイクを会議とみなさない設定。ミュートのまま開いた会議の画面などでマイクが使われたままでも、会議を0にして作業と離席だけで数える"""
+
+    def classified(self, lines):
+        return [category for _, category in aggregate.classify(lines, mic_as_meeting=False)]
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-3
+    def test_マイクが使用中でも入力があれば作業になり会議の合計は0になる(self):
+        """否定確認: みなさない設定でもマイクの判定を飛ばさないと落ちる"""
+        lines = run("2026-10-06T09:00:00", 6, mic=True, idleSec=0.2)
+        self.assertEqual(self.classified(lines), [aggregate.WORK] * 6)
+        totals = aggregate.category_totals(aggregate.classify(lines, mic_as_meeting=False))
+        self.assertEqual(totals[aggregate.MEETING], 0)
+        self.assertEqual(totals[aggregate.WORK], 30)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#離席の判定-3
+    def test_マイクが使用中でも入力が5分以上無く画面のスリープを止めるアプリが無ければ離席になる(self):
+        """否定確認: マイクを飛ばす判定の位置を離席の判定より後ろにすると落ちる"""
+        self.assertEqual(self.classified([sample("2026-10-06T10:00:00", idleSec=900.0, mic=True)]), [aggregate.AWAY])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#離席の判定-3
+    def test_マイクが使用中でも画面のスリープを止めていれば離席にならない(self):
+        """否定確認: 離席の判定のスリープの抑止の条件を外すと落ちる"""
+        self.assertEqual(self.classified([sample("2026-10-06T10:00:00", idleSec=900.0, mic=True,
+                                                 displaySleepPrevented=True)]), [aggregate.WORK])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-1
+    def test_画面ロック中と除外中は設定にかかわらずマイクより先に決まる(self):
+        """否定確認: マイクを会議とみなさない設定でロックの判定が飛ぶと落ちる"""
+        lines = [sample("2026-10-06T09:00:00", locked=True, mic=True, idleSec=1.0), kind("2026-10-06T09:00:05", "excluded")]
+        self.assertEqual(self.classified(lines), [aggregate.AWAY, aggregate.EXCLUDED])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#離席の判定-3
+    def test_離席のあと最後に入力した時刻まで遡るとき_マイクが使用中だった作業の行も離席に直す(self):
+        """否定確認: みなさない設定でも遡りでマイクの行を直さないと落ちる"""
+        lines = [
+            sample("2026-10-06T10:00:00", idleSec=0.0, mic=True),
+            sample("2026-10-06T10:01:00", idleSec=60.0, mic=True),
+            sample("2026-10-06T10:02:00", idleSec=120.0, mic=True, displaySleepPrevented=True),
+            sample("2026-10-06T10:05:00", idleSec=300.0, mic=True),
+        ]
+        self.assertEqual(self.classified(lines), [aggregate.AWAY, aggregate.AWAY, aggregate.WORK, aggregate.AWAY])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-3
+    def test_既定はマイクを会議とみなす(self):
+        """否定確認: 既定の引数を false にすると落ちる"""
+        self.assertEqual(categories([sample("2026-10-06T09:00:00", mic=True)]), [aggregate.MEETING])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#マイクの数え方の切り替え-4
+    def test_同じ週を設定を変えて数えると会議と作業の合計がそれぞれの設定どおりに変わる(self):
+        """否定確認: 設定を記録のファイルや前の集計に残して引き継ぐと落ちる"""
+        self.write_lines(*run("2026-10-06T09:00:00", 12, mic=True, idleSec=0.2))
+        start, end = jst("2026-10-05T00:00:00"), jst("2026-10-09T17:00:00")
+        counted = aggregate.aggregate_week(self.paths, start, end, mic_as_meeting=True)
+        not_counted = aggregate.aggregate_week(self.paths, start, end, mic_as_meeting=False)
+        self.assertEqual((counted.totals[aggregate.MEETING], counted.totals[aggregate.WORK]), (60, 0))
+        self.assertEqual((not_counted.totals[aggregate.MEETING], not_counted.totals[aggregate.WORK]), (0, 60))
+        self.assertEqual(aggregate.aggregate_week(self.paths, start, end).totals, counted.totals)
+        self.assertEqual([group.seconds for group in not_counted.groups], [60])
+
+
 class UnavailableTimeTests(WeekAggregateTestCase):
     """記録が取れなかった時間帯と題名が取れなかった時間の一覧。4つの区分には数えず別に合計を出す"""
 

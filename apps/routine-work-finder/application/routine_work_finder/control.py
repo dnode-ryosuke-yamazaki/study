@@ -4,8 +4,10 @@
     python3 -m routine_work_finder.control stop
     python3 -m routine_work_finder.control status
     python3 -m routine_work_finder.control remake --week 2026-W41
+    python3 -m routine_work_finder.control mic-meeting off
 
-作り直しの依頼(remake)の呼び方と結果の形は weekly-automation-report の appendix.md「操作スクリプトの作り直しの呼び方」。
+作り直しの依頼(remake)とマイクの設定(mic-meeting)の呼び方と結果の形は weekly-automation-report の appendix.md
+「操作スクリプトの作り直しの呼び方」「操作スクリプトのマイクの設定の呼び方」。
 """
 
 import argparse
@@ -481,6 +483,40 @@ def new_request_path(folder, requested_at):
             return path
 
 
+MIC_EFFECT = "次に作る週次レポートから効き、作り直せば記録が残っている過去の週にも効きます"
+
+
+def command_mic_meeting(context, args):
+    """週次レポートでマイクが使用中の時間を会議として数えるかを設定ファイルの micAsMeeting に書く・読む
+    (weekly-automation-report の design.md「マイクの数え方を切り替える」)。show は何も書かない"""
+    if args.value == "show":
+        result = config_store.read_config(context.paths)
+        if result.state == "unreadable":
+            raise ControlError("configUnreadable", f"設定ファイルが読めません(理由: {result.reason})")
+        if result.state == "ok" and "micAsMeeting" in result.config:
+            current = result.config["micAsMeeting"]
+            message = "マイクを会議とみなす設定です" if current else "マイクを会議とみなさない設定です"
+        else:
+            current, message = True, "マイクを会議とみなす設定です(既定)"
+        return {"message": message, "notices": [], "data": {"micAsMeeting": current}}
+    wanted = args.value == "on"
+    context.ensure_writable(write_config=True)
+    result = config_store.read_config(context.paths)
+    if result.state == "unreadable":
+        raise ControlError("configUnreadable", "設定ファイルが読めないため、マイクの設定を変えられません"
+                                               f"(理由: {result.reason})。設定ファイルを直すか消してください")
+    config = result.config if result.state == "ok" else config_store.default_config()
+    word = "みなす" if wanted else "みなさない"
+    if config.get("micAsMeeting") is wanted:
+        return {"message": f"すでにマイクを会議と{word}設定です", "notices": [],
+                "data": {"micAsMeeting": wanted, "changed": False}}
+    config["micAsMeeting"] = wanted
+    config_store.write_config(context.paths, config)
+    context.log("INFO", f"mic-meeting {args.value}")
+    return {"message": f"マイクを会議と{word}設定にしました。{MIC_EFFECT}", "notices": [],
+            "data": {"micAsMeeting": wanted, "changed": True}}
+
+
 COMMANDS = {
     "start": command_start,
     "stop": command_stop,
@@ -491,6 +527,7 @@ COMMANDS = {
     "exclude-add": command_exclude_add,
     "memo": command_memo,
     "remake": command_remake,
+    "mic-meeting": command_mic_meeting,
 }
 
 
@@ -515,6 +552,8 @@ def build_parser():
     memo.add_argument("--id")
     remake = subparsers.add_parser("remake")
     remake.add_argument("--week")
+    mic_meeting = subparsers.add_parser("mic-meeting")
+    mic_meeting.add_argument("value", choices=["on", "off", "show"])
     return parser
 
 

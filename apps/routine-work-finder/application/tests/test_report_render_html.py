@@ -552,6 +552,38 @@ class HeadingTests(unittest.TestCase):
         self.assertEqual(len(root.by_id("split").find_all("span")), 4)
 
 
+class MicTreatmentTests(unittest.TestCase):
+    """記録の状態の「マイクの扱い」。会議として数えたか、作業か離席に分けたかを、設定ごとの文で出す"""
+
+    def mic_text(self, config_read):
+        return kv(render(status=status_inputs(config=config_read)))["マイクの扱い"].text()
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-6
+    def test_みなす設定とみなさない設定と設定ファイルが読めず既定で数えた週で文が変わる(self):
+        """否定確認: 3通りのどれかの文を同じにすると落ちる"""
+        base = config_store.default_config()
+        self.assertEqual(self.mic_text(config_store.ConfigRead("ok", {**base, "micAsMeeting": True}, None)),
+                         "使用中は会議として数えました")
+        self.assertEqual(self.mic_text(config_store.ConfigRead("ok", {**base, "micAsMeeting": False}, None)),
+                         "会議として数えず、作業か離席に分けました")
+        self.assertEqual(self.mic_text(config_store.ConfigRead("unreadable", None, "invalidJson")),
+                         "設定ファイルが読めないため、使用中は会議として数えました")
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-6
+    def test_項目が無い設定と設定ファイルが無い場合は既定のみなす扱いの文になる(self):
+        """否定確認: 項目が無いときにみなさない文を出すと落ちる"""
+        self.assertEqual(self.mic_text(config_store.ConfigRead("ok", config_store.default_config(), None)),
+                         "使用中は会議として数えました")
+        self.assertEqual(self.mic_text(config_store.ConfigRead("missing", None, None)), "使用中は会議として数えました")
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-6
+    def test_マイクの扱いの行は記録しないことばの次から取れなかった時間の前に並ぶ(self):
+        """否定確認: 行を記録の状態の外や末尾に置くと落ちる"""
+        terms = [term for term in kv(render())]
+        self.assertEqual(terms.index("マイクの扱い"), terms.index("取れなかった時間") - 1)
+        self.assertIn("記録しないことば", terms[terms.index("マイクの扱い") - 1])
+
+
 class RecordStatusTests(unittest.TestCase):
     """記録の状態。終わりの日時はその週の記録の最後の停止の行から取り、過去の週では今の設定を使わない"""
 

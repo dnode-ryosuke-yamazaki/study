@@ -64,9 +64,19 @@ def read_config(data_paths):
             "excludedApps": _required(raw, "excludedApps", _is_excluded_apps),
             "excludedTitleWords": _required(raw, "excludedTitleWords", _is_string_list),
         }
+        # 省略できる項目。欠けているときは項目を足さず(書き戻しても足さない)、読む側が既定を当てる
+        if "micAsMeeting" in raw:
+            config["micAsMeeting"] = _required(raw, "micAsMeeting", _is_bool)
     except _FieldError as error:
         return ConfigRead("unreadable", None, error.reason)
+    # 付録に載っていない項目も書き戻しで落とさないよう、結果に持たせる
+    config.update({key: value for key, value in raw.items() if key not in config})
     return ConfigRead("ok", config, None)
+
+
+def mic_as_meeting(config):
+    """マイクが使用中の時間を会議として数えるか。設定が無い(None)・項目が無いときは数える(既定)"""
+    return True if config is None else config.get("micAsMeeting", True)
 
 
 def write_config(data_paths, config):
@@ -105,6 +115,10 @@ def _optional(raw, key, check):
     if not check(value):
         raise _FieldError(f"invalidType:{key}")
     return value
+
+
+def _is_bool(value):
+    return isinstance(value, bool)
 
 
 def _is_int(value):
