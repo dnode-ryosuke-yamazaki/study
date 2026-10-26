@@ -494,7 +494,7 @@ HTML 断片。値はエスケープする。
 2026-10-09T17:00:09+09:00 WARN source=confluence site=example.atlassian.net failed reason=auth
 2026-10-09T17:00:10+09:00 WARN source=jira site=example.atlassian.net failed reason=request status=400
 2026-10-09T17:00:10+09:00 WARN source=jira site=example2.atlassian.net partial reason=truncated
-2026-10-09T17:00:10+09:00 INFO claude-io dir=/Users/example/Library/Application Support/routine-work-finder/claude-io/20261009-170003-2026-W41
+2026-10-09T17:00:10+09:00 INFO claude-io dir=/Users/example/Library/Application Support/routine-work-finder/claude-io/20261009-170010-2026-W41
 2026-10-09T17:00:10+09:00 WARN claude-io write failed file=proposals-1.materials.json errno=13
 2026-10-09T17:02:40+09:00 INFO claude call=proposals attempt=1 ok=true seconds=151 chars=84210
 2026-10-09T17:02:58+09:00 INFO claude call=exclusions attempt=1 ok=true seconds=18 chars=21304
