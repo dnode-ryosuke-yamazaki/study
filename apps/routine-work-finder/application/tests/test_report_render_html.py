@@ -438,12 +438,36 @@ class ExclusionAreaTests(unittest.TestCase):
         self.assertIs(root.by_id("ex-manual").parent, area.by_id("excl-area"))
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
-    def test_欄は週の合計と自動化案と時間の使い方のあと記録の状態の前に並ぶ(self):
-        """否定確認: 記録しない候補の欄を記録の状態の後ろに置くと落ちる"""
+    def test_欄は週の合計と自動化案と時間の使い方のあと記録の状態の前に並び目印の見方が末尾に来る(self):
+        """否定確認: 記録しない候補の欄を記録の状態の後ろに置くと落ちる。目印の見方を記録の状態の前に置くと落ちる"""
         root = render()
         headings = [h2.attrs.get("id") for h2 in root.find_all("h2")]
-        self.assertEqual(headings, ["h-proposals", "h-time", "h-excl", "h-rec"])
+        self.assertEqual(headings, ["h-proposals", "h-time", "h-excl", "h-rec", "h-legend"])
         self.assertIsNotNone(root.find("header").by_id("totals"))
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-11、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
+    def test_目印の見方に重要度と効果の大中小の目安がどの状態の週でも出る(self):
+        """否定確認: 目印の見方の欄を通常の週だけに出すと落ちる。効果の目安の文を変えると落ちる"""
+        cases = {
+            "normal": render(),
+            "empty": render(proposals=[]),
+            "insufficient": render(outcome="insufficient", proposals=[], summaries=[]),
+            "failed": render(outcome="claudeFailed", proposals=[], summaries=[]),
+        }
+        for state, root in cases.items():
+            with self.subTest(state=state):
+                legend = section(root, "h-legend")
+                self.assertEqual(root.by_id("h-legend").find("small").text(), "自動化案の重要度と効果の目安")
+                self.assertEqual([dt.text() for dt in legend.find_all("dt")], ["重要度", "効果"])
+                importance, effect = [dd.text() for dd in legend.find_all("dd")]
+                self.assertEqual(importance,
+                                 "その繰り返しが今後も続く見込みと、自動化する価値。大: 毎週続く定型業務で、自動化の価値がはっきりしている ／ "
+                                 "中: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる ／ "
+                                 "小: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い")
+                self.assertEqual(effect,
+                                 "自動化したときに減る時間と手間。大: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる ／ "
+                                 "中: 週に15分〜1時間ほど減るか、手順が短くなる ／ 小: 減る時間は週15分未満だが、手間や忘れが減る")
+                self.assertEqual([b.text() for b in legend.find_all("b")], ["大", "中", "小", "大", "中", "小"])
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
     def test_候補が0件の週はありませんと出しチェック欄もボタンも置かない(self):
@@ -588,6 +612,30 @@ class HeadingTests(unittest.TestCase):
         self.assertEqual([span.text() for span in spans],
                          ["作業 31.5時間", "会議 6.0時間", "離席 4.2時間", "記録しなかった時間 0.3時間"])
         self.assertEqual(len(root.by_id("split").find_all("span")), 4)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#時間の集計-4、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
+    def test_時間の使い方の棒は最も長い項目を100として塗られ作業と離席の色が明るい色で両テーマに定義されている(self):
+        """否定確認: 塗りの要素の display: block を外すと落ちる。棒の背景を --bar に戻すと落ちる。
+        内訳の作業の色を --accent に戻すと落ちる。ダークテーマの --work の定義を消すと落ちる"""
+        root = render()
+        fills = [span.attrs.get("style") for span in root.by_id("bars").with_class("fill")]
+        # c1 は 240行、c2 は 120行、3つ目は 30行 → 100% / 50% / 12.5%
+        self.assertEqual(fills, ["width:100.0%", "width:50.0%", "width:12.5%"])
+        split = [span.attrs.get("style") for span in root.by_id("split").find_all("span")]
+        self.assertIn("background:var(--work)", split[0])
+        self.assertIn("background:var(--mid)", split[1])
+        self.assertIn("background:var(--away)", split[2])
+        self.assertIn("background:var(--danger)", split[3])
+        legend = [i.attrs.get("style") for i in root.by_id("legend").find_all("i")]
+        self.assertEqual([style.split(":")[-1] for style in legend], ["var(--work)", "var(--mid)", "var(--away)", "var(--danger)"])
+        css = render_html.TEMPLATE.read_text(encoding="utf-8")
+        fill_rule = re.search(r"\.bars \.fill \{([^}]*)\}", css).group(1)
+        self.assertIn("display: block", fill_rule)
+        self.assertIn("background: var(--work)", fill_rule)
+        self.assertNotIn("var(--bar)", fill_rule)
+        # ライト(:root)・ダーク(prefers-color-scheme)・ダーク(data-theme)の3箇所に色を定義する
+        self.assertEqual(len(re.findall(r"--work: #[0-9a-f]{6}", css)), 3)
+        self.assertEqual(len(re.findall(r"--away: #[0-9a-f]{6}", css)), 3)
 
 
 class MicTreatmentTests(unittest.TestCase):

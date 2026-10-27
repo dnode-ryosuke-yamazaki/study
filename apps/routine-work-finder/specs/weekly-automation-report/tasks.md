@@ -1,5 +1,7 @@
 # 定型業務の週次レポート タスク
 
+> 実装中: session study-64, branch: feature/routine-work-finder-report-legend-impl, started: 2026-10-27T10:45:32+09:00
+
 タスク 21件(claude 21 / copilot 0)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。

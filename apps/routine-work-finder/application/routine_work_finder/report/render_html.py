@@ -25,9 +25,9 @@ TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "report.html"
 WEEKDAYS = "月火水木金土日"
 EFFECT_CLASSES = {"大": "big", "中": "mid", "小": "small"}
 CATEGORY_PARTS = (
-    (aggregate.WORK, "作業", "var(--accent)"),
+    (aggregate.WORK, "作業", "var(--work)"),
     (aggregate.MEETING, "会議", "var(--mid)"),
-    (aggregate.AWAY, "離席", "var(--muted)"),
+    (aggregate.AWAY, "離席", "var(--away)"),
     (aggregate.EXCLUDED, "記録しなかった時間", "var(--danger)"),
 )
 TITLE_REASONS = {
