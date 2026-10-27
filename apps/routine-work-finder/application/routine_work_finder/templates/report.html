@@ -12,6 +12,8 @@
     --muted: #5e6e70;
     --line: #d8e0df;
     --accent: #0e6e66;
+    --work: #2a9d8f;
+    --away: #8d9c9e;
     --accent-soft: #e1efed;
     --bar: #8fbfb8;
     --big: #b4521c;
@@ -26,14 +28,14 @@
     :root:not([data-theme="light"]) {
       color-scheme: dark;
       --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
-      --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+      --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77; --work: #5fcdb9; --away: #7f9194;
       --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
     --ground: #0f1719; --surface: #172225; --ink: #e3eceb; --muted: #94a6a7;
-    --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77;
+    --line: #2a3a3d; --accent: #4fc1b3; --accent-soft: #1d3633; --bar: #3e7f77; --work: #5fcdb9; --away: #7f9194;
     --big: #f08a52; --mid: #e0bb4a; --small: #94a6a7; --danger: #f07c74; --note: #3a3218;
   }
   body { background: var(--ground); color: var(--ink); font-family: var(--font); line-height: 1.7; overflow-wrap: anywhere; }
@@ -93,7 +95,8 @@
   .bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bars .name small { color: var(--muted); }
   .bars .track { height: 10px; background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 3px; }
-  .bars .fill { height: 100%; background: var(--bar); border-radius: 3px; }
+  .bars .fill { display: block; height: 100%; background: var(--work); border-radius: 3px; }
+  .legend-kv dd b { color: var(--accent); }
   .bars .h { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
   .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; font-size: 14px; }
   .kv dt { color: var(--muted); }
@@ -139,6 +142,14 @@
   <section aria-labelledby="h-rec">
     <h2 id="h-rec">記録の状態</h2>
     <dl class="kv" id="rec"><!--RECORD_STATUS--></dl>
+  </section>
+
+  <section aria-labelledby="h-legend">
+    <h2 id="h-legend">目印の見方 <small>自動化案の重要度と効果の目安</small></h2>
+    <dl class="kv legend-kv">
+      <dt>重要度</dt><dd>その繰り返しが今後も続く見込みと、自動化する価値。<b>大</b>: 毎週続く定型業務で、自動化の価値がはっきりしている ／ <b>中</b>: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる ／ <b>小</b>: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い</dd>
+      <dt>効果</dt><dd>自動化したときに減る時間と手間。<b>大</b>: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる ／ <b>中</b>: 週に15分〜1時間ほど減るか、手順が短くなる ／ <b>小</b>: 減る時間は週15分未満だが、手間や忘れが減る</dd>
+    </dl>
   </section>
 
   <footer>このレポートは手元のMacで作成し、OneDriveに保存しています。自動化案の作成には、前面ウィンドウの題名・Excelのシート名・カーソルのある部品の種類・時間帯・JIRAとConfluenceの更新履歴・Claude Codeへの依頼・議事録・面倒だった作業のメモを使っています。画面の画像・ページの本文・URL・セルの位置や値は記録していません。</footer>

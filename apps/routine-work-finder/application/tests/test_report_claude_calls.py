@@ -199,6 +199,18 @@ class ProposalCheckTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, prompt)
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-11
+    def test_自動化案の指示文に効果の3段階の目安が入っている(self):
+        """否定確認: 指示文から効果の目安の段落を消すと落ちる"""
+        prompt = claude_calls.build_prompt("proposals")
+        for phrase in ("`effect` は自動化したときに減る時間と手間の目安で決めること",
+                       "`大` は週に1時間以上の作業が無くなるか手作業のミスや漏れが無くなるもの",
+                       "`中` は週に15分〜1時間ほど減るか手順が短くなるもの",
+                       "`小` は減る時間は週15分未満だが手間や忘れが減るもの",
+                       "`effect`: `大` / `中` / `小`(自動化したときに減る時間と手間の目安。"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, prompt)
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-5
     def test_使える仕組みが渡した一覧に無い名前ならなし新しく作るに置き換える(self):
         """否定確認: 置き換えをやめると落ちる"""
