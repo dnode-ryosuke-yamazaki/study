@@ -633,9 +633,16 @@ class HeadingTests(unittest.TestCase):
         self.assertIn("display: block", fill_rule)
         self.assertIn("background: var(--work)", fill_rule)
         self.assertNotIn("var(--bar)", fill_rule)
-        # ライト(:root)・ダーク(prefers-color-scheme)・ダーク(data-theme)の3箇所に色を定義する
+        # ライト(:root)・ダーク(prefers-color-scheme)・ダーク(data-theme)の3つのブロックそれぞれに、モックと同じ値で定義する
+        light_end = css.find("@media (prefers-color-scheme: dark)")
+        theme_start = css.find(':root[data-theme="dark"]')
+        light, dark_media, dark_theme = css[:light_end], css[light_end:theme_start], css[theme_start:]
+        self.assertIn("--work: #2a9d8f", light)
+        self.assertIn("--away: #8d9c9e", light)
+        for block in (dark_media, dark_theme):
+            self.assertIn("--work: #5fcdb9", block)
+            self.assertIn("--away: #7f9194", block)
         self.assertEqual(len(re.findall(r"--work: #[0-9a-f]{6}", css)), 3)
-        self.assertEqual(len(re.findall(r"--away: #[0-9a-f]{6}", css)), 3)
 
 
 class MicTreatmentTests(unittest.TestCase):
