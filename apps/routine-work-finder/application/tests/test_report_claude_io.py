@@ -28,8 +28,9 @@ EXCHANGE_FILES = ("build.json", "proposals.prompt.md", "proposals-1.materials.js
 
 
 def proposal_response():
-    return {"proposals": [{"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大",
-                           "seen": "月曜と火曜の朝", "idea": "JQLで取って貼る", "reuse": ["jira-progress"]}]}
+    return {"proposals": [{"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大", "importance": "大",
+                           "importanceReason": "毎朝続く", "seen": "月曜と火曜の朝", "idea": "JQLで取って貼る",
+                           "reuse": ["jira-progress"]}]}
 
 
 def summary_response():
@@ -289,6 +290,26 @@ class ExchangeWriteTests(unittest.TestCase):
         self.assertEqual((self.folder / "proposals-2.response.txt").read_text(encoding="utf-8"), '{"proposals": []}')
         self.assertEqual(read_json(self.folder / "proposals-2.result.json")["ok"], True)
         self.assertEqual((self.folder / "proposals.prompt.md").read_text(encoding="utf-8"), "指示文")
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-2、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_候補を渡したのに0件の応答は理由が空になり3回目に0件として受け取った呼び出しも失敗のまま残る(self):
+        """否定確認: 3回目に0件を受け取ったときに result.json を ok にすると落ちる"""
+        def headless(prompt, stdin_text, timeout):
+            return SimpleNamespace(success=True, output='{"proposals": []}', failure_category="", detail="")
+
+        def validate(parsed):
+            raise claude_calls.ResponseError("empty", "候補を渡したのに案が0件です")
+
+        payload = {"week": "2026-W41", "candidates": [{"id": "c1"}], "memos": [], "reusable": []}
+        value = claude_calls.call_with_retries("proposals", "指示文", payload, validate, headless, quiet_logger(),
+                                               store=self.store)
+        self.assertEqual(value, [])
+        for attempt in (1, 2, 3):
+            with self.subTest(attempt=attempt):
+                result = read_json(self.folder / f"proposals-{attempt}.result.json")
+                self.assertEqual((result["ok"], result["reason"], result["detail"]), (False, "empty", "候補を渡したのに案が0件です"))
+                self.assertEqual((self.folder / f"proposals-{attempt}.response.txt").read_text(encoding="utf-8"), '{"proposals": []}')
+        self.assertFalse((self.folder / "proposals-4.result.json").exists())
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#Claudeとのやり取りの控え-2
     def test_呼び出しの途中で止まっても材料は残っている(self):

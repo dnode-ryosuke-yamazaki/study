@@ -5,6 +5,7 @@
 文字列はすべて HTML のエスケープをしてから入れ、スクリプトが読むデータは JSON にして < を崩して埋め込む。
 
 自動化案・作業の要約・記録しない候補は、appendix.md「Claude の応答の形」の検査を通った値を受け取る。
+自動化案が0件の週は、集計の候補の全数とその週のメモの件数で「候補もメモも無い週」と「候補かメモがあった週」の文を分ける。
 自動化案の candidateIds の c<n> は集計の候補(aggregate の candidates)の n 番目、
 作業の要約の id の w<n> は上位10件(aggregate の top)の n 番目を指す(材料を組み立てたときの番号)。
 """
@@ -227,7 +228,12 @@ def _proposal_seconds(item, candidates):
 
 def _proposals_html(report, state):
     if state == "empty":
-        return '<p class="empty">今週は自動化案になる繰り返しが見つかりませんでした。同じ操作が週2回以上あると候補になります。</p>'
+        candidates, memos = len(report.aggregate.candidates), len(report.status.memo_dates)
+        if not candidates and not memos:
+            return '<p class="empty">今週は自動化案になる繰り返しが見つかりませんでした。同じ操作が週2回以上あると候補になります。</p>'
+        return (f'<p class="empty">繰り返しの候補が{candidates}件、面倒だった作業のメモが{memos}件ありましたが、'
+                f"Claude は自動化案にしませんでした。チャットで「{_e(report.week)} の定型業務レポートを作り直して」と頼むと、"
+                "作り直しで案が出ることがあります。</p>")
     if state == "insufficient":
         work = _hours(report.aggregate.totals[aggregate.WORK])
         return (f'<p class="empty">今週の作業の記録が{work}時間しかないため、自動化案は作っていません。'
@@ -241,16 +247,18 @@ def _proposals_html(report, state):
     for number, item in enumerate(report.proposals, start=1):
         seconds = _proposal_seconds(item, candidates)
         hours = "週の時間は記録では見えない" if seconds is None else f"週 {_hours(seconds)}h"
-        effect = item["effect"]
+        effect, importance = item["effect"], item["importance"]
         items.append(
             '<li class="proposal">'
             f'<input type="checkbox" id="pick-{number}" data-pick="proposal" data-number="{number}">'
             '<div class="ptitle">'
             f'<label for="pick-{number}">{number}. {_e(item["title"])}</label>'
             f'<span class="hours">{hours}</span>'
+            f'<span class="effect importance {EFFECT_CLASSES.get(importance, "small")}">重要度 {_e(importance)}</span>'
             f'<span class="effect {EFFECT_CLASSES.get(effect, "small")}">効果 {_e(effect)}</span>'
             "</div>"
             '<dl class="pbody">'
+            f'<dt>重要度の根拠</dt><dd>{_e(item["importanceReason"])}</dd>'
             f'<dt>見えた繰り返し</dt><dd>{_e(item["seen"])}</dd>'
             f'<dt>自動化の案</dt><dd>{_e(item["idea"])}</dd>'
             f'<dt>使える仕組み</dt><dd>{_e("、".join(item["reuse"]))}</dd>'

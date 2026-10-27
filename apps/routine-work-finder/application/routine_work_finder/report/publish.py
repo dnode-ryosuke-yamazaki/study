@@ -82,10 +82,15 @@ def _remake_hint(week):
     return f"チャットで「{_e(week)} の定型業務レポートを作り直して」と頼むと作り直せます"
 
 
-def base_body(week, state, proposal_count, url):
-    """基本の本文。state は週の状態(normal / empty / insufficient / failed)で、自動化案の行だけが変わる"""
+def base_body(week, state, proposal_count, url, candidate_count=0, memo_count=0):
+    """基本の本文。state は週の状態(normal / empty / insufficient / failed)で、自動化案の行だけが変わる。
+    自動化案が0件の週は、候補の数(集計の候補の全数)とメモの数のどちらかが1件以上なら、候補はあったが案にならなかった行にする"""
+    empty_line = "自動化案: 今週は見つかりませんでした"
+    if candidate_count or memo_count:
+        empty_line = (f"自動化案: 候補 {int(candidate_count)}件・メモ {int(memo_count)}件がありましたが案になりませんでした。"
+                      f"チャットで「{_e(week)} の定型業務レポートを作り直して」と頼むと出ることがあります")
     proposal_line = {
-        "empty": "自動化案: 今週は見つかりませんでした",
+        "empty": empty_line,
         "insufficient": "自動化案: 記録が5時間未満のため作っていません",
         "failed": f"自動化案: 作成に失敗しました。{_remake_hint(week)}",
     }.get(state, f"自動化案: {int(proposal_count)}件")
@@ -175,14 +180,17 @@ def _save_to_onedrive(local_path, onedrive_dir, copy, sleep):
 
 
 def publish_report(html_text, week, state, proposal_count, local_dir, onedrive_dir=ONEDRIVE_DIR,
-                   viewer=VIEWER_URL, web_dir=WEB_DIR, notifier=None, sleep=time.sleep, copy=onedrive_write.copy_file):
+                   viewer=VIEWER_URL, web_dir=WEB_DIR, notifier=None, sleep=time.sleep, copy=onedrive_write.copy_file,
+                   candidate_count=0, memo_count=0):
     """控えと OneDrive に保存し、Teams に知らせる。保存に失敗したら基本の本文の代わりに「保存に失敗」の本文を送る。
-    state は週の状態(render_html.week_state の値)、proposal_count は自動化案の件数"""
+    state は週の状態(render_html.week_state の値)、proposal_count は自動化案の件数、
+    candidate_count と memo_count は集計の候補の全数とその週のメモの件数(自動化案が0件の週の行に使う)"""
     name = report_file_name(week)
     local_path = _write_local(local_dir, name, html_text)
     LOGGER.info("save local path=%s", local_path)
     saved = _save_to_onedrive(local_path, onedrive_dir, copy, sleep)
     url = viewer_url(week, viewer, web_dir) if saved else None
-    body = base_body(week, state, proposal_count, url) if saved else save_failed_body(week, local_path)
+    body = (base_body(week, state, proposal_count, url, candidate_count, memo_count) if saved
+            else save_failed_body(week, local_path))
     notified = send_notification(body, notifier=notifier, sleep=sleep)
     return PublishResult(saved=saved, notified=notified, local_path=local_path, url=url)

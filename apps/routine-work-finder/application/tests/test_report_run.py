@@ -822,8 +822,8 @@ class SourceAndExclusionFlowTests(ReportRunTestCase):
     def test_記録しない候補が3回続けて失敗しても週の結果と自動化案は変わらず候補の欄だけが作れなかったになる(self):
         """否定確認: 候補が作れなかったときに空の一覧を渡すと「候補はありません」が出て落ちる"""
         self.write_enough_week("2026-W41")
-        proposal = {"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大", "seen": "毎朝",
-                    "idea": "JQLで取る", "reuse": ["jira-progress"]}
+        proposal = {"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大", "importance": "大",
+                    "importanceReason": "毎朝続く", "seen": "毎朝", "idea": "JQLで取る", "reuse": ["jira-progress"]}
         summary = {"id": "w1", "summary": "進捗表を更新していた。", "estimated": False, "examples": []}
         self.headless = FakeHeadless(proposals=[{"proposals": [proposal]}], summaries=[{"items": [summary]}],
                                      exclusions=["x", "y", "z"])
@@ -833,6 +833,30 @@ class SourceAndExclusionFlowTests(ReportRunTestCase):
         self.assertIn("記録しない候補を作れませんでした", html_text)
         self.assertNotIn("今週は記録しない候補はありません", html_text)
         self.assertIn("自動化案: 1件", self.bodies[0])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#レポートの作成と通知-4
+    def test_候補があるのに3回とも0件なら0件の週として候補の数とメモの数がレポートと通知に出る(self):
+        """否定確認: 候補の数とメモの数を通知側へ渡さないと「今週は見つかりませんでした」になって落ちる。
+        候補の数を Claude に渡す上限の15件で切った数にすると落ちる(16件の週で「候補 16件」が出なくなる)"""
+        monday = weeks.parse_week_name("2026-W41").monday
+        for index in range(16):
+            # 同じ題名を35分あけて2回(25分ずつ)。曜日と時間帯をずらして16個の候補にする(作業は合計13時間超)
+            for hour in (9 + 2 * (index // 5), 10 + 2 * (index // 5)):
+                start = monday + timedelta(days=index % 5, hours=hour)
+                self.write_lines(start.strftime("%Y-%m-%dT%H:%M:%S"), 300, title=f"ページ{index}", app="Google Chrome")
+        summaries = [{"id": f"w{index}", "summary": "ページを見ていた。", "estimated": False, "examples": []}
+                     for index in range(1, 11)]
+        self.headless = FakeHeadless(proposals=[{"proposals": []}] * 3, summaries=[{"items": summaries}],
+                                     exclusions=[{"exclusions": []}])
+        self.run_report()
+        self.assertEqual(self.results()["2026-W41"], "generated")
+        self.assertEqual(self.headless.names(), ["proposals"] * 3 + ["summaries", "exclusions"])
+        self.assertEqual(len(self.headless.calls[0][1]["candidates"]), 15)
+        self.assertIn("繰り返しの候補が16件、面倒だった作業のメモが0件ありましたが、Claude は自動化案にしませんでした。",
+                      self.local_html("2026-W41"))
+        self.assertIn("自動化案: 候補 16件・メモ 0件がありましたが案になりませんでした。", self.bodies[0])
+        self.assertTrue(any("WARN" in line and "call=proposals" in line and "reason=empty" in line for line in self.logs))
+        self.assertTrue(any("WARN" in line and "call=proposals accepted empty attempts=3" in line for line in self.logs))
 
 
 class LoggingTests(unittest.TestCase):

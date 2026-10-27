@@ -48,8 +48,8 @@ class FakeHeadless:
 
 
 def proposal(**fields):
-    base = {"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大", "seen": "毎朝", "idea": "JQLで取る",
-            "reuse": ["jira-progress"]}
+    base = {"title": "進捗表への転記", "candidateIds": ["c1"], "memoIds": [], "effect": "大", "importance": "大",
+            "importanceReason": "毎朝続く定型業務", "seen": "毎朝", "idea": "JQLで取る", "reuse": ["jira-progress"]}
     base.update(fields)
     return base
 
@@ -91,7 +91,7 @@ EXCLUSIONS_NONE = {"exclusions": []}
 
 
 class ProposalOrderTests(unittest.TestCase):
-    """自動化案は結び付いた候補の時間の長い順に5件まで。メモだけの案は記録では時間が見えないため後ろ"""
+    """自動化案は重要度の高い順、同じ重要度の中は結び付いた候補の時間の長い順に5件まで。メモだけの案は記録では時間が見えないため同じ重要度の最後"""
 
     def setUp(self):
         lines = []
@@ -102,7 +102,7 @@ class ProposalOrderTests(unittest.TestCase):
             "2026-W41", week_of(lines), [memo("2026-10-05T10:00:00", "メールを手で移す")], [], [])
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-2、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-1
-    def test_候補の時間の長い順に並べ6件目を落としメモだけの案は時間のある案のあとに並ぶ(self):
+    def test_同じ重要度の中では候補の時間の長い順に並べ6件目を落としメモだけの案は時間のある案のあとに並ぶ(self):
         """否定確認: 並べ替えをやめて応答の順のままにすると落ちる。5件の上限を外すと落ちる"""
         response = {"proposals": [
             proposal(title="メモだけ", candidateIds=[], memoIds=["m1"]),
@@ -117,6 +117,23 @@ class ProposalOrderTests(unittest.TestCase):
         self.assertEqual([item["number"] for item in result], [1, 2, 3, 4, 5])
         self.assertEqual([item["seconds"] for item in result], [600, 500, 400, 300, 100])
 
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-2、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-1
+    def test_重要度の高い順に並べ同じ重要度の中は時間の長い順で6件を超えた分は重要度の小さい案から落ちる(self):
+        """否定確認: 重要度を並びの鍵から外して時間だけで並べると落ちる(時間の最も長い「小」の案が残る)"""
+        response = {"proposals": [
+            proposal(title="作業0", candidateIds=["c1"], importance="小"),
+            proposal(title="作業1", candidateIds=["c2"], importance="中"),
+            proposal(title="作業2", candidateIds=["c3"], importance="大"),
+            proposal(title="作業3", candidateIds=["c4"], importance="中"),
+            proposal(title="メモだけ", candidateIds=[], memoIds=["m1"], importance="中"),
+            proposal(title="作業4", candidateIds=["c5"], importance="小"),
+            proposal(title="作業5", candidateIds=["c6"], importance="大"),
+        ]}
+        result = claude_calls.validate_proposals(response, self.built)
+        self.assertEqual([(item["title"], item["importance"], item["seconds"]) for item in result],
+                         [("作業2", "大", 400), ("作業5", "大", 100), ("作業1", "中", 500), ("作業3", "中", 300), ("メモだけ", "中", None)])
+        self.assertEqual([item["number"] for item in result], [1, 2, 3, 4, 5])
+
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-2
     def test_メモだけに結び付いた案は時間が記録では見えないとして時間のある案のあとに並ぶ(self):
         """否定確認: 時間の見えない案を最も長い時間として並べると落ちる"""
@@ -126,7 +143,7 @@ class ProposalOrderTests(unittest.TestCase):
 
 
 class ProposalCheckTests(unittest.TestCase):
-    """自動化案の応答の検査: 必須の項目・効果の値・候補とメモの番号・字数"""
+    """自動化案の応答の検査: 必須の項目・効果と重要度の値・候補とメモの番号・字数"""
 
     def setUp(self):
         self.built = materials.build_automation_materials(
@@ -139,10 +156,15 @@ class ProposalCheckTests(unittest.TestCase):
         番号が文字かの確認を外すと ResponseError でなく TypeError になって落ちる"""
         missing = proposal()
         del missing["seen"]
+        no_importance = proposal()
+        del no_importance["importance"]
         cases = {
             "必須の項目が無い": {"proposals": [missing]},
+            "重要度が無い": {"proposals": [no_importance]},
             "案の一覧が無い": {},
             "効果が大中小でない": {"proposals": [proposal(effect="特大")]},
+            "重要度が大中小でない": {"proposals": [proposal(importance="高")]},
+            "重要度の根拠が文字でない": {"proposals": [proposal(importanceReason=["根拠"])]},
             "渡していない候補の番号": {"proposals": [proposal(candidateIds=["c9"])]},
             "渡していないメモの番号": {"proposals": [proposal(memoIds=["m9"])]},
             "候補の番号が文字でない": {"proposals": [proposal(candidateIds=[["c1"]])]},
@@ -154,16 +176,28 @@ class ProposalCheckTests(unittest.TestCase):
                 claude_calls.validate_proposals(response, self.built)
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-3
-    def test_題名は60字まで見えた繰り返しと自動化の案は400字までに切り詰め候補もメモも無い案は捨てる(self):
+    def test_題名は60字まで見えた繰り返しと自動化の案は400字まで重要度の根拠は100字までに切り詰め候補もメモも無い案は捨てる(self):
         """否定確認: 切り詰めを外すと落ちる。候補もメモも無い案を残すと落ちる"""
         response = {"proposals": [
-            proposal(title="題" * 61, seen="見" * 401, idea="案" * 401),
+            proposal(title="題" * 61, seen="見" * 401, idea="案" * 401, importance="中", importanceReason="根" * 101),
             proposal(title="結び付きなし", candidateIds=[], memoIds=[]),
         ]}
         result = claude_calls.validate_proposals(response, self.built)
         self.assertEqual(len(result), 1)
         self.assertEqual((result[0]["title"], result[0]["seen"], result[0]["idea"]), ("題" * 60, "見" * 400, "案" * 400))
+        self.assertEqual((result[0]["importance"], result[0]["importanceReason"]), ("中", "根" * 100))
         self.assertEqual((result[0]["effect"], result[0]["candidateIds"], result[0]["memoIds"]), ("大", ["c1"], []))
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-9
+    def test_自動化案の指示文に重要度の3段階の基準と候補があれば1件以上返すことと根拠の薄い候補は小で出すことが入っている(self):
+        """否定確認: 指示文から重要度の段落を消すと落ちる"""
+        prompt = claude_calls.build_prompt("proposals")
+        for phrase in ("`importance`", "`importanceReason`", "`effect` とは別に", "今後も続く見込み", "自動化する価値",
+                       "案を1件以上返すこと", "繰り返す根拠が薄い候補は `importance` を `小` にして出すこと",
+                       "`大` は毎週続く定型業務", "`中` は続く見込みはあるが", "`小` は今週たまたま重なった",
+                       "`candidates` も `memos` も空のときだけ", "100字まで"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, prompt)
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-5
     def test_使える仕組みが渡した一覧に無い名前ならなし新しく作るに置き換える(self):
@@ -257,6 +291,84 @@ class SummaryCheckTests(unittest.TestCase):
         """否定確認: 題名が取れたかを見ずに印を付けると落ちる。印を補わないと落ちる"""
         result = self.validate([summary_item("w1", estimated=False), summary_item("w2", estimated=False)])
         self.assertEqual([(item["id"], item["estimated"]) for item in result], [("w1", False), ("w2", True)])
+
+
+class EmptyResponseTests(unittest.TestCase):
+    """候補かメモを渡したのに自動化案が0件の応答は失敗の1回として呼び直し、3回目も0件なら失敗にせず0件として受け取る"""
+
+    def no_candidate_week(self):
+        """作業がちょうど5時間だが、同じ組が1つのまとまりしか無く候補が0件の週"""
+        return week_of(run("2026-10-05T09:00:00", 3600, app="Microsoft Excel", title="進捗表.xlsx"))
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-4
+    def test_候補があるのに1回目が0件なら呼び直し2回目に案が出れば案が出る(self):
+        """否定確認: 0件の応答を検査合格にすると1回で終わって落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": []}, {"proposals": [proposal()]}],
+                                summaries=[{"items": [summary_item("w1")]}], exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless)
+        self.assertEqual(result.status, claude_calls.GENERATED)
+        self.assertEqual([item["title"] for item in result.proposals], ["進捗表への転記"])
+        self.assertEqual(headless.names(), ["proposals"] * 2 + ["summaries", "exclusions"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_結び付いた候補もメモも無い案だけの応答も0件として呼び直す(self):
+        """否定確認: 捨てた結果の0件を合格にすると1回で終わって落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": [proposal(candidateIds=[], memoIds=[])]}, {"proposals": [proposal()]}],
+                                summaries=[{"items": [summary_item("w1")]}], exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless)
+        self.assertEqual((result.status, len(result.proposals)), (claude_calls.GENERATED, 1))
+        self.assertEqual(headless.names(), ["proposals"] * 2 + ["summaries", "exclusions"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-4
+    def test_候補があるのに3回とも0件なら失敗にせず0件の週として作業の要約も作る(self):
+        """否定確認: 3回目の0件を失敗に数えると作成の失敗になって落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": []}] * 3, summaries=[{"items": [summary_item("w1")]}],
+                                exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless)
+        self.assertEqual((result.status, result.proposals), (claude_calls.GENERATED, []))
+        self.assertEqual([item["proposalNumbers"] for item in result.summaries], [[]])
+        self.assertEqual(headless.names(), ["proposals"] * 3 + ["summaries", "exclusions"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_1回目と2回目が時間切れで3回目が0件でも0件の週として受け取る(self):
+        """否定確認: 3回目の0件を「前の失敗が0件のときだけ」受け取る作りにすると作成の失敗になって落ちる"""
+        headless = FakeHeadless(
+            proposals=[FakeResult(False, failure_category="タイムアウト"), FakeResult(False, failure_category="タイムアウト"),
+                       {"proposals": []}],
+            summaries=[{"items": [summary_item("w1")]}], exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless)
+        self.assertEqual((result.status, result.proposals), (claude_calls.GENERATED, []))
+        self.assertEqual(headless.names(), ["proposals"] * 3 + ["summaries", "exclusions"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-8
+    def test_1回目と2回目が0件で3回目が時間切れなら作成の失敗になる(self):
+        """否定確認: 直前の0件を3回目の失敗のあとも受け取ると落ちる"""
+        headless = FakeHeadless(
+            proposals=[{"proposals": []}, {"proposals": []}, FakeResult(False, failure_category="タイムアウト")],
+            exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless)
+        self.assertEqual((result.status, result.proposals, result.summaries), (claude_calls.CLAUDE_FAILED, [], []))
+        self.assertEqual(headless.names(), ["proposals"] * 3 + ["exclusions"])
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案を作る条件-4
+    def test_候補が無くてもメモがある週の0件は呼び直し3回とも0件なら0件の週として受け取る(self):
+        """否定確認: 呼び直す条件を候補の有無だけにして(メモを見ない)1回で受け取ると落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": []}] * 3, summaries=[{"items": [summary_item("w1")]}],
+                                exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless, week=self.no_candidate_week(), memos=[memo("2026-10-05T10:00:00", "メールを手で移す")])
+        self.assertEqual((result.status, result.proposals), (claude_calls.GENERATED, []))
+        self.assertEqual(headless.names(), ["proposals"] * 3 + ["summaries", "exclusions"])
+        self.assertEqual(headless.calls[0][2]["candidates"], [])
+        self.assertEqual(len(headless.calls[0][2]["memos"]), 1)
+
+    # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-6、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-10
+    def test_候補もメモも無い週の0件は1回目でそのまま受け取る(self):
+        """否定確認: 候補の有無を見ずに0件を呼び直すと3回呼んで落ちる"""
+        headless = FakeHeadless(proposals=[{"proposals": []}], summaries=[{"items": [summary_item("w1")]}],
+                                exclusions=[EXCLUSIONS_NONE])
+        result = generate(headless, week=self.no_candidate_week())
+        self.assertEqual((result.status, result.proposals), (claude_calls.GENERATED, []))
+        self.assertEqual(headless.names(), ["proposals", "summaries", "exclusions"])
 
 
 class RetryTests(unittest.TestCase):

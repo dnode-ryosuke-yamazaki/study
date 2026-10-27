@@ -57,6 +57,7 @@
   .hours { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
   .effect { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
   .effect.big { color: var(--big); } .effect.mid { color: var(--mid); } .effect.small { color: var(--small); }
+  .effect.importance { background: color-mix(in srgb, currentColor 4%, transparent); }
   .pbody { grid-column: 2; display: grid; gap: 2px; font-size: 14px; }
   .pbody dt { color: var(--muted); font-size: 12px; }
   .pbody dd { margin: 0 0 4px; }
@@ -119,7 +120,7 @@
   </header>
 
   <section aria-labelledby="h-proposals">
-    <h2 id="h-proposals">自動化案 <small>週に使った時間が長い順・最大5件</small></h2>
+    <h2 id="h-proposals">自動化案 <small>重要度の高い順・最大5件</small></h2>
     <div id="proposals-area"><!--PROPOSALS--></div>
   </section>
 
