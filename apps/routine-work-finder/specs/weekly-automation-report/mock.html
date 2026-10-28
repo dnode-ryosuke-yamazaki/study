@@ -96,6 +96,8 @@
   .bars .track { height: 10px; background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 3px; }
   .bars .fill { display: block; height: 100%; background: var(--work); border-radius: 3px; }
   .legend-kv dd b { color: var(--accent); }
+  .legend-kv dd ul { margin: 4px 0 0; padding-left: 1.3em; }
+  .legend-kv dd li { margin: 2px 0; }
   .bars .h { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
   .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; font-size: 14px; }
   .kv dt { color: var(--muted); }
@@ -151,8 +153,20 @@
   <section aria-labelledby="h-legend">
     <h2 id="h-legend">目印の見方 <small>自動化案の重要度と効果の目安</small></h2>
     <dl class="kv legend-kv">
-      <dt>重要度</dt><dd>その繰り返しが今後も続く見込みと、自動化する価値。<b>大</b>: 毎週続く定型業務で、自動化の価値がはっきりしている ／ <b>中</b>: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる ／ <b>小</b>: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い</dd>
-      <dt>効果</dt><dd>自動化したときに減る時間と手間。<b>大</b>: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる ／ <b>中</b>: 週に15分〜1時間ほど減るか、手順が短くなる ／ <b>小</b>: 減る時間は週15分未満だが、手間や忘れが減る</dd>
+      <dt>重要度</dt><dd>その繰り返しが今後も続く見込みと、自動化する価値。
+        <ul>
+          <li><b>大</b>: 毎週続く定型業務で、自動化の価値がはっきりしている</li>
+          <li><b>中</b>: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる</li>
+          <li><b>小</b>: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い</li>
+        </ul>
+      </dd>
+      <dt>効果</dt><dd>自動化したときに減る時間と手間。
+        <ul>
+          <li><b>大</b>: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる</li>
+          <li><b>中</b>: 週に15分〜1時間ほど減るか、手順が短くなる</li>
+          <li><b>小</b>: 減る時間は週15分未満だが、手間や忘れが減る</li>
+        </ul>
+      </dd>
     </dl>
   </section>
 
