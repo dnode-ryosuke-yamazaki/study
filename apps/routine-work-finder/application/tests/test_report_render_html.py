@@ -132,6 +132,11 @@ def section(root, heading_id):
     return root.by_id(heading_id).parent
 
 
+def lead_text(element):
+    """要素の直下にある文字だけ(子要素の中の文字は除く)を、前後の空白を落として返す"""
+    return "".join(child for child in element.children if isinstance(child, str)).strip()
+
+
 def kv(root):
     """記録の状態の項目名と値の組"""
     dl = root.by_id("rec")
@@ -446,8 +451,9 @@ class ExclusionAreaTests(unittest.TestCase):
         self.assertIsNotNone(root.find("header").by_id("totals"))
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#自動化案-11、apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
-    def test_目印の見方に重要度と効果の大中小の目安がどの状態の週でも出る(self):
-        """否定確認: 目印の見方の欄を通常の週だけに出すと落ちる。効果の目安の文を変えると落ちる"""
+    def test_目印の見方に重要度と効果の大中小の目安が1文のあとの箇条書きでどの状態の週でも出る(self):
+        """否定確認: 目印の見方の欄を通常の週だけに出すと落ちる。効果の目安の文を変えると落ちる。
+        大・中・小を li にせず1文に「／」でつなげると落ちる。ul の前の1文を消すと落ちる"""
         cases = {
             "normal": render(),
             "empty": render(proposals=[]),
@@ -459,15 +465,23 @@ class ExclusionAreaTests(unittest.TestCase):
                 legend = section(root, "h-legend")
                 self.assertEqual(root.by_id("h-legend").find("small").text(), "自動化案の重要度と効果の目安")
                 self.assertEqual([dt.text() for dt in legend.find_all("dt")], ["重要度", "効果"])
-                importance, effect = [dd.text() for dd in legend.find_all("dd")]
-                self.assertEqual(importance,
-                                 "その繰り返しが今後も続く見込みと、自動化する価値。大: 毎週続く定型業務で、自動化の価値がはっきりしている ／ "
-                                 "中: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる ／ "
-                                 "小: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い")
-                self.assertEqual(effect,
-                                 "自動化したときに減る時間と手間。大: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる ／ "
-                                 "中: 週に15分〜1時間ほど減るか、手順が短くなる ／ 小: 減る時間は週15分未満だが、手間や忘れが減る")
+                importance, effect = legend.find_all("dd")
+                # 何を表すかの1文が箇条書きの外(dd 直下の文字)にあり、大・中・小は1段階1項目の li で並ぶ
+                self.assertEqual(lead_text(importance), "その繰り返しが今後も続く見込みと、自動化する価値。")
+                self.assertEqual([li.text().strip() for li in importance.find_all("li")], [
+                    "大: 毎週続く定型業務で、自動化の価値がはっきりしている",
+                    "中: 続く見込みはあるが、1週分の記録では確信が持てないか、価値が限られる",
+                    "小: 今週たまたま重なった作業や一時的な作業など、繰り返す根拠が薄い",
+                ])
+                self.assertEqual(lead_text(effect), "自動化したときに減る時間と手間。")
+                self.assertEqual([li.text().strip() for li in effect.find_all("li")], [
+                    "大: 週に1時間以上の作業が無くなるか、手作業のミスや漏れが無くなる",
+                    "中: 週に15分〜1時間ほど減るか、手順が短くなる",
+                    "小: 減る時間は週15分未満だが、手間や忘れが減る",
+                ])
                 self.assertEqual([b.text() for b in legend.find_all("b")], ["大", "中", "小", "大", "中", "小"])
+                self.assertEqual(len(importance.find_all("ul")), 1)
+                self.assertEqual(len(effect.find_all("ul")), 1)
 
     # 仕様: apps/routine-work-finder/specs/weekly-automation-report/requirements.md#UI/UX要件
     def test_候補が0件の週はありませんと出しチェック欄もボタンも置かない(self):
