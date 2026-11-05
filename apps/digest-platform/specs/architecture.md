@@ -68,8 +68,8 @@ flowchart TB
 | [batch-runner](batch-runner/requirements.md) | 決まった時刻にアプリの記事づくりが自動で走り、失敗しても決めた回数まで自動でやり直す | 実行係(launchd のジョブ・共通ラッパー・claude -p の呼び出し・実行状態ファイル) | failure-notification(確定した失敗の引き渡し先。関数の契約は batch-runner が決める) | 仕様のみ(未実装) |
 | [local-site-serving](local-site-serving/requirements.md) | ブラウザで `http://127.0.0.1:<ポート>/<アプリ名>/` を開くと最新の記事が読める | 配信サーバー(記事サイトの組み立てと配信) | アプリのバッチが記事を書いた後に自分でサイトを組み立てる(batch-runner はその結果を成否の判定で確かめる) | 仕様のみ(未実装) |
 | [local-reader-store](local-reader-store/requirements.md) | 記事に付箋(ブックマークとメモ)とフィードバックを書き、あとで見返せる。月次見直しのバッチが同じデータを読める | 読者データ(配信サーバーの保存APIとローカル保存) | local-site-serving(配信サーバーに同居) | 仕様のみ(未実装) |
-| [teams-broadcast](teams-broadcast/requirements.md) | 新しい記事ができると、Teams の Digestチャネルのアプリごとの配信スレッドに見出しとリンクが届く | 新着通知(teams-post の投稿先への書き出し) | batch-runner(記事の公開のあとに呼ばれる)、local-site-serving(記事のURL) | 仕様のみ(未実装) |
-| [failure-notification](failure-notification/requirements.md) | 記事づくりが自動のやり直しを使い切って失敗したとき、監視スレッドに知らせが届き、毎朝のヘルスチェックでも最終成功時刻が見える | 失敗通知(実行状態ファイルの試行回数による判定) | batch-runner(実行状態ファイル)、teams-broadcast と同じ投稿の仕組み | 仕様のみ(未実装) |
+| [teams-broadcast](teams-broadcast/requirements.md) | 新しい記事ができると、Teams の Digestチャネルのアプリごとの配信スレッドに見出しとリンクが届く | 新着通知(teams-post の投稿先への書き出し) | アプリのバッチ(記事を書いてサイトを組み立てたあとに呼ぶ。送り出しの失敗は batch-runner の警告の印で実行係に伝える)、local-site-serving(記事のURL) | 仕様のみ(未実装) |
+| [failure-notification](failure-notification/requirements.md) | 記事づくりの失敗が確定したとき(自動のやり直しを締めた・直らない失敗・手動実行の失敗)と新着の送り出しに失敗したときに監視スレッドに知らせが届き、毎朝のヘルスチェックでも最終成功時刻が見える | 失敗通知(実行係から受け取った確定済みの失敗と警告の通知、同じ配信日・編の通知済みの抑止) | batch-runner(関数の契約で確定済みの失敗と警告を受け取る)、teams-broadcast と同じ投稿の仕組み | 仕様のみ(未実装) |
 
 ## アーキテクチャ概要
 

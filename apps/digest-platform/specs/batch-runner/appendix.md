@@ -60,6 +60,7 @@
   ],
   "finalReason": null,
   "notified": false,
+  "warningNotified": false,
   "notifyReason": null
 }
 ```
@@ -71,7 +72,7 @@
 - `finalReason` は失敗確定の理由(`exhausted`=上限に達した・`permanent`=再試行しても直らない・`last_chance`=最後の機会・`expired`=前日以前の締め・`corrupt`=壊れた記録)。失敗確定でなければ `null`
 - 手動実行の試行は `no` を持たず `manual: true`、`logPath` は `manual-<HHMMSS>` の詳細ログ
 - `notifyReason` は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
-- `notified` は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)
+- `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified` は省略可で、無ければ偽として読む
 - 前日以前に `retry_pending` のまま残った記録を締めたときは、`status` を `failed` にし、`attempts` は変えない
 - 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。欠けていれば壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
 - 書き込みは同じフォルダの一時ファイルに書いて置き換える
@@ -94,10 +95,10 @@ def judge_and_notify(failure: dict) -> dict:
 | `attempt` | 定時の試行回数(壊れた記録のときは 0) |
 | `maxAttempts` | 上限回数 |
 | `manual` | 手動実行なら真 |
-| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / `broadcast_failed`(成功したが新着の送り出しに失敗。警告の種類をそのまま入れる) |
+| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結) |
 | `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
 | `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録のときは現在時刻) |
-| `alreadyNotified` | この配信日・編で既に通知済みなら真(実行状態ファイルの `notified`) |
+| `alreadyNotified` | この配信日・編で既に通知済みなら真(失敗なら実行状態ファイルの `notified`、警告なら `warningNotified`) |
 | `logPath` | 詳細ログの絶対パス(壊れた記録のときは要約ログのパス) |
 
 返る値:
@@ -113,14 +114,16 @@ def judge_and_notify(failure: dict) -> dict:
 
 ```
 2026-11-07T06:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-07 edition=- attempt=1
-2026-11-07T06:41:11+09:00 INFO 実行終了: result=temporary_failure attempt=1 status=retry_pending log=/Users/<運営者>/Library/Application Support/digest/research-digest/logs/publish/2026-11-07-1.log
-2026-11-07T18:41:11+09:00 INFO 実行終了: result=temporary_failure attempt=4 status=failed RUN-FAILED log=...
-2026-11-08T06:30:01+09:00 INFO 実行終了: result=already_succeeded attempt=- status=succeeded log=-
-2026-11-14T06:40:22+09:00 INFO 実行終了: result=succeeded attempt=1 status=succeeded RUN-SUCCEEDED log=...
+2026-11-07T06:41:11+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=1 status=retry_pending log=/Users/<運営者>/Library/Application Support/digest/research-digest/logs/publish/2026-11-07-1.log
+2026-11-07T18:41:11+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=4 status=failed RUN-FAILED log=...
+2026-11-08T06:30:01+09:00 INFO 実行終了: result=already_succeeded date=2026-11-07 edition=- attempt=- status=succeeded log=-
+2026-11-14T06:30:01+09:00 INFO 実行終了: result=expired date=2026-11-07 edition=- attempt=2 status=failed RUN-FAILED log=...
+2026-11-14T06:40:22+09:00 INFO 実行終了: result=succeeded date=2026-11-14 edition=- attempt=1 status=succeeded RUN-SUCCEEDED log=...
 ```
 
 - 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
-- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `out_of_schedule`(配信曜日外) / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `expired`(前日以前の再実行待ちを締めた)
+- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行)
+- `date=` と `edition=` はその行が指す配信日と編(`locked`・`unregistered` のときは `-`)
 - `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
 - `RUN-FAILED` を付ける行: `status=failed` になった起動の「実行終了」行、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行
 - WARNING の行: `... WARNING <何が起きたか>: <内容>`(例外の型とメッセージまで。トレースバックは詳細ログへ)
@@ -220,8 +223,8 @@ cd /Users/<運営者>/repo/study/apps/digest-platform/application
 python3 launchd/runner.py research-digest publish --manual
 ```
 
-- 終了コード: 0=成功・起動しなかった(成功済み・ロック中・配信曜日外)、1=バッチが一時的な失敗、2=再試行しても直らない失敗・未登録・実行係自身のエラー
-- 失敗確定の日も `--manual` なら起動する。成功済みの日をやり直したいときだけ、実行状態ファイルを消してから手動実行する
+- 終了コード: 0=成功・起動しなかった(成功済み・ロック中)、1=バッチが一時的な失敗、2=再試行しても直らない失敗・未登録・実行係自身のエラー
+- 配信日は定時と同じ規則(基準日から遡って最も近い配信曜日)で決まり、配信日の引数は無い。失敗確定の日も `--manual` なら起動する。成功済みの日をやり直したいときだけ、実行状態ファイルを消してから手動実行する
 
 ## Claude の呼び出し(`application/batch/claude.ts`)
 
