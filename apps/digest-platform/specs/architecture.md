@@ -65,7 +65,7 @@ flowchart TB
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [batch-runner](batch-runner/requirements.md) | 決まった時刻にアプリの記事づくりが自動で走り、失敗しても決めた回数まで自動でやり直す | 実行係(launchd のジョブ・共通ラッパー・claude -p の呼び出し・実行状態ファイル) | なし | 仕様のみ(未実装) |
+| [batch-runner](batch-runner/requirements.md) | 決まった時刻にアプリの記事づくりが自動で走り、失敗しても決めた回数まで自動でやり直す | 実行係(launchd のジョブ・共通ラッパー・claude -p の呼び出し・実行状態ファイル) | failure-notification(確定した失敗の引き渡し先。関数の契約は batch-runner が決める) | 仕様のみ(未実装) |
 | [local-site-serving](local-site-serving/requirements.md) | ブラウザで `http://127.0.0.1:<ポート>/<アプリ名>/` を開くと最新の記事が読める | 配信サーバー(記事サイトの組み立てと配信) | アプリのバッチが記事を書いた後に自分でサイトを組み立てる(batch-runner はその結果を成否の判定で確かめる) | 仕様のみ(未実装) |
 | [local-reader-store](local-reader-store/requirements.md) | 記事に付箋(ブックマークとメモ)とフィードバックを書き、あとで見返せる。月次見直しのバッチが同じデータを読める | 読者データ(配信サーバーの保存APIとローカル保存) | local-site-serving(配信サーバーに同居) | 仕様のみ(未実装) |
 | [teams-broadcast](teams-broadcast/requirements.md) | 新しい記事ができると、Teams の Digestチャネルのアプリごとの配信スレッドに見出しとリンクが届く | 新着通知(teams-post の投稿先への書き出し) | batch-runner(記事の公開のあとに呼ばれる)、local-site-serving(記事のURL) | 仕様のみ(未実装) |
@@ -73,7 +73,7 @@ flowchart TB
 
 ## アーキテクチャ概要
 
-launchd が時刻で実行係を起動し、実行係がアプリのバッチを走らせて成否を判定する。アプリのバッチは記事を書いたあと自分で記事サイトを組み立てて新着を Teams に知らせ、実行係は失敗が続いたら監視スレッドに知らせる。読者はブラウザで 127.0.0.1 の配信サーバーから記事を読む。 〔提案〕
+launchd が時刻で実行係を起動し、実行係がアプリのバッチを走らせて成否を判定する。アプリのバッチは記事を書いたあと自分で記事サイトを組み立てて新着を Teams に知らせる。実行係は確定した失敗を失敗通知に渡し、失敗通知が監視スレッドに知らせる。読者はブラウザで 127.0.0.1 の配信サーバーから記事を読む。 〔提案〕
 
 <details><summary>詳細を開く</summary>
 

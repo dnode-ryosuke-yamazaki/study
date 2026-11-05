@@ -56,8 +56,9 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 
 - 仕様: `requirements.md#実行状態の記録-5`、design.md「起動前の判定」手順2、決定事項「配信日の決め方」「配信日と編を決める場所」
 - `calendar.now_jst()` はサンドボックスの UTC に影響されず `Asia/Tokyo` の現在時刻を返す(`zoneinfo`)
-- `calendar.resolve(registration, now)` が配信日(`YYYY-MM-DD`)と編(または `None`)を返す。起動日が配信曜日ならその日、前日が配信曜日なら前日、どちらでもなければ `OutOfSchedule` 例外。`review` は起動日・編なし
-- テスト: 配信曜日の起動1、翌日の起動で前日の配信日と編1、2日後は `OutOfSchedule` 1、UTC 深夜(JST 朝)で日付が JST 側になる1、編を持たないアプリ1、`editionByWeekday` に配信日の曜日が無いとき編なし1
+- `calendar.resolve(registration, now)` が配信日(`YYYY-MM-DD`)と編(または `None`)を返す。基準日は起動時刻が 06:30 より前なら前日、以後なら起動日。基準日が配信曜日ならその日、基準日の前日が配信曜日なら前日、どちらでもなければ `OutOfSchedule` 例外。`review` は基準日・編なし
+- `calendar.last_chance_at(date)` が配信日の 18:30(JST)の日時を返す(再実行の判定で起動時刻と比べる)
+- テスト: 配信曜日の 06:30 以後の起動1、同じ日の 06:29 の起動は前日1、週1回のアプリの翌日の日中の起動で前日の配信日と編1、翌々日は `OutOfSchedule` 1、毎日のアプリの翌日 00:30 の起動は前日1、UTC 深夜(JST 朝)で日付が JST 側になる1、編を持たないアプリ1、`editionByWeekday` に配信日の曜日が無いとき編なし1
 
 </details>
 
@@ -75,7 +76,7 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 
 </details>
 
-### 6. lock.py でアプリ×系統のロックを mkdir で取り、持ち主が居なくなり75分より古いロックを回収する 【担当: claude】
+### 6. lock.py でアプリ×系統のロックを mkdir で取り、作成から75分を過ぎて持ち主の居ないロックを回収する 【担当: claude】
 
 同じアプリ×系統の二重起動を防ぎ、異常終了で残ったロックで翌日以降が止まらないようにする。
 
@@ -122,22 +123,23 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#成否の判定-1,-2,-4`、design.md「バッチの起動と成否の判定」手順5〜6、appendix「アプリ登録表」の `artifacts`
-- `judge.evaluate(exit_code, last_line, artifacts, started_at, timed_out)` が結果(`succeeded`・`temporary_failure`・`permanent_failure`・`timeout`)と欠けた点の一覧を返す。生成物は存在し、更新時刻が起動時刻より後であること
+- `judge.evaluate(exit_code, output_lines, artifacts, started_at, timed_out)` が結果(`succeeded`・`temporary_failure`・`permanent_failure`・`timeout`)・欠けた点の一覧・警告の一覧(成功のとき、標準出力の `DIGEST-BATCH-WARN <種類>` の種類)を返す。生成物は存在し、更新時刻が起動時刻より後であること
 - `judge.expand_artifacts(patterns, date, edition)` が `{date}` `{edition}` `{yearMonth}` を埋める
-- テスト: 3点そろって成功1、各点が欠けて失敗3、終了コード2で永続1、古い生成物だけでは成功にならない1、終了コード0でマーカー無しの fixture(想像 fixture。環境スモークで実出力に置き換える)1
+- テスト: 3点そろって成功1、各点が欠けて失敗3、終了コード2で永続1、古い生成物だけでは成功にならない1、警告の行があれば成功のまま警告が返る1、終了コード0でマーカー無しの fixture(`tests/runner/fixtures/batch-no-marker.log`。タスク16で保存する実出力に置き換えるまでは想像 fixture)1
 
 </details>
 
-### 10. summary_log.py で要約ログに「実行開始」「実行終了」と失敗確定の RUN-FAILED を書く 【担当: claude】
+### 10. summary_log.py で要約ログに「実行開始」「実行終了」と成功の RUN-SUCCEEDED・失敗の RUN-FAILED を書く 【担当: claude】
 
-日次ヘルスチェックが実行係の最終実行と失敗確定をログから読めるようにする。
+日次ヘルスチェックが実行係の最終成功時刻と失敗をログから読めるようにする。
 
 <details><summary>詳細を開く</summary>
 
-- 仕様: `requirements.md#成否の判定-6,-7`、design.md「ログ」、appendix「要約ログの行」
+- 仕様: `requirements.md#成否の判定-6,-7`、design.md「ログ」、決定事項「ヘルスチェックが読む印」、appendix「要約ログの行」
 - `summary_log.started(path, context)`・`summary_log.finished(path, result, attempt, status, log_path)`・`summary_log.warning(path, what, detail, failed=False)`。行頭は ISO 8601(JST オフセット付き)
+- `RUN-SUCCEEDED` は `result=succeeded` の「実行終了」行だけに付ける(`already_succeeded`・`out_of_schedule`・`locked` には付けない)
 - `RUN-FAILED` は `status=failed` の「実行終了」行、`result` が `unregistered`・`runner_error` の「実行終了」行、`failed=True` の WARNING 行に付ける
-- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `実行終了:` で読める)1、失敗確定で `RUN-FAILED` が付く1、再実行待ちでは付かない1(否定確認: 条件を外すと落ちる)、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
+- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `RUN-SUCCEEDED`・`RUN-FAILED` で読める)1、成功で `RUN-SUCCEEDED` が付く1、`already_succeeded`・`out_of_schedule` では付かない1(否定確認: 条件を外すと落ちる)、失敗確定で `RUN-FAILED` が付く1、再実行待ちでは付かない1(否定確認: 条件を外すと落ちる)、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
 
 </details>
 
@@ -153,18 +155,18 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 
 </details>
 
-### 12. handoff.py で失敗通知の判定関数へ11項目を渡し、通知したか・理由を実行状態ファイルに書き、前日以前の再実行待ちを締める 【担当: claude】
+### 12. handoff.py で失敗通知の判定関数へ12項目を渡し、通知したか・理由を実行状態ファイルに書き、前日以前の再実行待ちを締める 【担当: claude】
 
 失敗を確定したとき、通知するかの判定を失敗通知に委ねつつ、結果を後から確かめられるようにする。同じ日に締まらなかった再実行待ちも、次の起動で失敗確定にして通知に回す。
 
 <details><summary>詳細を開く</summary>
 
-- 仕様: `requirements.md#失敗の引き渡し-1,-2`、`requirements.md#再実行-8`、design.md「再実行の判定と失敗の引き渡し」手順4〜5・7、appendix「失敗通知に渡す項目と返る項目」
-- `handoff.build(context, state, failure_kind, failed_at, log_path)` が11項目の dict を作り(`alreadyNotified` は実行状態の `notified`)、`handoff.notify(judge_fn, failure)` が `{"notified", "reason"}` を返す。`judge_fn` は既定で `failure_notification.judge_and_notify` を遅延 import し、無ければ `notified=False, reason="notify_error"`
+- 仕様: `requirements.md#失敗の引き渡し-1,-2`、`requirements.md#再実行-8`、`requirements.md#成否の判定-8`、design.md「再実行の判定と失敗の引き渡し」手順3〜5・7、決定事項「失敗通知に渡すものの範囲」「判定関数の差し替え」、appendix「失敗通知に渡す項目と返る項目」
+- `handoff.build(context, state, failure_kind, final_reason, failed_at, log_path)` が12項目の dict を作り(`alreadyNotified` は実行状態の `notified`)、`handoff.notify(judge_fn, failure)` が `{"notified", "reason"}` を返す。`judge_fn` は既定で `handoff.resolve_judge_fn(env)` が返す関数(環境変数 `DIGEST_HANDOFF_MODULE`、既定 `failure_notification` のモジュールの `judge_and_notify` を遅延 import)。import できなければ `notified=False, reason="notify_error"`
 - `handoff.record(state, result)` は `notified` を一度真になったら真のままにし、`reason` が `write_failed`・`notify_error` なら要約ログに `RUN-FAILED` 付きの WARNING を書く
-- `handoff.expire_stale(runs_dir, current_date, judge_fn)` が配信日が `current_date` より前で `status=retry_pending` の記録を `failed` にし、最後の定時の試行の失敗の種類・終了時刻・ログで `notify` を呼んで記録し、要約ログに `result=expired` の「実行終了」と `RUN-FAILED` を書く
+- `handoff.expire_stale(runs_dir, base_date, exclude_date, judge_fn)` が配信日が `base_date` より前(`exclude_date` を除く)で `status=retry_pending` の記録を `failed`(`finalReason=expired`)にし、最後の定時の試行の失敗の種類・終了時刻・ログで `notify` を呼んで記録し、要約ログに `result=expired` の「実行終了」と `RUN-FAILED` を書く
 - failure-notification が実装されるまでは、同じ契約を持つ偽の関数をテストで渡す
-- テスト: 契約(11項目が揃って渡る)1、結果が実行状態に書かれる1、関数が例外のとき `notify_error` 1、`write_failed` で WARNING に `RUN-FAILED` 1、`notified` が偽に戻らない1、前日の再実行待ちが失敗確定になり通知に渡る1、当日の記録は締めない1
+- テスト: 契約(12項目が揃って渡る。確定の理由が経路ごとの値)1、手動の失敗と警告も渡る2、結果が実行状態に書かれる1、関数が例外のとき `notify_error` 1、`write_failed` で WARNING に `RUN-FAILED` 1、`notified` が偽に戻らない1、`DIGEST_HANDOFF_MODULE` で差し替わる1、前日の再実行待ちが失敗確定になり `expired` で通知に渡る1、今回の配信日の記録は締めない1
 
 </details>
 
@@ -176,9 +178,9 @@ launchd と手元ターミナルのどちらから起動しても、同じ判定
 
 - 仕様: `requirements.md#定時起動-3,-7`、`requirements.md#成否の判定-7`、`requirements.md#実行状態の記録-2`、`requirements.md#再実行-1〜-8`、design.md「起動前の判定」「バッチの起動と成否の判定」「再実行の判定と失敗の引き渡し」、appendix「実行係の手動実行」
 - 引数は `<アプリ名> <系統> [--manual]`。`DIGEST_DATA_DIR` の既定は `~/Library/Application Support/digest/<アプリ名>/`
-- 起動前の判定の経路ごとの結果(`already_succeeded`・`failed_final`・`locked`・`out_of_schedule`・`unregistered`)と、定時の失敗後の当日の状態(記事公開は上限4・月次見直しは1・永続失敗・18:30 以後は最後の機会・手動は数えない)をここで決める。起動前の判定の手順4で `handoff.expire_stale` を呼ぶ
+- 起動前の判定の順(登録表 → ロック → 基準日と配信日 → 掃除と前日以前の締め → 配信曜日外なら終了 → 実行状態 → 起動の判定)と経路ごとの結果(`already_succeeded`・`failed_final`・`locked`・`out_of_schedule`・`unregistered`)、定時の失敗後の当日の状態(記事公開は上限4・月次見直しは1・永続失敗・配信日の 18:30 以後の日時は最後の機会・手動は数えない)と確定の理由をここで決める。ロックを取れた起動では配信曜日外でも `handoff.expire_stale` を呼ぶ
 - 想定外の例外は要約ログ(`result=runner_error`・`RUN-FAILED`)と標準エラーに書き、ロックを外して終了コード2
-- テスト: 成功1、成功済みで起動しない1、記事公開の4回目まで起動・5回目は起動しない2、月次見直しは2回目を起動しない1、永続失敗で上限未満でも失敗確定1、18:30 以後の失敗は2回目でも失敗確定1、手動の失敗が回数と状態を変えない1、手動の成功で成功になる1、失敗確定の日に手動で起動して成功に変わる1、手動で成功済みの日は起動しない1、配信曜日外で起動しない1、壊れた実行状態で退避・失敗確定・引き渡し1、未登録で `RUN-FAILED` 1、想定外の例外で `RUN-FAILED` と終了コード2 1。偽のバッチ(シェルスクリプト)と偽の判定関数を使う
+- テスト: 成功(`RUN-SUCCEEDED` 付き)1、成功済みで起動しない1、記事公開の4回目まで起動・5回目は起動しない2、月次見直しは2回目を起動しない1、永続失敗で上限未満でも失敗確定1、18:30 以後の失敗は2回目でも失敗確定1、翌日 00:30 の追い実行の失敗が前日の記録で失敗確定(最後の機会)1、手動の失敗が回数と状態を変えず通知に渡る1、手動の成功で成功になる1、失敗確定の日に手動で起動して成功に変わる1、手動で成功済みの日は起動しない1、配信曜日外で起動せず前日以前の再実行待ちは締める1、警告付きの成功が状態「成功」のまま通知に渡る1、壊れた実行状態で退避・失敗確定・引き渡し1、未登録で `RUN-FAILED` 1、想定外の例外で `RUN-FAILED` と終了コード2 1。偽のバッチ(シェルスクリプト)と偽の判定関数を使う
 
 </details>
 
@@ -225,7 +227,8 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 - 手元ターミナルで実行するコマンドブロックを渡し、次を保存する: 正常の封筒(`tests/batch/fixtures/claude-ok.json`)、エラーの封筒(存在しないモデル名を `--model` に指定して出す。`tests/batch/fixtures/claude-error.json`)、マーカー無しで終わったバッチの実出力(`tests/runner/fixtures/batch-no-marker.log`)、`claude --version` の出力
 - ツールの絞り込み: 「`/etc/hosts` を Read で読んで内容を書け」と頼む指示を `--tools "WebSearch,WebFetch"` 付きで送り、読めなかった応答になること・標準出力が JSON だけであること(警告の混入が無いこと)を確かめる。効かなかった場合は requirements の未決事項の「効かなければ」の扱いに進み、各アプリの spec に書く事項として報告する
 - 利用枠切れの封筒は実機で起こせないため、エラーの封筒の形に利用枠の文言を入れた派生 fixture(`claude-quota.json`)を作り、コメントに派生であることと確かめた範囲を書く
-- 受け入れ条件: fixture 3つと実出力1つが保存され、design.md 決定事項「利用枠切れの見分け方」と appendix「Claude の呼び出し」の封筒の項目名が実応答に合わせて確定している
+- 保存した `batch-no-marker.log` でタスク9の想像 fixture を置き換え、unittest が通ることを確かめる
+- 受け入れ条件: fixture 3つと実出力1つが保存され、タスク9の fixture が実出力に置き換わり、design.md 決定事項「利用枠切れの見分け方」と appendix「Claude の呼び出し」の封筒の項目名が実応答に合わせて確定している
 
 </details>
 
@@ -261,9 +264,9 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 
 <details><summary>詳細を開く</summary>
 
-- 仕様: `requirements.md#成否の判定-2`、design.md「Claude の呼び出し規約」手順8、決定事項「失敗の種類を実行係に伝える方法」、appendix「バッチの終わり方」
-- `finishOk()` は標準出力の最終行に `DIGEST-BATCH-OK` を出して 0、`failTemporary(reason)` は理由を1行出して 1、`failPermanent(reason)` は 2
-- テスト(vitest): 3経路の最終行と終了コード各1
+- 仕様: `requirements.md#成否の判定-2,-8`、design.md「Claude の呼び出し規約」手順8、決定事項「失敗の種類を実行係に伝える方法」「新着の送り出し失敗の受け取り方」、appendix「バッチの終わり方」
+- `finishOk()` は標準出力の最終行に `DIGEST-BATCH-OK` を出して 0、`failTemporary(reason)` は理由を1行出して 1、`failPermanent(reason)` は 2、`warn(kind)` は `DIGEST-BATCH-WARN <kind>` を1行出す(終了しない。`finishOk()` の前に呼ぶ)
+- テスト(vitest): 3経路の最終行と終了コード各1、`warn` のあとの `finishOk` で警告の行と成功マーカーの順が保たれる1
 
 </details>
 
@@ -290,7 +293,7 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 - 仕様: `requirements.md#定時起動-1,-2,-5`、`requirements.md#実行状態の記録-4`、`requirements.md#Claude の呼び出し規約-1`、`requirements.md#実行時刻-5`、design.md「テスト戦略」の環境スモーク行
 - タスク16の `smoke` アプリを `claude.ts`(タスク17)を使う形に直し、`DIGEST_SMOKE_MODE` を「正常」(claude.ts を1回呼んで記事ファイル1つを書く)にして launchd と手元ターミナルの2経路で通す。終わったら登録表から外す
 - CAバンドル: `DIGEST_SMOKE_MODE` を「固定情報源1件を取る」にして launchd 経由で通し、取得できたことを詳細ログで確かめる(定時起動-5)
-- わざと失敗させる: `DIGEST_SMOKE_MODE` を「exit 1 で終わる」にして `--manual` で通し、実行状態ファイルに手動の失敗が積まれ当日の状態が変わらないこと、要約ログに「実行終了」が出ること、失敗通知の判定関数(この時点では failure-notification が未実装なので、11項目を受け取って `{"notified": false, "reason": "manual"}` を返す偽の関数を `DIGEST_HANDOFF_FAKE=1` で差し込む)に11項目が渡ったことを詳細ログで確かめる。Teams への通知が届くことは failure-notification の環境スモークで確かめる
+- わざと失敗させる: `DIGEST_SMOKE_MODE` を「exit 1 で終わる」にして `--manual` で通し、実行状態ファイルに手動の失敗が積まれ当日の状態が変わらないこと、要約ログに「実行終了」が出ることを確かめる。失敗通知の判定関数は、この時点では failure-notification が未実装なので、契約どおりの12項目を受け取って受け取った内容を標準エラーに出し `{"notified": false, "reason": "notified"}` を返す偽のモジュール(`tests/runner/fake_failure_notification.py`)を `DIGEST_HANDOFF_MODULE` で差し込み、実行状態ファイルの `notifyReason` と launchd の標準エラーの出力で12項目が渡ったことを確かめる。Teams への通知が届くことは failure-notification の環境スモークで確かめる
 - 追い実行: 定時を過ぎるまでスリープさせてから復帰して要約ログに1回だけ「実行開始」が出ること(給電中はスリープしない設定なので、電源を外して確かめる)
 - `launchctl kickstart` で登録直後に動かし、`RunAtLoad` が無いため登録だけでは動かないことも確かめる
 - 結果は下のチェックリストに書く

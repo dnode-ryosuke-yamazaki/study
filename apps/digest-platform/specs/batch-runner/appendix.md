@@ -54,9 +54,11 @@
       "endedAt": "2026-11-07T06:41:10+09:00",
       "result": "temporary_failure",
       "missing": ["marker"],
+      "warnings": [],
       "logPath": "/Users/<運営者>/Library/Application Support/digest/research-digest/logs/publish/2026-11-07-1.log"
     }
   ],
+  "finalReason": null,
   "notified": false,
   "notifyReason": null
 }
@@ -65,8 +67,10 @@
 - `status` は `pending`(未着手)・`retry_pending`(再実行待ち)・`succeeded`(成功)・`failed`(失敗確定)
 - `result` は `succeeded`・`temporary_failure`・`permanent_failure`・`timeout`
 - `missing` は成功の3点のうち欠けたもの(`exit_code`・`marker`・`artifact:<パス>`)
+- `warnings` は成功したバッチが `DIGEST-BATCH-WARN <種類>` で出した種類の一覧(例: `broadcast_failed`)。失敗のときは空
+- `finalReason` は失敗確定の理由(`exhausted`=上限に達した・`permanent`=再試行しても直らない・`last_chance`=最後の機会・`expired`=前日以前の締め・`corrupt`=壊れた記録)。失敗確定でなければ `null`
 - 手動実行の試行は `no` を持たず `manual: true`、`logPath` は `manual-<HHMMSS>` の詳細ログ
-- `notifyReason` は failure-notification が返す理由(`immediate`・`manual`・`exhausted`・`retry_pending`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
+- `notifyReason` は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
 - `notified` は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)
 - 前日以前に `retry_pending` のまま残った記録を締めたときは、`status` を `failed` にし、`attempts` は変えない
 - 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。欠けていれば壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
@@ -79,7 +83,7 @@ def judge_and_notify(failure: dict) -> dict:
     """failure-notification が実装する。batch-runner の handoff.py はこの名前で呼ぶ"""
 ```
 
-渡す `failure`:
+渡す `failure`(渡されるものはすべて通知の判定対象。再実行待ちの途中の失敗は渡されない):
 
 | キー | 値 |
 |---|---|
@@ -90,7 +94,8 @@ def judge_and_notify(failure: dict) -> dict:
 | `attempt` | 定時の試行回数(壊れた記録のときは 0) |
 | `maxAttempts` | 上限回数 |
 | `manual` | 手動実行なら真 |
-| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` |
+| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / `broadcast_failed`(成功したが新着の送り出しに失敗。警告の種類をそのまま入れる) |
+| `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
 | `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録のときは現在時刻) |
 | `alreadyNotified` | この配信日・編で既に通知済みなら真(実行状態ファイルの `notified`) |
 | `logPath` | 詳細ログの絶対パス(壊れた記録のときは要約ログのパス) |
@@ -100,7 +105,9 @@ def judge_and_notify(failure: dict) -> dict:
 | キー | 値 |
 |---|---|
 | `notified` | 投稿用ファイルを書き出したら真 |
-| `reason` | `immediate` / `manual` / `exhausted` / `retry_pending` / `already_notified` / `write_failed`(通知すると判定したが投稿用ファイルを書き出せなかった) |
+| `reason` | `notified`(通知した)/ `already_notified`(通知済みのため見送り)/ `write_failed`(通知すると判定したが投稿用ファイルを書き出せなかった) |
+
+判定関数を持つモジュールは既定で `failure_notification`。実行係が読む環境変数 `DIGEST_HANDOFF_MODULE` があればそのモジュール名を使う(環境スモーク用。バッチには渡さない)。
 
 ## 要約ログの行 `~/Library/Application Support/digest/<アプリ名>/runner-<系統>.log`
 
@@ -109,10 +116,12 @@ def judge_and_notify(failure: dict) -> dict:
 2026-11-07T06:41:11+09:00 INFO 実行終了: result=temporary_failure attempt=1 status=retry_pending log=/Users/<運営者>/Library/Application Support/digest/research-digest/logs/publish/2026-11-07-1.log
 2026-11-07T18:41:11+09:00 INFO 実行終了: result=temporary_failure attempt=4 status=failed RUN-FAILED log=...
 2026-11-08T06:30:01+09:00 INFO 実行終了: result=already_succeeded attempt=- status=succeeded log=-
+2026-11-14T06:40:22+09:00 INFO 実行終了: result=succeeded attempt=1 status=succeeded RUN-SUCCEEDED log=...
 ```
 
-- 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "実行終了:"`、`failureMarkers: ["RUN-FAILED"]` で読む
+- 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
 - `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `out_of_schedule`(配信曜日外) / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `expired`(前日以前の再実行待ちを締めた)
+- `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
 - `RUN-FAILED` を付ける行: `status=failed` になった起動の「実行終了」行、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行
 - WARNING の行: `... WARNING <何が起きたか>: <内容>`(例外の型とメッセージまで。トレースバックは詳細ログへ)
 
@@ -246,5 +255,6 @@ python3 launchd/runner.py research-digest publish --manual
 | 状況 | 標準出力の最終行 | 終了コード |
 |---|---|---|
 | 完遂 | `DIGEST-BATCH-OK` | 0 |
+| 完遂したが警告がある(新着の送り出し失敗など) | `DIGEST-BATCH-WARN <種類>` の行を出したあと `DIGEST-BATCH-OK` | 0 |
 | 一時的な失敗(情報源の全滅・Claude の一時的な失敗など) | 理由の1行 | 1 |
 | 再試行しても直らない失敗(利用枠切れ・設定の誤り) | 理由の1行 | 2 |
