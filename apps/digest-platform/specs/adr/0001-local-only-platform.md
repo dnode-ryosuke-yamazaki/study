@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted (2026-11-05)。「実装言語と置き場所」のうち、Claude の起動と CAバンドルを既存の shell / Python の部品で行う点は [0002](0002-platform-owns-claude-call-and-ca-bundle.md) で改定した(共通基盤が自前の部品を持つ)
+Accepted (2026-11-05)。「実装言語と置き場所」のうち、Claude の起動と CAバンドルを既存の shell / Python の部品で行う点は [0002](0002-platform-owns-claude-call-and-ca-bundle.md) で改定した(共通基盤が自前の部品を持つ)。置き換え表の「研究発見・未来予測の再実行」は、その後の batch-runner の仕様で記事公開の5アプリすべてに広がり、締め方(配信日の 18:30 以後の最後の機会・前日以前の再実行待ちの回収)も batch-runner の仕様が正
 
 ## コンテキスト
 

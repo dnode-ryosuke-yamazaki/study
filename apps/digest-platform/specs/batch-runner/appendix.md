@@ -60,8 +60,9 @@
   ],
   "finalReason": null,
   "notified": false,
+  "notifyReason": null,
   "warningNotified": false,
-  "notifyReason": null
+  "warningNotifyReason": null
 }
 ```
 
@@ -71,8 +72,8 @@
 - `warnings` は成功したバッチが `DIGEST-BATCH-WARN <種類>` で出した種類の一覧(例: `broadcast_failed`)。失敗のときは空
 - `finalReason` は失敗確定の理由(`exhausted`=上限に達した・`permanent`=再試行しても直らない・`last_chance`=最後の機会・`expired`=前日以前の締め・`corrupt`=壊れた記録)。失敗確定でなければ `null`
 - 手動実行の試行は `no` を持たず `manual: true`、`logPath` は `manual-<HHMMSS>` の詳細ログ
-- `notifyReason` は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
-- `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified` は省略可で、無ければ偽として読む
+- `notifyReason`(失敗の引き渡しの結果)と `warningNotifyReason`(警告の引き渡しの結果)は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
+- `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified`・`warningNotifyReason` は省略可で、無ければ偽・`null` として読む
 - 前日以前に `retry_pending` のまま残った記録を締めたときは、`status` を `failed` にし、`attempts` は変えない
 - 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。欠けていれば壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
 - 書き込みは同じフォルダの一時ファイルに書いて置き換える
@@ -112,20 +113,31 @@ def judge_and_notify(failure: dict) -> dict:
 
 ## 要約ログの行 `~/Library/Application Support/digest/<アプリ名>/runner-<系統>.log`
 
+research-digest(土曜のみ)の続き物の例。11-07(土)は 06:30・10:30 が一時的な失敗、14:30 がロック中で飛び、18:30 の回が最後の機会として失敗確定。11-14(土)は 06:30 で成功し、10:30 の回は既に成功済み。11-21(土)は 06:30 の失敗のあと Mac が止まり、11-28(土)の起動で前週の記録を締めてから当日の本番が成功。
+
 ```
 2026-11-07T06:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-07 edition=- attempt=1
 2026-11-07T06:41:11+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=1 status=retry_pending log=/Users/<運営者>/Library/Application Support/digest/research-digest/logs/publish/2026-11-07-1.log
-2026-11-07T18:41:11+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=4 status=failed RUN-FAILED log=...
-2026-11-08T06:30:01+09:00 INFO 実行終了: result=already_succeeded date=2026-11-07 edition=- attempt=- status=succeeded log=-
-2026-11-14T06:30:01+09:00 INFO 実行終了: result=expired date=2026-11-07 edition=- attempt=2 status=failed RUN-FAILED log=...
+2026-11-07T10:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-07 edition=- attempt=2
+2026-11-07T10:39:50+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=2 status=retry_pending log=...
+2026-11-07T14:30:01+09:00 INFO 実行終了: result=locked date=- edition=- attempt=- status=- log=-
+2026-11-07T18:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-07 edition=- attempt=3
+2026-11-07T18:41:11+09:00 INFO 実行終了: result=temporary_failure date=2026-11-07 edition=- attempt=3 status=failed RUN-FAILED log=...
+2026-11-14T06:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-14 edition=- attempt=1
 2026-11-14T06:40:22+09:00 INFO 実行終了: result=succeeded date=2026-11-14 edition=- attempt=1 status=succeeded RUN-SUCCEEDED log=...
+2026-11-14T10:30:01+09:00 INFO 実行終了: result=already_succeeded date=2026-11-14 edition=- attempt=- status=succeeded log=-
+2026-11-21T06:30:01+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-21 edition=- attempt=1
+2026-11-21T06:41:30+09:00 INFO 実行終了: result=temporary_failure date=2026-11-21 edition=- attempt=1 status=retry_pending log=...
+2026-11-28T06:30:01+09:00 INFO 実行終了: result=expired date=2026-11-21 edition=- attempt=1 status=failed RUN-FAILED log=...
+2026-11-28T06:30:02+09:00 INFO 実行開始: app=research-digest kind=publish date=2026-11-28 edition=- attempt=1
+2026-11-28T06:39:05+09:00 INFO 実行終了: result=succeeded date=2026-11-28 edition=- attempt=1 status=succeeded RUN-SUCCEEDED log=...
 ```
 
 - 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
 - `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行)
 - `date=` と `edition=` はその行が指す配信日と編(`locked`・`unregistered` のときは `-`)
 - `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
-- `RUN-FAILED` を付ける行: `status=failed` になった起動の「実行終了」行、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行
+- `RUN-FAILED` を付ける行: その起動で `status` が `failed` に変わった「実行終了」行(`expired` の行を含む)、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行。既に失敗確定の日に起動しない回(`failed_final`)と手動実行の失敗の行には付けない
 - WARNING の行: `... WARNING <何が起きたか>: <内容>`(例外の型とメッセージまで。トレースバックは詳細ログへ)
 
 ## 詳細ログの先頭と末尾

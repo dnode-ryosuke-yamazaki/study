@@ -71,7 +71,7 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 - 仕様: `requirements.md#実行状態の記録-1,-3`、design.md「再実行の判定と失敗の引き渡し」手順6、appendix「実行状態ファイル」
 - `state.load(path)` は無ければ `pending` の空の状態、読めれば dict、壊れていれば `StateBroken` 例外(`state.quarantine(path)` が `.corrupt-<日時>` に退避する)
 - `state.save(path, data)` は一時ファイルに書いて置き換え、フォルダは 700・ファイルは 600
-- `state.add_attempt(data, attempt)`・`state.set_status(data, status, final_reason=None)` で当日の状態を更新する。`notified`・`warningNotified` は別々の印で、`warningNotified` が無いファイルは偽として読む
+- `state.add_attempt(data, attempt)`・`state.set_status(data, status, final_reason=None)` で当日の状態を更新する。`notified`/`notifyReason` と `warningNotified`/`warningNotifyReason` は別々の印と理由で、警告側の項目が無いファイルは偽・`null` として読む
 - テスト: 正常の読み書き1、構造検証(JSON として読め必須項目を持つ)1、失敗形3(空・壊れた JSON・必須項目の欠け)、退避ファイルの名前1
 
 </details>
@@ -138,8 +138,8 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 - 仕様: `requirements.md#成否の判定-6,-7`、design.md「ログ」、決定事項「ヘルスチェックが読む印」、appendix「要約ログの行」
 - `summary_log.started(path, context)`・`summary_log.finished(path, result, date, edition, attempt, status, log_path)`・`summary_log.warning(path, what, detail, failed=False)`。行頭は ISO 8601(JST オフセット付き)。「実行終了」の行に配信日と編を含める
 - `RUN-SUCCEEDED` は `result=succeeded` の「実行終了」行だけに付ける(`already_succeeded`・`locked`・`expired` には付けない)
-- `RUN-FAILED` は `status=failed` の「実行終了」行、`result` が `unregistered`・`runner_error` の「実行終了」行、`failed=True` の WARNING 行に付ける
-- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `RUN-SUCCEEDED`・`RUN-FAILED` で読める)1、成功で `RUN-SUCCEEDED` が付く1、`already_succeeded`・`locked` では付かない1(否定確認: 条件を外すと落ちる)、失敗確定で `RUN-FAILED` が付く1、再実行待ちでは付かない1(否定確認: 条件を外すと落ちる)、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
+- `summary_log.finished` は「その起動で `status` が `failed` に変わった」ことを引数 `became_failed` で受け取り、真のとき(`expired` を含む)と `result` が `unregistered`・`runner_error` のとき「実行終了」行に `RUN-FAILED` を付ける。`failed_final`(既に失敗確定の日の起動しない回)と手動実行の失敗には付けない。`failed=True` の WARNING 行にも付ける
+- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `RUN-SUCCEEDED`・`RUN-FAILED` で読める)1、成功で `RUN-SUCCEEDED` が付く1、`already_succeeded`・`locked` では付かない1(否定確認: 条件を外すと落ちる)、失敗確定になった起動で `RUN-FAILED` が付く1、再実行待ち・`failed_final`・手動の失敗では付かない1(否定確認: 条件を外すと落ちる)、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
 
 </details>
 
@@ -163,7 +163,7 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 
 - 仕様: `requirements.md#失敗の引き渡し-1,-2`、`requirements.md#再実行-8`、`requirements.md#成否の判定-8`、design.md「再実行の判定と失敗の引き渡し」手順3〜5・7、決定事項「失敗通知に渡すものの範囲」「判定関数の差し替え」、appendix「失敗通知に渡す項目と返る項目」
 - `handoff.build(context, state, failure_kind, final_reason, failed_at, log_path)` が12項目の dict を作り(`alreadyNotified` は確定の理由が「警告」なら実行状態の `warningNotified`、それ以外は `notified`。警告の種類が複数なら `+` で連結)、`handoff.notify(judge_fn, failure)` が `{"notified", "reason"}` を返す。`judge_fn` は既定で `handoff.resolve_judge_fn(env)` が返す関数(環境変数 `DIGEST_HANDOFF_MODULE`、既定 `failure_notification` のモジュールの `judge_and_notify` を遅延 import)。import できなければ `notified=False, reason="notify_error"`
-- `handoff.record(state, result, warning=False)` は `notified`(警告なら `warningNotified`)を一度真になったら真のままにし、`reason` が `write_failed`・`notify_error` なら要約ログに `RUN-FAILED` 付きの WARNING を書く
+- `handoff.record(state, result, warning=False)` は `notified`・`notifyReason`(警告なら `warningNotified`・`warningNotifyReason`)に書き、通知済みの印は一度真になったら真のままにし、`reason` が `write_failed`・`notify_error` なら要約ログに `RUN-FAILED` 付きの WARNING を書く
 - `handoff.expire_stale(runs_dir, base_date, exclude_date, judge_fn)` が配信日が `base_date` より前(`exclude_date` を除く)で `status=retry_pending` の記録を `failed`(`finalReason=expired`)にし、最後の定時の試行の失敗の種類・終了時刻・ログで `notify` を呼んで記録し、要約ログに記録ごとの `result=expired` の「実行終了」と `RUN-FAILED` を書く。JSON として読めない記録は飛ばして WARNING を1行書く
 - failure-notification が実装されるまでは、同じ契約を持つ偽の関数をテストで渡す
 - テスト: 契約(12項目が揃って渡る。確定の理由が経路ごとの値)1、手動の失敗と警告も渡る2、結果が実行状態に書かれる1、関数が例外のとき `notify_error` 1、`write_failed` で WARNING に `RUN-FAILED` 1、`notified` が偽に戻らない1、`DIGEST_HANDOFF_MODULE` で差し替わる1、警告の `alreadyNotified` が `warningNotified` から来て記録も `warningNotified` に入る1、前日の再実行待ちが失敗確定になり `expired` で通知に渡る1、今回の配信日の記録は締めない1、壊れた記録を飛ばして続行する1
