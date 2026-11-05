@@ -9,6 +9,7 @@
   "apps": {
     "research-digest": {
       "publish": {
+        "enabled": false,
         "weekdays": [6],
         "editionByWeekday": { "6": null },
         "maxAttempts": 4,
@@ -29,12 +30,13 @@
 }
 ```
 
+- `publish.enabled` はそのアプリの記事公開を動かすかどうか。各アプリの spec を実装して記事公開のバッチが置かれるまでは `false` にしておき、`false` のアプリは plist を生成せず、実行係も「未登録」として扱う(各アプリの spec の実装タスクで `true` にする)
 - `weekdays` は launchd の `Weekday` と同じ 0=日曜〜6=土曜。毎日動くアプリ(ai-dev-digest・news-digest・trend-digest)は `[0, 1, 2, 3, 4, 5, 6]`、research-digest は `[6]`、future-digest は `[0]`。祝日の除外は持たない
 - `editionByWeekday` は曜日(文字列)→編の識別子。編を持たないアプリは値を `null` にする。編の対応は各アプリの spec の実装時に埋める
 - `maxAttempts` は本番を含む定時の試行の上限。記事公開は5アプリとも 4。`review` は常に 1
 - `command` の `{node}` `{tsx}` は実行係が絶対パスに置き換える。相対パスは `apps/digest-platform/application/` 起点
 - `artifacts` の `{date}` は配信日(`YYYY-MM-DD`)、`{edition}` は編があれば `-<編>`、無ければ空、`{yearMonth}` は `YYYY-MM`
-- `review.dayOfMonth` が `null` の間は月次見直しの plist を生成せず、実行係は `review` を「未登録」として扱う
+- `review.dayOfMonth` が `null` の間は月次見直しの plist を生成せず、実行係は `review` を「未登録」として扱う(`publish.enabled` が `false` のときと同じ扱い)
 
 ## 実行状態ファイル `~/Library/Application Support/digest/<アプリ名>/runs/<系統>/<配信日>[-<編>].json`
 
@@ -101,9 +103,9 @@ def judge_and_notify(failure: dict) -> dict:
 | `manual` | 今回の試行が手動実行なら真。締め(前日以前・記録なし・壊れた記録)では、その起動が手動実行なら真。渡し直しは残した値のまま |
 | `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結)。壊れた記録は `permanent_failure`、記録なしは `temporary_failure`、前日以前の締めは最後の試行の値 |
 | `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `missed`(記録なし)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
-| `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録のときは現在時刻) |
+| `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録・記録なしのときは現在時刻、前日以前の締めは最後の試行の終了時刻) |
 | `alreadyNotified` | この配信日・編で既に通知済みなら真(失敗なら実行状態ファイルの `notified`、警告なら `warningNotified`) |
-| `logPath` | 詳細ログの絶対パス(壊れた記録のときは要約ログのパス) |
+| `logPath` | 詳細ログの絶対パス(壊れた記録・記録なしのときは要約ログのパス、前日以前の締めは最後の試行の詳細ログ) |
 
 返る値:
 

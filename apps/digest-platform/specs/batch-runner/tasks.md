@@ -41,10 +41,10 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#定時起動-3`、design.md「起動前の判定」手順1、appendix「アプリ登録表」
-- `apps.json` に5アプリの `publish`(research-digest=土曜、future-digest=日曜、ai-dev-digest・news-digest・trend-digest=毎日。上限は5アプリとも4)と `review`(`dayOfMonth: null`・上限1)を書く。`editionByWeekday` は各アプリの spec で埋める前提で `null`
-- `registry.load(path)` が登録表を読み、`registry.get(app, kind)` が登録を返す。無いアプリ・無い系統・`review.dayOfMonth` が `null` は `Unregistered` 例外
+- `apps.json` に5アプリの `publish`(research-digest=土曜、future-digest=日曜、ai-dev-digest・news-digest・trend-digest=毎日。上限は5アプリとも4。`enabled` は5アプリとも `false` で、各アプリの spec の実装時に `true` にする)と `review`(`dayOfMonth: null`・上限1)を書く。`editionByWeekday` は各アプリの spec で埋める前提で `null`
+- `registry.load(path)` が登録表を読み、`registry.get(app, kind)` が登録を返す。無いアプリ・無い系統・`publish.enabled` が `false`・`review.dayOfMonth` が `null` は `Unregistered` 例外
 - 必須項目の欠け・JSON の壊れは `RegistryBroken` 例外
-- テスト: 正常1、未登録アプリ1、未登録系統1、壊れた登録表1
+- テスト: 正常1、未登録アプリ1、未登録系統1、`enabled` が `false` で未登録1、壊れた登録表1
 
 </details>
 
@@ -76,7 +76,7 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 
 </details>
 
-### 6. lock.py でアプリ×系統のロックを mkdir で取り、作成から75分を過ぎて持ち主の居ないロックを回収する 【担当: claude】
+### 6. lock.py でアプリ×系統のロックを mkdir で取り、作成から75分を過ぎて持ち主の居ないロック(24時間を過ぎれば持ち主によらず)を回収する 【担当: claude】
 
 同じアプリ×系統の二重起動を防ぎ、異常終了で残ったロックで翌日以降が止まらないようにする。
 
@@ -198,10 +198,10 @@ launchd と手元ターミナルのどちらから起動しても、同じ判定
 
 - 仕様: `requirements.md#定時起動-1,-6`、`requirements.md#実行時刻-1〜-4`、design.md「launchd ジョブの生成と登録」、appendix「plist」
 - 引数: `--node <絶対パス> --claude <絶対パス> --python <絶対パス> [--out <フォルダ>]`。存在しないパス・`Versions/3.` のようにバージョン番号を含むパスは終了コード2で拒否
-- `publish` は 06:30 と、`maxAttempts` が 2 以上なら 10:30・14:30・18:30 を並べる。`weekdays` が7曜日すべてなら `Weekday` を書かない4件、そうでなければ `weekdays` ごとに `Weekday` 付き(週1回のアプリは4件)。`review` は `dayOfMonth` が `null` なら生成しない、あれば `Day`・07:30
+- `publish` は `enabled` が `true` のアプリだけ生成し、06:30 と、`maxAttempts` が 2 以上なら 10:30・14:30・18:30 を並べる。`weekdays` が7曜日すべてなら `Weekday` を書かない4件、そうでなければ `weekdays` ごとに `Weekday` 付き(週1回のアプリは4件)。`review` は `dayOfMonth` が `null` なら生成しない、あれば `Day`・07:30
 - `EnvironmentVariables`・`StandardOutPath`・`ProcessType` は appendix のとおり。`RunAtLoad` は書かない
 - 生成前に `plistlib.loads` で読み直して検査する
-- 受け入れ条件(構造検証、各1件): 全 plist が `plistlib` で読める・`RunAtLoad` キーが無い(否定確認: 足すと落ちる)・research-digest に Weekday 6 だけ、future-digest に Weekday 0 だけ、ほかの3アプリは Weekday を持たない4件・06:30 が全 publish にある・10:30/14:30/18:30 が全 publish にあり review に無い・review は 07:30 の1つだけ・バージョン番号を含むパスを拒否する
+- 受け入れ条件(構造検証、各1件): 全 plist が `plistlib` で読める・`RunAtLoad` キーが無い(否定確認: 足すと落ちる)・research-digest に Weekday 6 だけ、future-digest に Weekday 0 だけ、ほかの3アプリは Weekday を持たない4件・06:30 が全 publish にある・10:30/14:30/18:30 が全 publish にあり review に無い・review は 07:30 の1つだけ・`enabled` が `false` のアプリの publish は生成しない(否定確認: 条件を外すと落ちる)・バージョン番号を含むパスを拒否する
 
 </details>
 
@@ -227,7 +227,7 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#Claude の呼び出し規約-1,-5,-7`、`requirements.md#成否の判定-2`、`requirements.md#依存関係`の未決事項、design.md 決定事項「利用枠切れの見分け方」「Claude に使わせるツールの絞り方」
-- 登録表に検証用の `smoke` アプリ(偽のバッチ `application/batch/smoke.ts`: `claude -p` を appendix の起動引数で1回呼んで封筒をそのまま標準出力に出し、環境変数 `DIGEST_SMOKE_MODE` で「正常」「マーカー無しで終わる」「exit 1 で終わる」「CAバンドル経由で固定情報源1件を取る」を切り替える)を足す。タスク21の環境スモークでも使い、終わったら登録表から外す
+- 登録表に検証用の `smoke` アプリ(`enabled: true`。偽のバッチ `application/batch/smoke.ts`: `claude -p` を appendix の起動引数で1回呼んで封筒をそのまま標準出力に出し、環境変数 `DIGEST_SMOKE_MODE` で「正常」「マーカー無しで終わる」「exit 1 で終わる」「CAバンドル経由で固定情報源1件を取る」を切り替える)を足す。タスク21の環境スモークでも使い、終わったら登録表から外す
 - 手元ターミナルで実行するコマンドブロックを渡し、次を保存する: 正常の封筒(`tests/batch/fixtures/claude-ok.json`)、エラーの封筒(存在しないモデル名を `--model` に指定して出す。`tests/batch/fixtures/claude-error.json`)、マーカー無しで終わったバッチの実出力(`tests/runner/fixtures/batch-no-marker.log`)、`claude --version` の出力
 - ツールの絞り込み: 「`/etc/hosts` を Read で読んで内容を書け」と頼む指示を `--tools "WebSearch,WebFetch"` 付きで送り、読めなかった応答になること・標準出力が JSON だけであること(警告の混入が無いこと)を確かめる。効かなかった場合は requirements の未決事項の「効かなければ」の扱いに進み、各アプリの spec に書く事項として報告する
 - 利用枠切れの封筒は実機で起こせないため、エラーの封筒の形に利用枠の文言を入れた派生 fixture(`claude-quota.json`)を作り、コメントに派生であることと確かめた範囲を書く
@@ -283,7 +283,7 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#定時起動-7`、`requirements.md#再実行-6`、`requirements.md#実行状態の記録-4`、design.md「launchd ジョブの生成と登録」手順5、appendix「実行係の手動実行」
-- 書くこと: `npm install`・`npm test`・`python3 -m unittest`・性能テストの回し方、`make_plists.py` の実行と `launchctl bootstrap gui/$(id -u) <plist>`・`bootout`・`kickstart -k` のコマンド、手動実行(失敗確定の日はそのまま `--manual` で起動できること)、要約ログ・詳細ログ・実行状態ファイルの場所、成功済みの日をやり直したいときに実行状態ファイルを消す手順、`~/.claude/settings.json` の `permissions.additionalDirectories` に `~/Library/Application Support/digest` を足す手順
+- 書くこと: `npm install`・`npm test`・`python3 -m unittest`・性能テストの回し方、`make_plists.py` の実行と `launchctl bootstrap gui/$(id -u) <plist>`・`bootout`・`kickstart -k` のコマンド(plist は登録表で有効にしたアプリの分だけ作られること、各アプリの spec を実装したら `enabled` を `true` にして生成と登録をやり直し、日次ヘルスチェックの宣言もそのときに足すこと)、手動実行(失敗確定の日はそのまま `--manual` で起動できること)、要約ログ・詳細ログ・実行状態ファイルの場所、成功済みの日をやり直したいときに実行状態ファイルを消す手順、`~/.claude/settings.json` の `permissions.additionalDirectories` に `~/Library/Application Support/digest` を足す手順
 - 受け入れ条件: コマンドは絶対パス・プレースホルダなし(`<運営者>` は `$HOME` で書く)
 
 </details>
