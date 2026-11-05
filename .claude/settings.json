@@ -25,5 +25,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "devflow@study-plugins": true
   }
 }
