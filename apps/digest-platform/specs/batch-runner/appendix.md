@@ -77,7 +77,7 @@
 - `notifyReason`(失敗の引き渡しの結果)と `warningNotifyReason`(警告の引き渡しの結果)は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
 - `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified`・`warningNotifyReason` は省略可で、無ければ偽・`null` として読む
 - `lastHandoff`(失敗用)と `lastWarningHandoff`(警告用)は、失敗通知に渡したのに通知できなかったとき(理由が `write_failed`・`notify_error`)に、渡した12項目の dict をそのまま残す。通知できたら `null`。次の起動の渡し直しはこの dict を使う。省略可で、無ければ `null` として読む
-- 前日以前に `retry_pending` のまま残った記録を締めたときは、`status` を `failed` にし、`attempts` は変えない
+- 前日以前に `pending`(手動の失敗だけ)または `retry_pending` のまま残った記録を締めたときは、`status` を `failed`(`finalReason=expired`)にし、`attempts` は変えない
 - 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。欠けていれば壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
 - 書き込みは同じフォルダの一時ファイルに書いて置き換える
 
@@ -96,7 +96,7 @@ def judge_and_notify(failure: dict) -> dict:
 | `kind` | `publish` / `review` |
 | `date` | 配信日 `YYYY-MM-DD` |
 | `edition` | 編の識別子または `null` |
-| `attempt` | 定時の試行回数(壊れた記録のときは 0) |
+| `attempt` | 定時の試行回数(壊れた記録・記録なし・手動の失敗だけの記録のときは 0) |
 | `maxAttempts` | 上限回数 |
 | `manual` | 手動実行なら真 |
 | `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結) |
@@ -139,7 +139,7 @@ research-digest(土曜のみ)の続き物の例。11-07(土)は 06:30・10:30 �
 ```
 
 - 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
-- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行) / `missed`(記録の無い直前の配信日を締めた) / `renotified`(通知できなかった記録を渡し直した。記録ごとに1行)
+- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の未着手・再実行待ちを締めた。記録ごとに1行) / `missed`(記録の無い直前の配信日を締めた) / `renotified`(通知できなかった記録を渡し直した。記録ごとに1行)
 - `date=` と `edition=` はその行が指す配信日と編(`locked`・`unregistered` のときは `-`)
 - `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
 - `RUN-FAILED` を付ける行: その起動で `status` が `failed` に変わった「実行終了」行(`expired`・`missed`・`corrupt_state` の行を含む)、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行。既に失敗確定の日に起動しない回(`failed_final`)・手動実行の失敗・渡し直し(`renotified`)の行には付けない
