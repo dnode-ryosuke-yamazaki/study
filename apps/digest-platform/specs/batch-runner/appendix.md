@@ -136,10 +136,10 @@ research-digest(土曜のみ)の続き物の例。11-07(土)は 06:30・10:30 �
 ```
 
 - 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
-- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行) / `missed`(記録の無い直前の配信日を締めた)
+- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行) / `missed`(記録の無い直前の配信日を締めた) / `renotified`(通知できなかった記録を渡し直した。記録ごとに1行)
 - `date=` と `edition=` はその行が指す配信日と編(`locked`・`unregistered` のときは `-`)
 - `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
-- `RUN-FAILED` を付ける行: その起動で `status` が `failed` に変わった「実行終了」行(`expired` の行を含む)、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行。既に失敗確定の日に起動しない回(`failed_final`)と手動実行の失敗の行には付けない
+- `RUN-FAILED` を付ける行: その起動で `status` が `failed` に変わった「実行終了」行(`expired`・`missed`・`corrupt_state` の行を含む)、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行。既に失敗確定の日に起動しない回(`failed_final`)・手動実行の失敗・渡し直し(`renotified`)の行には付けない
 - WARNING の行: `... WARNING <何が起きたか>: <内容>`(例外の型とメッセージまで。トレースバックは詳細ログへ)
 
 ## 詳細ログの先頭と末尾

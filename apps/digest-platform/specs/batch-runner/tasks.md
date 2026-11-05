@@ -138,8 +138,8 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 - 仕様: `requirements.md#成否の判定-6,-7`、design.md「ログ」、決定事項「ヘルスチェックが読む印」、appendix「要約ログの行」
 - `summary_log.started(path, context)`・`summary_log.finished(path, result, date, edition, attempt, status, log_path)`・`summary_log.warning(path, what, detail, failed=False)`。行頭は ISO 8601(JST オフセット付き)。「実行終了」の行に配信日と編を含める
 - `RUN-SUCCEEDED` は `result=succeeded` の「実行終了」行だけに付ける(`already_succeeded`・`locked`・`expired` には付けない)
-- `summary_log.finished` は「その起動で `status` が `failed` に変わった」ことを引数 `became_failed` で受け取り、真のとき(`expired` を含む)と `result` が `unregistered`・`runner_error` のとき「実行終了」行に `RUN-FAILED` を付ける。`failed_final`(既に失敗確定の日の起動しない回)と手動実行の失敗には付けない。`failed=True` の WARNING 行にも付ける
-- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `RUN-SUCCEEDED`・`RUN-FAILED` で読める)1、成功で `RUN-SUCCEEDED` が付く1、`already_succeeded`・`locked` では付かない1(否定確認: 条件を外すと落ちる)、失敗確定になった起動で `RUN-FAILED` が付く1、再実行待ち・`failed_final`・手動の失敗では付かない1(否定確認: 条件を外すと落ちる)、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
+- `summary_log.finished` は「その起動で `status` が `failed` に変わった」ことを引数 `became_failed` で受け取り、真のとき(`expired`・`missed`・`corrupt_state` を含む)と `result` が `unregistered`・`runner_error` のとき「実行終了」行に `RUN-FAILED` を付ける。`renotified` には付けない。`failed_final`(既に失敗確定の日の起動しない回)と手動実行の失敗には付けない。`failed=True` の WARNING 行にも付ける
+- テスト: 構造検証(書いた行を `^\d{4}-\d{2}-\d{2}T[^ ]+ (INFO|WARNING) ` と `RUN-SUCCEEDED`・`RUN-FAILED` で読める)1、成功で `RUN-SUCCEEDED` が付く1、`already_succeeded`・`locked` では付かない1(否定確認: 条件を外すと落ちる)、失敗確定になった起動で `RUN-FAILED` が付く1、再実行待ち・`failed_final`・手動の失敗・`renotified` では付かない1(否定確認: 条件を外すと落ちる)、`missed`・`corrupt_state` で付く2、`unregistered`・`runner_error` で付く2、`failed=True` の WARNING で付く1
 
 </details>
 
@@ -161,13 +161,14 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 
 <details><summary>詳細を開く</summary>
 
-- 仕様: `requirements.md#失敗の引き渡し-1,-2`、`requirements.md#再実行-8`、`requirements.md#成否の判定-8`、design.md「再実行の判定と失敗の引き渡し」手順3〜5・7、決定事項「失敗通知に渡すものの範囲」「判定関数の差し替え」、appendix「失敗通知に渡す項目と返る項目」
+- 仕様: `requirements.md#失敗の引き渡し-1,-2,-3`、`requirements.md#再実行-8,-9`、`requirements.md#成否の判定-8`、design.md「再実行の判定と失敗の引き渡し」手順3〜5・7〜9、決定事項「失敗通知に渡すものの範囲」「判定関数の差し替え」、appendix「失敗通知に渡す項目と返る項目」
 - `handoff.build(context, state, failure_kind, final_reason, failed_at, log_path)` が12項目の dict を作り(`alreadyNotified` は確定の理由が「警告」なら実行状態の `warningNotified`、それ以外は `notified`。警告の種類が複数なら `+` で連結)、`handoff.notify(judge_fn, failure)` が `{"notified", "reason"}` を返す。`judge_fn` は既定で `handoff.resolve_judge_fn(env)` が返す関数(環境変数 `DIGEST_HANDOFF_MODULE`、既定 `failure_notification` のモジュールの `judge_and_notify` を遅延 import)。import できなければ `notified=False, reason="notify_error"`
 - `handoff.record(state, result, warning=False)` は `notified`・`notifyReason`(警告なら `warningNotified`・`warningNotifyReason`)に書き、通知済みの印は一度真になったら真のままにし、`reason` が `write_failed`・`notify_error` なら要約ログに `RUN-FAILED` 付きの WARNING を書く
 - `handoff.expire_stale(runs_dir, base_date, exclude_date, judge_fn)` が配信日が `base_date` より前(`exclude_date` を除く)で `status=retry_pending` の記録を `failed`(`finalReason=expired`)にし、最後の定時の試行の失敗の種類・終了時刻・ログで `notify` を呼んで記録し、要約ログに記録ごとの `result=expired` の「実行終了」と `RUN-FAILED` を書く。JSON として読めない記録は飛ばして WARNING を1行書く
-- `handoff.expire_missing(runs_dir, registration, current_date, now, judge_fn)` が今回の配信日の直前の配信日(登録表の配信曜日で1つ前)に記録が無くその 18:30 を過ぎていれば、`status=failed`・`finalReason=missed`・試行なしの記録を作り、試行回数0・失敗の種類 `temporary_failure`・失敗日時は現在時刻で `notify` を呼んで記録し、要約ログに `result=missed` の「実行終了」と `RUN-FAILED` を書く
+- `handoff.expire_missing(runs_dir, registration, current_date, now, judge_fn)` が今回の配信日の直前の配信日(登録表の配信曜日で1つ前)に記録が無くその 18:30 を過ぎていれば、`status=failed`・`finalReason=missed`・試行なしの記録を作り、試行回数0・失敗の種類 `temporary_failure`・失敗日時は現在時刻で `notify` を呼んで記録し、要約ログに `result=missed` の「実行終了」と `RUN-FAILED` を書く。`kind=review` では何もしない。要約ログに「実行開始」の行が無ければ何もしない
+- `handoff.renotify(runs_dir, current_date, judge_fn)` が配信日が `current_date` より前の記録のうち `notified` が偽で `notifyReason` が `write_failed`・`notify_error` のもの(警告側は `warningNotified`・`warningNotifyReason`)を、その記録の `finalReason`・失敗の種類・最後の試行の終了時刻・ログで `notify` を呼び直して記録し、要約ログに `result=renotified` の「実行終了」を書く(`RUN-FAILED` は付けない)
 - failure-notification が実装されるまでは、同じ契約を持つ偽の関数をテストで渡す
-- テスト: 契約(12項目が揃って渡る。確定の理由が経路ごとの値)1、手動の失敗と警告も渡る2、結果が実行状態に書かれる1、関数が例外のとき `notify_error` 1、`write_failed` で WARNING に `RUN-FAILED` 1、`notified` が偽に戻らない1、`DIGEST_HANDOFF_MODULE` で差し替わる1、警告の `alreadyNotified` が `warningNotified` から来て記録も `warningNotified` に入る1、前日の再実行待ちが失敗確定になり `expired` で通知に渡る1、今回の配信日の記録は締めない1、壊れた記録を飛ばして続行する1、直前の配信日に記録が無ければ `missed` の記録ができて通知に渡る1、記録があれば作らない1、週1回のアプリは7日前を見る1
+- テスト: 契約(12項目が揃って渡る。確定の理由が経路ごとの値)1、手動の失敗と警告も渡る2、結果が実行状態に書かれる1、関数が例外のとき `notify_error` 1、`write_failed` で WARNING に `RUN-FAILED` 1、`notified` が偽に戻らない1、`DIGEST_HANDOFF_MODULE` で差し替わる1、警告の `alreadyNotified` が `warningNotified` から来て記録も `warningNotified` に入る1、前日の再実行待ちが失敗確定になり `expired` で通知に渡る1、今回の配信日の記録は締めない1、壊れた記録を飛ばして続行する1、直前の配信日に記録が無ければ `missed` の記録ができて通知に渡り要約ログに `RUN-FAILED` 1、記録があれば作らない1、週1回のアプリは7日前を見る1、「実行開始」の無い初回は作らない1、`review` では作らない1、`write_failed` の記録が渡し直されて通知済みが真になる1、警告側も渡し直される1、通知済みが真・`already_notified` の記録は渡さない1
 
 </details>
 
@@ -177,9 +178,9 @@ launchd と手元ターミナルのどちらから起動しても、同じ判定
 
 <details><summary>詳細を開く</summary>
 
-- 仕様: `requirements.md#定時起動-3,-7`、`requirements.md#成否の判定-7`、`requirements.md#実行状態の記録-2`、`requirements.md#再実行-1〜-8`、design.md「起動前の判定」「バッチの起動と成否の判定」「再実行の判定と失敗の引き渡し」、appendix「実行係の手動実行」
+- 仕様: `requirements.md#定時起動-3,-7`、`requirements.md#成否の判定-7`、`requirements.md#実行状態の記録-2`、`requirements.md#再実行-1〜-9`、`requirements.md#失敗の引き渡し-3`、design.md「起動前の判定」「バッチの起動と成否の判定」「再実行の判定と失敗の引き渡し」、appendix「実行係の手動実行」
 - 引数は `<アプリ名> <系統> [--manual]`。`DIGEST_DATA_DIR` の既定は `~/Library/Application Support/digest/<アプリ名>/`
-- 起動前の判定の順(登録表 → ロック → 基準日と配信日 → 掃除と前日以前の締め → 実行状態 → 起動の判定)と経路ごとの結果(`already_succeeded`・`failed_final`・`locked`・`unregistered`)、定時の失敗後の当日の状態(記事公開は上限4・月次見直しは1・永続失敗・配信日の 18:30 以後の日時は最後の機会・手動は数えない)と確定の理由をここで決める。ロックを取れた起動では毎回 `handoff.expire_stale` と `handoff.expire_missing` を呼ぶ
+- 起動前の判定の順(登録表 → ロック → 基準日と配信日 → 掃除と前日以前の締め → 実行状態 → 起動の判定)と経路ごとの結果(`already_succeeded`・`failed_final`・`locked`・`unregistered`)、定時の失敗後の当日の状態(記事公開は上限4・月次見直しは1・永続失敗・配信日の 18:30 以後の日時は最後の機会・手動は数えない)と確定の理由をここで決める。ロックを取れた起動では毎回 `handoff.expire_stale`・`handoff.expire_missing`・`handoff.renotify` を呼ぶ
 - 想定外の例外は要約ログ(`result=runner_error`・`RUN-FAILED`)と標準エラーに書き、実行状態ファイルは変えず、ロックを外して終了コード2
 - テスト: 成功(`RUN-SUCCEEDED` 付き)1、成功済みで起動しない1、記事公開の4回目まで起動・5回目は起動しない2、月次見直しは2回目を起動しない1、永続失敗で上限未満でも失敗確定1、18:30 以後の失敗は2回目でも失敗確定1、翌日 00:30 の追い実行の失敗が前日の記録で失敗確定(最後の機会)1、手動の失敗が回数と状態を変えず通知に渡る1、手動の成功で成功になる1、失敗確定の日に手動で起動して成功に変わる1、手動で成功済みの日は起動しない1、週1回のアプリを3日後に起動すると直前の配信曜日の記録(今回の配信日)で動き、それより前の週の再実行待ちだけを締める1、警告付きの成功が状態「成功」のまま通知に渡る1、壊れた実行状態で退避・失敗確定・引き渡し・「実行終了」が `corrupt_state` と `RUN-FAILED` 1、未登録で `RUN-FAILED` 1、壊れた登録表で `RUN-FAILED` 1、想定外の例外で `RUN-FAILED` と終了コード2 になり実行状態ファイルが変わらない1、電源断を模して直前の配信日の記録が無いまま起動すると `missed` で通知に渡ってから当日の本番が動く1
 - `RUN-FAILED` の経路(結合): 上限到達・再試行しても直らない失敗・最後の機会・前日以前の締めのそれぞれで「実行終了」行に付く4、既に失敗確定の日の定時の回(`failed_final`)と手動実行の失敗(再実行待ちの日・失敗確定の日)では付かない3。偽のバッチ(シェルスクリプト)と偽の判定関数を使う
