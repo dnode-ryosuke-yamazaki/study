@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted (2026-11-05)
+Accepted (2026-11-05)。「実装言語と置き場所」のうち、Claude の起動と CAバンドルを既存の shell / Python の部品で行う点は [0002](0002-platform-owns-claude-call-and-ca-bundle.md) で改定した(共通基盤が自前の部品を持つ)
 
 ## コンテキスト
 
