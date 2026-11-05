@@ -106,6 +106,23 @@ launchd が時刻で実行係を起動し、実行係がアプリのバッチを
 
 </details>
 
+## 非機能要件への対応
+
+実行係の起動の速さはローカルのファイル操作だけで済ませることで、Claude を呼ばない約束は実行係・失敗通知のコードに起動の記述を持たないことで、通知の件数と遅さは1回の起動の中で同期に書き出すことで担保する 〔提案〕
+
+<details><summary>詳細を開く</summary>
+
+| 非機能要件 | 実現方式 | 関連spec |
+|---|---|---|
+| launchd の起動からバッチの起動まで10秒以内 | 実行係は Python 3 標準ライブラリだけを読み込み、起動前の判定(登録表・ロック・実行状態・掃除と締め)をローカルのファイル操作だけで行う | batch-runner/requirements.md#非機能要件-1 |
+| 実行係自身は Claude を呼ばない(0回) | 実行係(`runner.py` と `digest_runner`)に `claude` を起動する記述を持たず、構造検証で確かめる。Claude を呼ぶのはバッチ側の共通部品だけ | batch-runner/requirements.md#非機能要件-2 |
+| 失敗の確定から投稿用ファイルの書き出しまで1分以内 | 失敗通知を実行係と同じ起動の中で関数として同期に呼び、投稿用ファイルを書き出すだけで終える(投稿は Power Automate に任せる) | failure-notification/requirements.md#非機能要件-1 |
+| 通知の判定と本文の組み立てで Claude を呼ばない(0回) | 失敗通知は Python 3 標準ライブラリだけで、本文は4要素の定型 | failure-notification/requirements.md#非機能要件-2 |
+| 新着の通知が公開から10分以内に届く | アプリのバッチが公開の直後に投稿用ファイルを書き出し、Power Automate のフローが拾う | teams-broadcast/requirements.md#非機能要件-1 |
+| 新着の通知は週23件程度・1回の公開につき1件 | 1回の公開で1ファイルだけ書き出し、再実行で同じ記事が再公開されても送らない | teams-broadcast/requirements.md#非機能要件-2 |
+
+</details>
+
 ## 外部連携IF一覧
 
 外とのやり取りは4つ: 情報源からの候補の取得、`claude -p` による Claude への要約の依頼、teams-post の投稿先フォルダ経由の Teams への通知、毎朝のヘルスチェックへの最終成功時刻の報告 〔提案〕

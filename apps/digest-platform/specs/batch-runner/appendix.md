@@ -70,7 +70,7 @@
 - `result` は `succeeded`・`temporary_failure`・`permanent_failure`・`timeout`
 - `missing` は成功の3点のうち欠けたもの(`exit_code`・`marker`・`artifact:<パス>`)
 - `warnings` は成功したバッチが `DIGEST-BATCH-WARN <種類>` で出した種類の一覧(例: `broadcast_failed`)。失敗のときは空
-- `finalReason` は失敗確定の理由(`exhausted`=上限に達した・`permanent`=再試行しても直らない・`last_chance`=最後の機会・`expired`=前日以前の締め・`corrupt`=壊れた記録)。失敗確定でなければ `null`
+- `finalReason` は失敗確定の理由(`exhausted`=上限に達した・`permanent`=再試行しても直らない・`last_chance`=最後の機会・`expired`=前日以前の締め・`missed`=記録なし・`corrupt`=壊れた記録)。失敗確定でなければ `null`
 - 手動実行の試行は `no` を持たず `manual: true`、`logPath` は `manual-<HHMMSS>` の詳細ログ
 - `notifyReason`(失敗の引き渡しの結果)と `warningNotifyReason`(警告の引き渡しの結果)は failure-notification が返す理由(`notified`・`already_notified`・`write_failed`)か、関数が落ちたときの `notify_error`
 - `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified`・`warningNotifyReason` は省略可で、無ければ偽・`null` として読む
@@ -97,7 +97,7 @@ def judge_and_notify(failure: dict) -> dict:
 | `maxAttempts` | 上限回数 |
 | `manual` | 手動実行なら真 |
 | `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結) |
-| `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
+| `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `missed`(記録なし)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
 | `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録のときは現在時刻) |
 | `alreadyNotified` | この配信日・編で既に通知済みなら真(失敗なら実行状態ファイルの `notified`、警告なら `warningNotified`) |
 | `logPath` | 詳細ログの絶対パス(壊れた記録のときは要約ログのパス) |
@@ -136,7 +136,7 @@ research-digest(土曜のみ)の続き物の例。11-07(土)は 06:30・10:30 �
 ```
 
 - 行頭は ISO 8601(日本時間のオフセット付き)。日次ヘルスチェックの宣言は `doneMarker: "RUN-SUCCEEDED"`(この行の時刻が最終成功時刻)、`failureMarkers: ["RUN-FAILED"]` で読む
-- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行)
+- `result` の値: `succeeded` / `temporary_failure` / `permanent_failure` / `timeout` / `already_succeeded` / `failed_final` / `locked` / `unregistered` / `runner_error`(実行係自身の想定外の例外) / `corrupt_state`(壊れた実行状態ファイルを退避して失敗確定にした) / `expired`(前日以前の再実行待ちを締めた。記録ごとに1行) / `missed`(記録の無い直前の配信日を締めた)
 - `date=` と `edition=` はその行が指す配信日と編(`locked`・`unregistered` のときは `-`)
 - `RUN-SUCCEEDED` を付ける行: バッチが成功した起動(`result=succeeded`)の「実行終了」行だけ
 - `RUN-FAILED` を付ける行: その起動で `status` が `failed` に変わった「実行終了」行(`expired` の行を含む)、`result=unregistered` と `result=runner_error` の「実行終了」行、失敗通知の `notify_error` と `write_failed` の WARNING 行。既に失敗確定の日に起動しない回(`failed_final`)と手動実行の失敗の行には付けない
