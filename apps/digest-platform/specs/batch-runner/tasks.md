@@ -227,7 +227,7 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#Claude の呼び出し規約-1,-5,-7`、`requirements.md#成否の判定-2`、`requirements.md#依存関係`の未決事項、design.md 決定事項「利用枠切れの見分け方」「Claude に使わせるツールの絞り方」
-- 登録表に検証用の `smoke` アプリ(`enabled: true`。偽のバッチ `application/batch/smoke.ts`: `claude -p` を appendix の起動引数で1回呼んで封筒をそのまま標準出力に出し、環境変数 `DIGEST_SMOKE_MODE` で「正常」「マーカー無しで終わる」「exit 1 で終わる」「CAバンドル経由で固定情報源1件を取る」を切り替える)を足す。タスク21の環境スモークでも使い、終わったら登録表から外す
+- 登録表に検証用の `smoke` アプリ(`enabled: true`・`weekdays` は7曜日すべて・上限4。偽のバッチ `application/batch/smoke.ts`: `claude -p` を appendix の起動引数で1回呼んで封筒をそのまま標準出力に出し、環境変数 `DIGEST_SMOKE_MODE` で「正常」「マーカー無しで終わる」「exit 1 で終わる」「CAバンドル経由で固定情報源1件を取る」を切り替える)を足す。タスク21の環境スモークでも使い、終わったら登録表から外す
 - 手元ターミナルで実行するコマンドブロックを渡し、次を保存する: 正常の封筒(`tests/batch/fixtures/claude-ok.json`)、エラーの封筒(存在しないモデル名を `--model` に指定して出す。`tests/batch/fixtures/claude-error.json`)、マーカー無しで終わったバッチの実出力(`tests/runner/fixtures/batch-no-marker.log`)、`claude --version` の出力
 - ツールの絞り込み: 「`/etc/hosts` を Read で読んで内容を書け」と頼む指示を `--tools "WebSearch,WebFetch"` 付きで送り、読めなかった応答になること・標準出力が JSON だけであること(警告の混入が無いこと)を確かめる。効かなかった場合は requirements の未決事項の「効かなければ」の扱いに進み、各アプリの spec に書く事項として報告する
 - 利用枠切れの封筒は実機で起こせないため、エラーの封筒の形に利用枠の文言を入れた派生 fixture(`claude-quota.json`)を作り、コメントに派生であることと確かめた範囲を書く
@@ -295,7 +295,7 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#定時起動-1,-2,-5`、`requirements.md#実行状態の記録-4`、`requirements.md#Claude の呼び出し規約-1`、`requirements.md#実行時刻-5`、design.md「テスト戦略」の環境スモーク行
-- タスク16の `smoke` アプリを `claude.ts`(タスク17)を使う形に直し、`DIGEST_SMOKE_MODE` を「正常」(claude.ts を1回呼んで記事ファイル1つを書く)にして launchd と手元ターミナルの2経路で通す。終わったら登録表から外す
+- タスク16の `smoke` アプリを `claude.ts`(タスク17)を使う形に直し、`DIGEST_SMOKE_MODE` を「正常」(claude.ts を1回呼んで記事ファイル1つを書く)にして launchd と手元ターミナルの2経路で通す。終わったら `launchctl bootout` で `smoke` の plist を外して `~/Library/LaunchAgents/` から消し、登録表からも外す(plist が残ると未登録の `RUN-FAILED` が要約ログに積まれ続ける)
 - CAバンドル: `DIGEST_SMOKE_MODE` を「固定情報源1件を取る」にして launchd 経由で通し、取得できたことを詳細ログで確かめる(定時起動-5)
 - わざと失敗させる: `DIGEST_SMOKE_MODE` を「exit 1 で終わる」にして `--manual` で通し、実行状態ファイルに手動の失敗が積まれ当日の状態が変わらないこと、要約ログに「実行終了」が出ることを確かめる。失敗通知の判定関数は、この時点では failure-notification が未実装なので、契約どおりの12項目を受け取って `DIGEST_DATA_DIR` の `handoff-received.json` に書き出し `{"notified": true, "reason": "notified"}` を返す偽のモジュール(`tests/runner/fake_failure_notification.py`)を `DIGEST_HANDOFF_MODULE` で差し込み、実行状態ファイルの `notified`・`notifyReason` と `handoff-received.json` の中身で12項目が渡ったことを確かめる。Teams への通知が届くことは failure-notification の環境スモークで確かめる
 - 追い実行: 定時を過ぎるまでスリープさせてから復帰して要約ログに1回だけ「実行開始」が出ること(給電中はスリープしない設定なので、電源を外して確かめる)
