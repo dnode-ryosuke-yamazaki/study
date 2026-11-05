@@ -98,8 +98,8 @@ def judge_and_notify(failure: dict) -> dict:
 | `edition` | 編の識別子または `null` |
 | `attempt` | 定時の試行回数(壊れた記録・記録なし・手動の失敗だけの記録のときは 0) |
 | `maxAttempts` | 上限回数 |
-| `manual` | 手動実行なら真 |
-| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結) |
+| `manual` | 今回の試行が手動実行なら真。締め(前日以前・記録なし・壊れた記録)では、その起動が手動実行なら真。渡し直しは残した値のまま |
+| `failureKind` | `temporary_failure` / `permanent_failure` / `timeout` / 警告の種類(例: `broadcast_failed`=成功したが新着の送り出しに失敗。複数なら `+` で連結)。壊れた記録は `permanent_failure`、記録なしは `temporary_failure`、前日以前の締めは最後の試行の値 |
 | `finalReason` | `exhausted`(上限に達した)/ `permanent`(再試行しても直らない)/ `last_chance`(最後の機会)/ `expired`(前日以前の締め)/ `missed`(記録なし)/ `manual`(手動実行の失敗)/ `corrupt`(壊れた記録)/ `warning`(成功したバッチの警告) |
 | `failedAt` | 失敗日時(今回の試行の終了時刻。日本時間の ISO 8601。壊れた記録のときは現在時刻) |
 | `alreadyNotified` | この配信日・編で既に通知済みなら真(失敗なら実行状態ファイルの `notified`、警告なら `warningNotified`) |
@@ -169,7 +169,7 @@ endedAt=2026-11-07T06:41:10+09:00 exitCode=0 marker=missing artifacts=ok result=
 | `DIGEST_KIND` | `publish` / `review` |
 | `DIGEST_DATE` | 配信日 `YYYY-MM-DD` |
 | `DIGEST_EDITION` | 編の識別子(無ければ空) |
-| `DIGEST_ATTEMPT` | 定時の試行番号(手動は `manual`) |
+| `DIGEST_ATTEMPT` | 定時の試行番号(手動は `manual-<HHMMSS>`。詳細ログと控えの名前に使い、同じ日に手動実行を繰り返しても上書きしない) |
 | `DIGEST_MANUAL` | `1` / `0` |
 | `DIGEST_CLAUDE_IO_DIR` | 控えの置き場所(`claude-io/<系統>/<配信日>[-<編>]/`) |
 | `DIGEST_CLAUDE_BIN` | claude の絶対パス |
@@ -230,6 +230,7 @@ CAバンドル: `~/Library/Application Support/ca-bundle/ca-bundle.pem` があ�
 ```
 
 - `RunAtLoad` は書かない
+- 毎日動くアプリ(`weekdays` が7曜日すべて)は `Weekday` を書かず、`Hour`/`Minute` だけの4件にする(日次ヘルスチェックの宣言 `times: ["06:30","10:30","14:30","18:30"]` と時刻の一覧が一致するようにするため)。週1回のアプリは上の例のとおり `Weekday` 付きの4件
 - 月次見直し(`review`)は `StartCalendarInterval` が `Day`=登録表の日・`Hour`=7・`Minute`=30 の1つだけ
 - `Versions/3.x` のようにバージョン番号を含むパスは生成時に拒否する
 
@@ -267,7 +268,7 @@ python3 launchd/runner.py research-digest publish --manual
 
 控え:
 
-- `claude-io/<系統>/<配信日>[-<編>]/<試行番号>-<連番 2桁>-prompt.txt`(付け足した文を含む指示文の全文)
+- `claude-io/<系統>/<配信日>[-<編>]/<試行番号>-<連番 2桁>-prompt.txt`(付け足した文を含む指示文の全文。試行番号は `DIGEST_ATTEMPT` の値。連番は同じ試行番号で既にあるファイルの続きから振り、同じ試行番号でやり直した回も上書きしない)
 - `claude-io/<系統>/<配信日>[-<編>]/<試行番号>-<連番 2桁>-response.json`(封筒の全文。打ち切りのときは `{"timeout": true}`)
 
 ## バッチの終わり方(`application/batch/exit.ts`)

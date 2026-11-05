@@ -85,7 +85,7 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 - 仕様: `requirements.md#定時起動-4`、`requirements.md#時間の上限-3`、design.md「起動前の判定」手順2・8、決定事項「古いロックの回収条件」
 - `lock.acquire(dir, stale_seconds=4500, pid_alive=...)` が真偽を返す。ロックフォルダには pid を書く。pid のプロセスが生きておらず(`os.kill(pid, 0)` が失敗)、かつ作成時刻が 75 分より前なら削除して取り直す
 - `lock.release(dir)` はどの経路でも呼ばれる(`try/finally`)
-- テスト: 取れる1、取れない(pid が生きている)1、pid が死んで76分前は回収して取れる1、pid が死んでいても74分前は回収しない1、pid が生きていれば76分前でも回収しない1
+- テスト: 取れる1、取れない(pid が生きている)1、pid が死んで76分前は回収して取れる1、pid が死んでいても74分前は回収しない1、pid が生きていれば76分前でも回収しない1、pid が生きていても25時間前なら回収する1
 
 </details>
 
@@ -155,9 +155,9 @@ Claude のヘッドレス実行が終了コード0で失敗しても、成功と
 
 </details>
 
-### 12. handoff.py で失敗通知の判定関数へ12項目を渡して結果を実行状態ファイルに書き、次の起動では前日以前の再実行待ち・記録の無い直前の回・通知できなかった記録を締めて通知に回す 【担当: claude】
+### 12. handoff.py で失敗通知の判定関数へ12項目を渡して結果を実行状態ファイルに書き、次の起動では前日以前の未着手と再実行待ち・記録の無い直前の回・通知できなかった記録を締めて通知に回す 【担当: claude】
 
-失敗を確定したとき、通知するかの判定を失敗通知に委ねつつ、結果を後から確かめられるようにする。同じ日に締まらなかった再実行待ち・電源断で記録の無かった回・通知し損ねた記録も、次の起動で通知に回す。4つの振る舞い(引き渡しと記録・前日以前の締め・記録なしの締め・渡し直し)ごとに Red→Green→Refactor を1周ずつ回す。
+失敗を確定したとき、通知するかの判定を失敗通知に委ねつつ、結果を後から確かめられるようにする。同じ日に締まらなかった未着手(手動の失敗だけ)と再実行待ち・電源断で記録の無かった回・通知し損ねた記録も、次の起動で通知に回す。4つの振る舞い(引き渡しと記録・前日以前の締め・記録なしの締め・渡し直し)ごとに Red→Green→Refactor を1周ずつ回す。
 
 <details><summary>詳細を開く</summary>
 
@@ -198,10 +198,10 @@ launchd と手元ターミナルのどちらから起動しても、同じ判定
 
 - 仕様: `requirements.md#定時起動-1,-6`、`requirements.md#実行時刻-1〜-4`、design.md「launchd ジョブの生成と登録」、appendix「plist」
 - 引数: `--node <絶対パス> --claude <絶対パス> --python <絶対パス> [--out <フォルダ>]`。存在しないパス・`Versions/3.` のようにバージョン番号を含むパスは終了コード2で拒否
-- `publish` は `weekdays` ごとに 06:30、`maxAttempts` が 2 以上なら 10:30・14:30・18:30 も並べる(毎日のアプリは7曜日×4時刻)。`review` は `dayOfMonth` が `null` なら生成しない、あれば `Day`・07:30
+- `publish` は 06:30 と、`maxAttempts` が 2 以上なら 10:30・14:30・18:30 を並べる。`weekdays` が7曜日すべてなら `Weekday` を書かない4件、そうでなければ `weekdays` ごとに `Weekday` 付き(週1回のアプリは4件)。`review` は `dayOfMonth` が `null` なら生成しない、あれば `Day`・07:30
 - `EnvironmentVariables`・`StandardOutPath`・`ProcessType` は appendix のとおり。`RunAtLoad` は書かない
 - 生成前に `plistlib.loads` で読み直して検査する
-- 受け入れ条件(構造検証、各1件): 全 plist が `plistlib` で読める・`RunAtLoad` キーが無い(否定確認: 足すと落ちる)・research-digest に Weekday 6 だけ、future-digest に Weekday 0 だけ、ほかの3アプリに Weekday 0〜6 すべて・06:30 が全 publish にある・10:30/14:30/18:30 が全 publish にあり review に無い・review は 07:30 の1つだけ・バージョン番号を含むパスを拒否する
+- 受け入れ条件(構造検証、各1件): 全 plist が `plistlib` で読める・`RunAtLoad` キーが無い(否定確認: 足すと落ちる)・research-digest に Weekday 6 だけ、future-digest に Weekday 0 だけ、ほかの3アプリは Weekday を持たない4件・06:30 が全 publish にある・10:30/14:30/18:30 が全 publish にあり review に無い・review は 07:30 の1つだけ・バージョン番号を含むパスを拒否する
 
 </details>
 
@@ -257,8 +257,8 @@ launchd の起動からバッチの起動までを10秒以内に収める要件�
 <details><summary>詳細を開く</summary>
 
 - 仕様: `requirements.md#Claude の呼び出し規約-6`、design.md「Claude の呼び出し規約」手順2・6、appendix「Claude の呼び出し」の控え
-- `DIGEST_CLAUDE_IO_DIR` の下に `<試行番号>-<連番2桁>-prompt.txt` と `-response.json` を書く(フォルダ 700・ファイル 600)。打ち切りは `{"timeout": true}`
-- テスト(vitest): 構造検証(両ファイルが所定の名前で存在し、response が JSON として読める)1、連番が呼び出しごとに増える1
+- `DIGEST_CLAUDE_IO_DIR` の下に `<試行番号>-<連番2桁>-prompt.txt` と `-response.json` を書く(フォルダ 700・ファイル 600)。試行番号は `DIGEST_ATTEMPT`(手動は `manual-<HHMMSS>`)、連番は同じ試行番号で既にあるファイルの続きから振る。打ち切りは `{"timeout": true}`
+- テスト(vitest): 構造検証(両ファイルが所定の名前で存在し、response が JSON として読める)1、連番が呼び出しごとに増える1、既にある控えの続きから振られて上書きしない1
 
 </details>
 
