@@ -1,0 +1,13 @@
+{
+  "name": "claude-devflow-evals",
+  "private": true,
+  "type": "module",
+  "description": "devflow プラグインの開発フローSkill(requirement / design / spec-review)の出力を promptfoo で回帰検証するスイート。Skill本文を直したあとに成果物の質が落ちていないかを採点する。製品コードのテストではない。",
+  "devDependencies": {
+    "promptfoo": "0.123.0"
+  },
+  "scripts": {
+    "eval": "f() { if [ -z \"$1\" ]; then echo 'Usage: npm run eval -- <requirement|design|spec-review>' >&2; exit 1; fi; npx promptfoo eval --config \"$1\".promptfooconfig.yaml -o \"logs/$1.promptfoo.log.yaml\"; }; f",
+    "eval:all": "for c in requirement design spec-review; do npm run eval -- \"$c\" || exit 1; done"
+  }
+}
