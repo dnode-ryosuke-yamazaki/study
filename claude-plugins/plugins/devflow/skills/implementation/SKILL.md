@@ -7,7 +7,7 @@ description: 承認済みの仕様をTDDで実装するときに使う。Red→G
 
 # 前提条件
 
-- 仕様の承認を得てから着手する(3点セットについて[/devflow:spec-review](../spec-review/SKILL.md)の承認ゲートでユーザーの明示的な承認(「承認します」等)を得ていること。仕様承認PR方式のプロジェクトでは仕様承認PRがマージ済みであること。承認前はコード・テストを書かない)。3点セットが未作成なら[/devflow:requirement](../requirement/SKILL.md)から、作成済みで未承認なら[/devflow:spec-review](../spec-review/SKILL.md)から始める
+- 仕様の承認を得てから着手する(3点セットについて[/devflow:spec-review](../spec-review/SKILL.md)の承認ゲートでユーザーの明示的な承認(「承認します」等)を得ていること。仕様承認PR方式のプロジェクトでは仕様承認PRがマージ済みであること。承認前はコード・テストを書かない)。着手前に3点セットのフロントマターを読み、3ファイルとも `status: approved` であることを確かめる。`draft`・`in-review` が残っていれば承認前か承認後に直されたままなので着手せず、ユーザーに確認する(値の遷移の正は[dev-flow.mdの「承認状態のフロントマター」](../../dev-flow.md#承認状態のフロントマター))。3点セットが未作成なら[/devflow:requirement](../requirement/SKILL.md)から、作成済みで未承認なら[/devflow:spec-review](../spec-review/SKILL.md)から始める
 - `feature/<機能名>`(JIRAチケットがある場合は`feature/<JIRAキー>-<機能名>`)ブランチを切る(mainでは作業しない)。別の作業と並行する場合は[parallel-work](../parallel-work/SKILL.md)(worktree)で作業ディレクトリを分ける
 - 対象プロジェクト/アプリが`architecture.md`(機能マップ)を持つ場合は、実装に着手する時点で該当specの状態列を「実装中」に更新し、更新後の機能マップ全体を報告に貼る([architecture-workflow](../architecture-workflow/SKILL.md)の「更新タイミング」。implementerエージェントに委譲する場合もこの更新はメインスレッドが行う)
 - 対象specのtasks.mdの先頭(タイトル直下)へ `> 実装中: session <session名>, branch: <ブランチ名>, started: <着手日時のISO8601>` を1行追記する。他セッションが同じspecに気づかず並行着手する事故(仕様レビュー担当と実装担当が互いの存在を知らないまま同じ仕様書に同時着手した過去のニアミス)を防ぐための目印であり、tasks.mdを開けば実装着手済みかどうかが分かる状態にする。implementerエージェントに委譲する場合もこの追記はメインスレッドが行う

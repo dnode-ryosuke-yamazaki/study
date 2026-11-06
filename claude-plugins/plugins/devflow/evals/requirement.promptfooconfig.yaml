@@ -113,6 +113,19 @@ tests:
         type: not-icontains
         value: '> ステータス:'
 
+      - description: 新規作成なので承認状態のフロントマターが draft / 0.1 で、タイトルより前にある
+        type: javascript
+        value: |
+          const fm = output.match(/^---\s*\n([\s\S]*?)\n---\s*\n\s*#\s/m);
+          if (!fm) return { pass: false, score: 0, reason: 'タイトル直前に --- で囲んだフロントマターが無い' };
+          const body = fm[1];
+          const okStatus = /^status:\s*draft\s*$/m.test(body);
+          const okVersion = /^version:\s*"0\.1"\s*$/m.test(body);
+          const noDate = !/^approved_date:/m.test(body);
+          return okStatus && okVersion && noDate
+            ? true
+            : { pass: false, score: 0, reason: `フロントマターの値が新規作成の規則に合わない: ${body}` };
+
       - description: 出所の目印が〔合意〕〔提案〕の両方の形で現れている
         type: contains-all
         value:

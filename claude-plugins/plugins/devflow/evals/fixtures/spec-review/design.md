@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-10-20
+version: "1.0"
+---
+
 # ノートの削除API 設計
 
 ## 概要

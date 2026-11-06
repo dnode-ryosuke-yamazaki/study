@@ -1,7 +1,7 @@
 """仕様書Markdownの走査。
 
-判定に要る位置(見出し・どの章にも属さない行・読み手宣言・畳みの範囲・図の範囲・行末の目印・
-決定事項の表)を行番号つきで取り出す。ここでは違反かどうかを決めず、字句として
+判定に要る位置(承認フロントマター・見出し・どの章にも属さない行・読み手宣言・畳みの範囲・
+図の範囲・行末の目印・決定事項の表)を行番号つきで取り出す。ここでは違反かどうかを決めず、字句として
 「どこに何があるか」だけを返す。
 
 仕様: ~/.claude/local-specs/Users/ryosyamazaki/.claude/specs/spec-reading-layers/
@@ -23,6 +23,10 @@ SOURCE_MARKS = ("合意", "提案")
 # 許すのは requirements.md の1行目だけ(判定は checks.check_folding)。
 # 引用(`>`)にはしない規定なので、引用で書かれたものはこれに一致せず違反になる
 STATUS_LINE = re.compile(r"^ステータス:")
+# 1行目から始まる承認状態のフロントマターの区切り。中身は `キー: 値` の行だけを読む
+# (値の妥当性は checks.check_frontmatter が決める)
+FRONTMATTER_FENCE = "---"
+FRONTMATTER_ENTRY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
 
 
 class Heading:
@@ -91,6 +95,9 @@ class ScanResult:
         self.detail_ranges = []
         self.mermaid_ranges = []
         self.code_ranges = []
+        # 先頭のフロントマター。無ければ None、あれば {キー: 値}(値の引用符は外す)
+        self.frontmatter = None
+        self.frontmatter_end = 0
 
     def line_text(self, line_no):
         if 1 <= line_no <= len(self.lines):
@@ -209,11 +216,39 @@ def scan(text):
     lines = text.split("\n")
     result = ScanResult(lines)
 
+    _collect_frontmatter(result)
     _collect_code_ranges(result)
     _collect_detail_ranges(result)
     _collect_headings(result)
     _collect_outside_section_lines(result)
     return result
+
+
+def _collect_frontmatter(result):
+    """1行目が `---` で、後ろに閉じの `---` があるときだけフロントマターとして切り出す。
+
+    閉じが無い `---` はフロントマターにしない(本文の区切り線と見分けられないため、
+    章の外に本文として違反に残す)。
+    """
+    if not result.lines or result.lines[0].strip() != FRONTMATTER_FENCE:
+        return
+    for index in range(1, len(result.lines)):
+        if result.lines[index].strip() != FRONTMATTER_FENCE:
+            continue
+        entries = {}
+        for line in result.lines[1:index]:
+            found = FRONTMATTER_ENTRY.match(line)
+            if found:
+                entries[found.group(1)] = _unquote(found.group(2).strip())
+        result.frontmatter = entries
+        result.frontmatter_end = index + 1
+        return
+
+
+def _unquote(value):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
 
 
 def _collect_code_ranges(result):
@@ -268,6 +303,8 @@ def _collect_detail_ranges(result):
 def _collect_headings(result):
     parent = None
     for index, line in enumerate(result.lines, start=1):
+        if index <= result.frontmatter_end:
+            continue
         if result.in_code(index) or result.in_details(index):
             continue
         if not line.startswith("##"):
@@ -302,7 +339,7 @@ def _collect_headings(result):
 
 def _collect_outside_section_lines(result):
     first = result.headings[0].line if result.headings else len(result.lines) + 1
-    for line_no in range(1, first):
+    for line_no in range(result.frontmatter_end + 1, first):
         line = result.line_text(line_no)
         if not line.strip():
             continue

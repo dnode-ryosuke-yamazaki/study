@@ -80,7 +80,7 @@ tests:
           to: specs/note-deletion/requirements.md
       request: >-
         /devflow:design を実行してください。対象は ./specs/note-deletion/ です(requirements.md は
-        承認済み)。対象プロジェクトは AWS Lambda(Python)+ API Gateway + DynamoDB で構成された
+        ヒアリング済みで内容は確定。承認は3点セットがそろった後の仕様レビューで受ける)。対象プロジェクトは AWS Lambda(Python)+ API Gateway + DynamoDB で構成された
         ノートAPIで、ノートは `notes` テーブル(パーティションキー noteId、属性に ownerId・title・
         body・createdAt を持つ)に保存されています。呼び出し元の利用者IDは API Gateway の認可で
         検証済みのトークンから取得できます。
@@ -109,6 +109,20 @@ tests:
       - description: ステータスを引用行で書いていない
         type: not-icontains
         value: '> ステータス:'
+
+      - description: design.md と tasks.md の両方に、タイトルより前で draft / 0.1 の承認状態のフロントマターがある
+        type: javascript
+        value: |
+          const blocks = [...output.matchAll(/^---\s*\n([\s\S]*?)\n---\s*\n\s*#\s+([^\n]*)/gm)];
+          const ok = blocks.filter((m) =>
+            /^status:\s*draft\s*$/m.test(m[1]) && /^version:\s*"0\.1"\s*$/m.test(m[1]) &&
+            !/^approved_date:/m.test(m[1]));
+          const titles = ok.map((m) => m[2]);
+          const hasTasks = titles.some((t) => t.includes('タスク'));
+          const hasDesign = titles.some((t) => !t.includes('タスク'));
+          return hasTasks && hasDesign
+            ? true
+            : { pass: false, score: 0, reason: `draft / 0.1 のフロントマター付きの文書: ${JSON.stringify(titles)}` };
 
       - description: tasks.md にTDD宣言文があり、冒頭の件数行と全タスクの担当マークがある
         type: contains-all

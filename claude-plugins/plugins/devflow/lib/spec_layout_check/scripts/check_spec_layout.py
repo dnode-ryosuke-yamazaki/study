@@ -2,7 +2,8 @@
 """仕様書の層分け検査の入口。
 
 specフォルダを受け取り、requirements.md / design.md / architecture.md の畳み・要点・
-出所の目印を照合して、1違反1行のタブ区切りと終了コードで返す。/spec-review が
+出所の目印と、requirements.md / design.md / tasks.md の承認フロントマターを照合して、
+1違反1行のタブ区切りと終了コードで返す。/spec-review が
 spec-reviewer を起動する前に実行し、出力をそのまま起動指示に添える。
 
 起動: python3 ${CLAUDE_PLUGIN_ROOT}/lib/spec_layout_check/scripts/check_spec_layout.py <specフォルダ>
@@ -43,6 +44,8 @@ def default_layout_path():
 
 
 TARGET_FILES = ("requirements.md", "design.md", "architecture.md")
+# 層分けは検査せず、承認フロントマターだけを見るファイル
+FRONTMATTER_ONLY_FILES = tuple(f for f in checks.APPROVAL_FILES if f not in TARGET_FILES)
 CHAR_COUNT_FILES = ("requirements.md", "design.md")
 COMBINED_LABEL = "+".join(CHAR_COUNT_FILES)
 
@@ -65,6 +68,8 @@ class FileResult:
         self.file_name = file_name
         self.violations = []
         self.legacy = False
+        self.no_frontmatter = False
+        self.layout_checked = file_name in TARGET_FILES
         self.visible_chars = 0
         self.provenance = {"合意": 0, "提案": 0}
         self.visible = []
@@ -108,6 +113,11 @@ def inspect_file(path, file_name, rules):
         return result
 
     scan = markdown_scan.scan(text)
+    if file_name in checks.APPROVAL_FILES:
+        violations, result.no_frontmatter = checks.check_frontmatter(file_name, scan)
+        result.violations.extend(violations)
+    if not result.layout_checked:
+        return result
     if _is_legacy(scan, rules, file_name):
         result.legacy = True
         return result
@@ -123,7 +133,7 @@ def inspect_file(path, file_name, rules):
 def inspect_spec(spec_dir, rules):
     """specフォルダにある対象ファイルを順に検査する。"""
     results = []
-    for file_name in TARGET_FILES:
+    for file_name in TARGET_FILES + FRONTMATTER_ONLY_FILES:
         path = os.path.join(spec_dir, file_name)
         if not os.path.exists(path):
             continue
@@ -135,10 +145,12 @@ def build_rows(results):
     """出力する行(4列のタプル)を組み立てる。"""
     rows = []
     for result in results:
+        if result.no_frontmatter:
+            rows.append((result.file_name, checks.FILE_WIDE, checks.KIND_NO_FRONTMATTER,
+                         "承認状態のフロントマター(status / version)が無い"))
         if result.legacy:
             rows.append((result.file_name, checks.FILE_WIDE, checks.KIND_LEGACY,
                          "畳むべき見出しが畳まれておらず目印も無い"))
-            continue
         for violation in result.violations:
             rows.append(violation.as_row())
 
@@ -146,7 +158,7 @@ def build_rows(results):
     total_marks = {"合意": 0, "提案": 0}
     counted_any = False
     for result in results:
-        if result.legacy:
+        if result.legacy or not result.layout_checked:
             continue
         rows.extend(_count_rows(result.file_name, result.visible_chars,
                                 result.provenance))
@@ -170,14 +182,15 @@ def _count_rows(label, chars, marks):
 
 
 def decide_exit_code(results):
-    """違反あり(1) > 違反は無く旧形式のファイルがある(2) > 違反なし(0) の順に決める。
+    """違反あり(1) > 違反は無く旧形式かフロントマター無しのファイルがある(2) > 違反なし(0)
+    の順に決める。
 
     2は「旧形式のファイルだけ」ではない。違反0の新形式ファイルと混ざっていても、
-    旧形式のファイルが1つでもあれば2を返す。
+    旧形式かフロントマター無しのファイルが1つでもあれば2を返す。
     """
     if any(result.violations for result in results):
         return EXIT_VIOLATION
-    if any(result.legacy for result in results):
+    if any(result.legacy or result.no_frontmatter for result in results):
         return EXIT_LEGACY
     return EXIT_CLEAN
 
@@ -217,7 +230,7 @@ def main(argv, layout_path=None, stdout=None, stderr=None):
 
     try:
         results = inspect_spec(spec_dir, rules)
-        if not results:
+        if not any(result.layout_checked for result in results):
             _write(stdout, [(checks.FILE_WIDE, checks.FILE_WIDE,
                              checks.KIND_UNREADABLE, NO_TARGET_NOTE)])
             return EXIT_VIOLATION

@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-10-01
+version: "1.0"
+---
+
 # 新形式のお手本(要件定義)
 
 ステータス: 実装中 ／ 優先度: 中
