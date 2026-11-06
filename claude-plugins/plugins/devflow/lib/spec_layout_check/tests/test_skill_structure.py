@@ -270,6 +270,21 @@ class 設計の手順書(unittest.TestCase):
         """否定確認: 骨格で決定事項を処理フローの後ろに移すと落ちる"""
         self.assertEqual(skeleton_headings(self.text)[:2], ["概要", "決定事項"])
 
+    # 仕様: requirements.md#見出しの固定セットと読み手-7
+    def test_決定事項の直後に品質統制の適用の6行があること(self):
+        """否定確認: 骨格から IMC-03 の行を消すと落ちる"""
+        self.assertEqual(skeleton_headings(self.text)[:3],
+                         ["概要", "決定事項", "品質統制の適用"])
+        self.assertIn("| 統制 | 判定 | 理由 | 反映先 | 出所 |", self.skeleton)
+        for 番号 in range(1, 7):
+            self.assertIn("| IMC-%02d " % 番号, self.skeleton)
+
+    # 仕様: requirements.md#見出しの固定セットと読み手-7
+    def test_統制の定義は標準側が正と書いてあること(self):
+        """観点を書き直しただけで、CSVを複製していないことを示す文言を見張る"""
+        self.assertIn("implementation-control-catalog.csv", self.text)
+        self.assertIn("ここには判定に要る観点だけを書き直している", self.text)
+
     # 仕様: requirements.md#見出しの固定セットと読み手-2
     def test_サマリを必須とする規定が残っていないこと(self):
         self.assertNotIn("サマリ(必須)", self.text)

@@ -34,6 +34,8 @@ STATUS_LABEL_FILE = "requirements.md"
 # 違反として扱う廃止見出し。「概要」は必須見出しとして残すので含めない
 ABOLISHED_HEADINGS = ("サマリ",)
 DECISION_HEADING = "決定事項"
+# 「出所」列で目印を持つ表の見出し。行は箇条書きではないので列の値で照合する
+SOURCE_TABLE_HEADINGS = (DECISION_HEADING, "品質統制の適用")
 SOURCE_COLUMN = "出所"
 SOURCE_VALUES = ("合意", "提案")
 
@@ -283,26 +285,27 @@ def check_provenance(file_name, scan, rules):
         elif len(marks) > 1:
             found.append(Violation(file_name, _heading_path_at(scan, line_no),
                                    KIND_DUPLICATE_SOURCE, "L%d" % line_no))
-    found.extend(_check_decision_table(file_name, scan))
+    found.extend(_check_source_tables(file_name, scan))
     return found
 
 
-def _decision_tables(scan):
-    """決定事項の見出しにある表すべて(畳みの中のものを含む)。"""
-    for heading in scan.headings:
-        if heading.text != DECISION_HEADING:
-            continue
-        return scan.tables_in(heading.body_start, heading.body_end)
-    return []
-
-
-def _check_decision_table(file_name, scan):
+def _source_tables(scan):
+    """「出所」列を持つべき表すべて(見出し名, 表)。畳みの中のものを含む。"""
     found = []
-    tables = _decision_tables(scan)
-    if not tables:
-        return found
-    heading = "## " + DECISION_HEADING
-    for table in tables:
+    for name in SOURCE_TABLE_HEADINGS:
+        for heading in scan.headings:
+            if heading.text != name:
+                continue
+            found.extend((name, table) for table in
+                         scan.tables_in(heading.body_start, heading.body_end))
+            break
+    return found
+
+
+def _check_source_tables(file_name, scan):
+    found = []
+    for name, table in _source_tables(scan):
+        heading = "## " + name
         if SOURCE_COLUMN not in table.header:
             found.append(Violation(file_name, heading, KIND_NO_SOURCE,
                                    "列なし(L%d)" % table.header_line))
@@ -362,7 +365,7 @@ def count_provenance(file_name, scan, rules):
         for mark in markdown_scan.source_marks(text):
             counted[mark] += 1
     # 畳みの中の表は承認者が開かないと見えないので、読む量には数えない
-    for table in _decision_tables(scan):
+    for _name, table in _source_tables(scan):
         if SOURCE_COLUMN not in table.header:
             continue
         for line_no, value in table.column(SOURCE_COLUMN):
