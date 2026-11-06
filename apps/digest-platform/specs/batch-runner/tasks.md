@@ -1,7 +1,5 @@
 # batch-runner タスク
 
-> 実装中: session study-42, branch: feature/digest-platform-batch-runner-impl, started: 2026-11-06T10:48:47+09:00
-
 タスク 21件(claude 20 / copilot 1)
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
