@@ -142,7 +142,9 @@ def run(command, cwd, env, log_path, timeout_seconds=BATCH_TIMEOUT_SECONDS, head
             proc.stdout.close()
         result["exit_code"] = proc.returncode
         result["ended_at"] = now()
-        non_empty = [line for line in lines if line.strip()]
+        # グループの外へ抜けた子孫の出力で読み取りが続いていても、判定は返す時点の出力で行う
+        result["output_lines"] = list(lines)
+        non_empty = [line for line in result["output_lines"] if line.strip()]
         result["last_line"] = non_empty[-1].strip() if non_empty else None
         return result
     finally:
