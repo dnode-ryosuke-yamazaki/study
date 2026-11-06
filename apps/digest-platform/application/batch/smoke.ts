@@ -1,96 +1,70 @@
-// @ts-nocheck
 // 検証用の偽バッチ(batch-runner タスク16・21 の環境スモーク専用)。
 // 環境スモークが終わったら登録表(launchd/apps.json)から smoke を外し、このファイルも消す。
-// @types/node を入れるまで node: モジュールの型が無いため、このファイルだけ型検査を外している。
 //
 // DIGEST_SMOKE_MODE で振る舞いを切り替える:
-//   ok         claude -p を appendix「Claude の呼び出し」の起動引数で1回呼び、封筒をそのまま標準出力に出して成功マーカーで終わる
+//   ok         Claude の呼び出し部品(claude.ts)で Claude を1回呼び、応答の本文を記事ファイルに書いて成功マーカーで終わる。
+//              利用枠切れなら終了コード2、それ以外の失敗(打ち切りを含む)は終了コード1で終わる
 //   no-marker  成功マーカーを出さずに終了コード0で終わる(実行係の成否の判定で「失敗」になる形)
 //   exit1      理由を1行出して終了コード1で終わる(一時的な失敗)
 //   fetch      固定の情報源1件を HTTPS で取り、CAバンドル(NODE_EXTRA_CA_CERTS)経由で取れたことを出して成功マーカーで終わる
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { finishOk, failTemporary } from "./exit.ts";
+import { callClaude } from "./claude.ts";
+import { failPermanent, failTemporary, finishOk } from "./exit.ts";
 
-const mode = process.env.DIGEST_SMOKE_MODE ?? "ok";
-const claudeBin = process.env.DIGEST_CLAUDE_BIN ?? "claude";
-const prompt =
-  process.env.DIGEST_SMOKE_PROMPT ??
-  "「こんにちは」とだけ答えてください。最後の行に CLAUDE-CALL-OK だけを出力してください。";
-const materials = process.env.DIGEST_SMOKE_MATERIALS ?? "";
-
-function callClaudeOnce(): number | null {
-  const args = [
-    "-p",
-    prompt,
-    "--output-format",
-    "json",
-    "--tools",
-    "WebSearch,WebFetch",
-    "--disallowedTools",
-    "mcp__*",
-    "--permission-prompts",
-    "none",
-  ];
-  const env = { ...process.env };
-  delete env.ANTHROPIC_API_KEY;
-  const result = spawnSync(claudeBin, args, {
-    encoding: "utf8",
-    env,
-    input: materials,
-    maxBuffer: 50 * 1024 * 1024,
-    timeout: 10 * 60 * 1000,
-  });
-  if (result.error) {
-    process.stderr.write(`smoke: claude を起動できない: ${String(result.error)}\n`);
-    return null;
-  }
-  // 封筒をそのまま出す(最終行の改行は揃える)
-  process.stdout.write(result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}\n`);
-  if (result.stderr) process.stderr.write(result.stderr);
-  return result.status;
-}
+const env = process.env;
+const mode = env.DIGEST_SMOKE_MODE ?? "ok";
 
 /** 登録表の artifacts(out/smoke/{date}{edition}/article.json)に合わせて生成物を1つ書く。実行係は成否の判定で生成物の有無と更新時刻を見る */
-function writeArtifact(): void {
+function writeArtifact(text: string): void {
   const appRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  const date = process.env.DIGEST_DATE ?? "no-date";
-  const editionSuffix = process.env.DIGEST_EDITION ? `-${process.env.DIGEST_EDITION}` : "";
+  const date = env.DIGEST_DATE ?? "no-date";
+  const editionSuffix = env.DIGEST_EDITION ? `-${env.DIGEST_EDITION}` : "";
   const dir = join(appRoot, "out", "smoke", `${date}${editionSuffix}`);
   mkdirSync(dir, { recursive: true });
   const article = {
     app: "smoke",
     date,
-    edition: process.env.DIGEST_EDITION || null,
-    attempt: process.env.DIGEST_ATTEMPT ?? null,
+    edition: env.DIGEST_EDITION || null,
+    attempt: env.DIGEST_ATTEMPT ?? null,
+    text,
     writtenAt: new Date().toISOString(),
   };
   writeFileSync(join(dir, "article.json"), `${JSON.stringify(article, null, 2)}\n`);
 }
 
+async function runOk(): Promise<void> {
+  const result = await callClaude({
+    prompt: env.DIGEST_SMOKE_PROMPT ?? "「こんにちは」とだけ答えてください。",
+    materials: env.DIGEST_SMOKE_MATERIALS ?? "",
+    name: "smoke",
+  });
+  if (result.ok) {
+    writeArtifact(result.text);
+    finishOk();
+  } else if (result.kind === "quota") {
+    failPermanent("smoke: Claude の利用枠切れ (quota)");
+  } else {
+    failTemporary(`smoke: Claude の呼び出しに失敗 (${result.kind})`);
+  }
+}
+
 async function fetchFixedSource(): Promise<void> {
-  const url = process.env.DIGEST_SMOKE_SOURCE_URL ?? "https://example.com/";
+  const url = env.DIGEST_SMOKE_SOURCE_URL ?? "https://example.com/";
   const started = Date.now();
   const response = await fetch(url);
   const body = await response.text();
   process.stdout.write(
-    `smoke: fetched ${url} status=${response.status} bytes=${body.length} ms=${Date.now() - started} ca=${process.env.NODE_EXTRA_CA_CERTS ?? "(unset)"}\n`,
+    `smoke: fetched ${url} status=${response.status} bytes=${body.length} ms=${Date.now() - started} ca=${env.NODE_EXTRA_CA_CERTS ?? "(unset)"}\n`,
   );
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
 switch (mode) {
   case "ok": {
-    const status = callClaudeOnce();
-    if (status === 0) {
-      writeArtifact();
-      finishOk();
-    } else {
-      failTemporary(`smoke: claude の終了コード ${status ?? "起動失敗"}`);
-    }
+    runOk().catch((error: unknown) => failTemporary(`smoke: ${String(error)}`));
     break;
   }
   case "no-marker": {
@@ -104,7 +78,7 @@ switch (mode) {
   case "fetch": {
     fetchFixedSource().then(
       () => finishOk(),
-      (error) => failTemporary(`smoke: fetch failed: ${String(error)}`),
+      (error: unknown) => failTemporary(`smoke: fetch failed: ${String(error)}`),
     );
     break;
   }
