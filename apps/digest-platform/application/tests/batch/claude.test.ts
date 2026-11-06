@@ -1,4 +1,5 @@
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,27 @@ import { describe, expect, it } from "vitest";
 import { CLAUDE_TIMEOUT_MS, callClaude } from "../../batch/claude.ts";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
+const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** check が値を返すまで100ミリ秒ごとに試し、期限を過ぎたら失敗する */
+async function waitFor<T>(check: () => T | undefined, timeoutMs: number): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = check();
+    if (value !== undefined) return value;
+    if (Date.now() > deadline) throw new Error("待ちきれませんでした");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
 
 // 偽の claude。受け取った引数(NUL 区切り)・標準入力・APIキーの有無をファイルに書き出し、
 // FAKE_RESPONSE のファイルをそのまま標準出力に出す。FAKE_SLEEP があれば応答せずに眠り続ける
@@ -13,6 +35,7 @@ const FAKE_CLAUDE = `#!/bin/sh
 for a in "$@"; do printf '%s\\0' "$a" >> "$FAKE_OUT/args"; done
 cat > "$FAKE_OUT/stdin"
 printf '%s' "\${ANTHROPIC_API_KEY-unset}" > "$FAKE_OUT/api-key"
+echo $$ > "$FAKE_OUT/pid"
 if [ -n "$FAKE_SLEEP" ]; then exec sleep "$FAKE_SLEEP"; fi
 if [ -n "$FAKE_RESPONSE" ]; then cat "$FAKE_RESPONSE"; fi
 `;
@@ -82,6 +105,22 @@ describe("Claude の呼び出し(5アプリのバッチが同じ約束で Claude
       expect(result).toEqual({ ok: false, kind: "timeout" });
       expect(Date.now() - started).toBeLessThan(10_000);
     }, 15_000);
+
+    // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#時間の上限-1
+    // 否定確認: SIGTERM で Claude のグループを止める処理を外すと、別グループの Claude が残って落ちる
+    it("バッチが実行係から SIGTERM で止められたときは、別のプロセスグループで動いている Claude も止めてから終わる", async () => {
+      const { env, work } = setupFake({ sleep: 60 });
+      const driver = join(work, "driver.mts");
+      writeFileSync(driver, `import { callClaude } from ${JSON.stringify(join(appRoot, "batch", "claude.ts"))};\nawait callClaude(${JSON.stringify(request)});\n`);
+      // tsx の CLI はローカルのソケットを開くため、ローダーとして読み込む形で起動する
+      const batch = spawn(process.execPath, ["--import", "tsx", driver], { cwd: appRoot, env: { ...env, PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, TMPDIR: tmpdir() }, stdio: "ignore" });
+      const pidFile = join(work, "pid");
+      const claudePid = await waitFor(() => (existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) || undefined : undefined), 10_000);
+      const exited = new Promise((resolve) => batch.on("exit", resolve));
+      batch.kill("SIGTERM");
+      await exited;
+      expect(await waitFor(() => (alive(claudePid) ? undefined : true), 3_000).catch(() => false)).toBe(true);
+    }, 20_000);
 
     // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-2
     // 否定確認: 最終行がマーカーでないときも成功にすると落ちる

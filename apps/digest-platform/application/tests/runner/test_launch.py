@@ -1,6 +1,8 @@
 import inspect
 import os
+import signal
 import stat
+import threading
 import time
 import unittest
 
@@ -61,6 +63,41 @@ class バッチの起動と出力の記録と打ち切り(TempDirTestCase):
         while lock.pid_alive(child) and time.monotonic() < deadline:
             time.sleep(0.1)
         self.assertFalse(lock.pid_alive(child), "子プロセスが残っている")
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-5、apps/digest-platform/specs/batch-runner/requirements.md#時間の上限-1
+    def test_バッチが終わった後も出力をつかんだ子孫が残っていれば止めてすぐ返る(self):
+        """否定確認: 終了後のグループの停止を消すと子孫の sleep が終わるまで待って落ちる"""
+        child_pid_file = self.path("child.pid")
+        batch = self.script(f"sleep 30 &\necho $! > '{child_pid_file}'\necho DIGEST-BATCH-OK\nexit 0\n")
+        log = self.path("logs", "publish", "2026-11-07-1.log")
+        began = time.monotonic()
+        got = launch.run(["/bin/sh", batch], self.tmp, {"PATH": "/usr/bin:/bin"}, log, timeout_seconds=60)
+        self.assertLess(time.monotonic() - began, 15)
+        self.assertEqual((got["exit_code"], got["timed_out"], got["last_line"]), (0, False, "DIGEST-BATCH-OK"))
+        with open(child_pid_file) as f:
+            child = int(f.read().strip())
+        deadline = time.monotonic() + 3
+        while lock.pid_alive(child) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertFalse(lock.pid_alive(child), "子孫のプロセスが残っている")
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-4
+    def test_待っている間に中断されたらバッチのグループを止めてから中断を伝える(self):
+        """否定確認: 中断時のグループの停止を消すとバッチが残り、ロックを外した後に二重に動きうるので落ちる"""
+        pid_file = self.path("batch.pid")
+        batch = self.script(f"echo $$ > '{pid_file}'\nsleep 60\n")
+        log = self.path("logs", "publish", "2026-11-07-1.log")
+        timer = threading.Timer(1.0, os.kill, (os.getpid(), signal.SIGINT))
+        timer.start()
+        self.addCleanup(timer.cancel)
+        with self.assertRaises(KeyboardInterrupt):
+            launch.run(["/bin/sh", batch], self.tmp, {"PATH": "/usr/bin:/bin"}, log, timeout_seconds=60)
+        with open(pid_file) as f:
+            batch_pid = int(f.read().strip())
+        deadline = time.monotonic() + 3
+        while lock.pid_alive(batch_pid) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertFalse(lock.pid_alive(batch_pid), "バッチが残っている")
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#時間の上限-1
     def test_打ち切りの上限は登録表ではなく実行係の定数の60分である(self):

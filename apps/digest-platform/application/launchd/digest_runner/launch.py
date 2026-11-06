@@ -126,9 +126,13 @@ def run(command, cwd, env, log_path, timeout_seconds=BATCH_TIMEOUT_SECONDS, head
             proc.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
             result["timed_out"] = True
+        finally:
+            # 打ち切り・中断(Ctrl-C など)・終了のどれでもグループに残ったプロセスを止める。
+            # 中断で残すとロックを外した後に二重に動き、終了後に出力をつかんだ子孫が残ると読み取りが終わらない
             _stop_group(proc)
         reader.join(timeout=KILL_GRACE_SECONDS)
-        proc.stdout.close()
+        if not reader.is_alive():
+            proc.stdout.close()
         result["exit_code"] = proc.returncode
         result["ended_at"] = now()
         non_empty = [line for line in lines if line.strip()]

@@ -58,6 +58,28 @@ interface RunOutcome {
   stdout: string;
 }
 
+/** 動いている claude のプロセスグループ。claude は別グループなので、実行係がバッチのグループを止めても届かない */
+const runningGroups = new Set<number>();
+let stopOnTermInstalled = false;
+
+function killGroup(pid: number): void {
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    // すでに終わっている
+  }
+}
+
+/** 実行係が打ち切り・中断でバッチに SIGTERM を送ったとき、動いている claude を止めてから終わる */
+function installStopOnTerm(): void {
+  if (stopOnTermInstalled) return;
+  stopOnTermInstalled = true;
+  process.once("SIGTERM", () => {
+    for (const pid of runningGroups) killGroup(pid);
+    process.exit(143);
+  });
+}
+
 /** claude を起動し、材料を標準入力で渡して標準出力を集める。上限を過ぎたらプロセスグループごと打ち切る */
 function runClaude(bin: string, args: string[], materials: string, env: Record<string, string | undefined>, timeoutMs: number): Promise<RunOutcome> {
   return new Promise((resolve) => {
@@ -70,6 +92,11 @@ function runClaude(bin: string, args: string[], materials: string, env: Record<s
       resolve({ timedOut: false, stdout: "" });
       return;
     }
+    const pid = child.pid;
+    if (pid !== undefined) {
+      installStopOnTerm();
+      runningGroups.add(pid);
+    }
     const chunks: Buffer[] = [];
     let timedOut = false;
     let settled = false;
@@ -77,15 +104,12 @@ function runClaude(bin: string, args: string[], materials: string, env: Record<s
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (pid !== undefined) runningGroups.delete(pid);
       resolve({ timedOut, stdout: Buffer.concat(chunks).toString("utf8") });
     };
     const timer = setTimeout(() => {
       timedOut = true;
-      try {
-        if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
-      } catch {
-        // すでに終わっている
-      }
+      if (pid !== undefined) killGroup(pid);
       settle();
     }, timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
