@@ -1,9 +1,0 @@
-{
-  "name": "devflow",
-  "version": "2.0.0",
-  "description": "個人の開発フロー一式。工程Skill(/devflow:requirement → /devflow:design → /devflow:spec-review → /devflow:pr → /devflow:implementation → /devflow:implementation-review → /devflow:pr)と、/devflow:fix・/devflow:consult・/devflow:resolve・/devflow:autopilot・/devflow:test-design、知識Skill(architecture-workflow・parallel-work)、レビューAgent 4体(devflow:spec-reviewer・devflow:code-reviewer・devflow:impl-pr-reviewer・devflow:implementer)、方針文書(dev-flow.md・test-policy.md・jira-ticket-check.md)、品質基準(quality-standards/)、仕様書の層分け検査(lib/spec_layout_check/)、回帰テスト(evals/)を同梱する",
-  "author": {
-    "name": "Ryosuke Yamazaki"
-  },
-  "keywords": ["workflow", "spec", "tdd", "review"]
-}
