@@ -42,6 +42,7 @@ specs/ の詳しい配置規約は [CLAUDE.md](CLAUDE.md#specs-フォルダ規�
 | meeting-minutes-generator | 会議トランスクリプトからの議事録自動生成バッチ (Python + launchd + claude CLI + Power Automate連携) | [apps/meeting-minutes-generator/README.md](apps/meeting-minutes-generator/README.md) | [apps/meeting-minutes-generator/specs/architecture.md](apps/meeting-minutes-generator/specs/architecture.md) |
 | meeting-setup-automation | 空き時間からの会議候補提示とTeams会議の自動作成 (Claude Code Skill + Power Automate連携) | [apps/meeting-setup-automation/README.md](apps/meeting-setup-automation/README.md) | [apps/meeting-setup-automation/specs/architecture.md](apps/meeting-setup-automation/specs/architecture.md) |
 | routine-work-finder | 使ったアプリと前面ウィンドウの題名の記録から定型業務を洗い出し、自動化案を週次でレポート (Swiftの常駐プログラム + launchd + アクセシビリティ + Claude Code Skill + claude CLI) ※操作の記録を実装中・週次レポートは未実装 | [apps/routine-work-finder/README.md](apps/routine-work-finder/README.md) | [apps/routine-work-finder/specs/architecture.md](apps/routine-work-finder/specs/architecture.md) |
+| digest-platform | AI駆動開発・ニュース・未来予測・研究発見・流行の5つのダイジェストアプリが共通で使う土台。launchdでの定期実行、claude CLIでの要約、127.0.0.1の常駐サーバーでの記事サイトの配信と読者データの保存、Teamsへの新着・失敗の通知 (TypeScript + Next.js静的出力 + launchd + claude CLI + Power Automate連携) ※仕様作成中・未実装 | [apps/digest-platform/README.md](apps/digest-platform/README.md) | [apps/digest-platform/specs/architecture.md](apps/digest-platform/specs/architecture.md) |
 
 ## 新しいアプリを追加するときは
 
