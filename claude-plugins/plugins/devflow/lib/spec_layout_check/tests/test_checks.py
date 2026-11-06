@@ -309,6 +309,53 @@ class 一部だけ見せて残りを畳む見出し(unittest.TestCase):
                          {"合意": 1, "提案": 0})
 
 
+class 品質統制の適用の表(unittest.TestCase):
+    """統制ごとの判定の表が人の見出しとして見え、出所列が検査されることを確かめる。"""
+
+    品質統制 = """# 設計
+
+## 概要
+
+設計の概要。 〔提案〕
+
+## 品質統制の適用
+
+| 統制 | 判定 | 理由 | 反映先 | 出所 |
+|---|---|---|---|---|
+| IMC-01 PII入出力 | 適用 | 利用者IDを受け取る | セキュリティ | 合意 |
+| IMC-02 冪等性 | 対象外 | 参照だけで副作用が無い | — | 提案 |
+"""
+
+    # 仕様: requirements.md#見出しの固定セットと読み手-7
+    def test_畳まずに表だけを置けば違反0であること(self):
+        """否定確認: 区分け表から品質統制の適用の行を消すと「読み手不明」で落ちる"""
+        scan = markdown_scan.scan(self.品質統制)
+        found = checks.check_folding("design.md", scan, RULES)
+        found += checks.check_provenance("design.md", scan, RULES)
+        self.assertEqual(found, [], [str(v) for v in found])
+
+    # 仕様: requirements.md#見出しの固定セットと読み手-7
+    def test_表を畳むと畳み過ぎになること(self):
+        text = self.品質統制.replace(
+            "| 統制 |", "<details><summary>詳細を開く</summary>\n\n| 統制 |") + "\n</details>\n"
+        found = checks.check_folding("design.md", markdown_scan.scan(text), RULES)
+        self.assertEqual([v.kind for v in found], ["畳み過ぎ"])
+
+    # 仕様: requirements.md#出所の目印-3
+    def test_出所列の値が別の語なら出所なしになること(self):
+        """否定確認: 出所列の検査を決定事項だけに戻すと落ちる"""
+        text = self.品質統制.replace("| — | 提案 |", "| — | 未定 |")
+        found = checks.check_provenance("design.md", markdown_scan.scan(text), RULES)
+        self.assertEqual([(v.heading, v.kind) for v in found],
+                         [("## 品質統制の適用", "出所なし")])
+
+    # 仕様: requirements.md#出所の目印-5
+    def test_表の出所を読む量に数えること(self):
+        scan = markdown_scan.scan(self.品質統制)
+        self.assertEqual(checks.count_provenance("design.md", scan, RULES),
+                         {"合意": 1, "提案": 1})
+
+
 class 図が要る見出し(unittest.TestCase):
     """処理フローの各処理に図が置かれていることを確かめる。"""
 
