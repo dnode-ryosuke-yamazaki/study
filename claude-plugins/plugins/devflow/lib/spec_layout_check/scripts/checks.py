@@ -5,9 +5,11 @@
 忘れ」だけを機械の担当にする。
 
 仕様: ~/.claude/local-specs/Users/ryosyamazaki/.claude/specs/spec-reading-layers/
-  design.md#要点と畳みの照合、design.md#出所の目印の照合、design.md#人が読む文字数の集計
+  design.md#要点と畳みの照合、design.md#出所の目印の照合、design.md#人が読む文字数の集計、
+  design.md#承認フロントマターの照合
 """
 
+import datetime
 import re
 
 import markdown_scan
@@ -27,6 +29,16 @@ KIND_UNREADABLE = "読めない"
 KIND_NO_FIGURE = "図なし"
 KIND_NO_SUBSECTION = "小見出しなし"
 KIND_LEGACY = "旧形式"
+KIND_BAD_FRONTMATTER = "フロントマター不正"
+# 違反ではなく状態(旧形式と同じ扱い)。フロントマターを持つ前に書かれた既存specを
+# 一括で違反にしないため、終了コード2で「移行が要る」ことだけを伝える
+KIND_NO_FRONTMATTER = "フロントマター無し"
+
+# 承認状態のフロントマターを持つファイルと、その値
+APPROVAL_FILES = ("requirements.md", "design.md", "tasks.md")
+APPROVAL_STATUSES = ("draft", "in-review", "approved")
+APPROVED = "approved"
+VERSION = re.compile(r"^\d+\.\d+$")
 
 # ステータス・優先度のラベル行を置けるファイル(他のファイルは章の外に本文になる)
 STATUS_LABEL_FILE = "requirements.md"
@@ -315,6 +327,53 @@ def _check_source_tables(file_name, scan):
                 found.append(Violation(file_name, heading, KIND_NO_SOURCE,
                                        "L%d" % line_no))
     return found
+
+
+def check_frontmatter(file_name, scan):
+    """承認状態のフロントマターを照合する。(違反の一覧, フロントマターが無いか) を返す。
+
+    status は draft / in-review / approved のどれか、version は「数字.数字」。
+    approved_date は approved のときだけ置き、YYYY-MM-DD の日付にする。承認済みは
+    1.0 以上(初回の承認で 1.0 にする)。他のキーは読み飛ばす(標準の type・title 等)。
+    """
+    entries = scan.frontmatter
+    if entries is None:
+        return [], True
+
+    notes = []
+    status = entries.get("status")
+    if status is None:
+        notes.append("status が無い")
+    elif status not in APPROVAL_STATUSES:
+        notes.append("status が draft / in-review / approved のどれでもない: %s" % status)
+
+    version = entries.get("version")
+    if version is None:
+        notes.append("version が無い")
+    elif not VERSION.match(version):
+        notes.append("version が「数字.数字」でない: %s" % version)
+    elif status == APPROVED and version.startswith("0."):
+        notes.append("approved なのに version が 1.0 未満: %s" % version)
+
+    approved_date = entries.get("approved_date")
+    if status == APPROVED:
+        if not approved_date:
+            notes.append("approved なのに approved_date が無い")
+        elif not _is_date(approved_date):
+            notes.append("approved_date が YYYY-MM-DD の日付でない: %s" % approved_date)
+    elif "approved_date" in entries:
+        notes.append("approved でないのに approved_date がある")
+
+    return [Violation(file_name, FILE_WIDE, KIND_BAD_FRONTMATTER, note)
+            for note in notes], False
+
+
+def _is_date(value):
+    try:
+        datetime.datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
 
 
 def _visible_text_lines(file_name, scan, rules):

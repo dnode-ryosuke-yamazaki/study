@@ -29,7 +29,7 @@ SUPPLEMENT_KINDS = {check_spec_layout.KIND_VISIBLE_CHARS,
 
 
 def implemented_kinds():
-    """checks.py が持つ違反種別(旧形式を含む)。"""
+    """checks.py が持つ違反種別(旧形式・フロントマター無しを含む)。"""
     return {value for name, value in vars(checks).items()
             if name.startswith("KIND_") and isinstance(value, str)}
 
@@ -77,8 +77,8 @@ class 違反種別の一覧(unittest.TestCase):
         self.assertEqual(len(列挙), 1, "違反種別を列挙した行が1行でない")
         書いてある = {語.strip() for 語 in
                  re.search(r"違反種別\(([^)]*)\)", 列挙[0]).group(1).split("/")}
-        # 「旧形式」は違反ではなく状態なので要件の列挙には含めない
-        期待 = implemented_kinds() - {checks.KIND_LEGACY}
+        # 「旧形式」「フロントマター無し」は違反ではなく状態なので要件の列挙には含めない
+        期待 = implemented_kinds() - {checks.KIND_LEGACY, checks.KIND_NO_FRONTMATTER}
         self.assertEqual(書いてある, 期待)
 
 

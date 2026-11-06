@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-10-01
+version: "1.0"
+---
+
 # design.md を持たない見本
 
 ステータス: 実装中 ／ 優先度: 低

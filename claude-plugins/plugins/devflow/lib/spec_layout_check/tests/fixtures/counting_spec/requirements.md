@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-10-01
+version: "1.0"
+---
+
 # 文字数を数えるための見本
 
 ステータス: 実装中 ／ 優先度: 低
