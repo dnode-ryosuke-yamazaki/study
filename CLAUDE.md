@@ -4,18 +4,18 @@
 
 ## 開発ワークフロー
 
-このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は、このリポジトリ内の **devflow プラグイン**(`claude-plugins/plugins/devflow/`。ローカルマーケットプレイス `study-plugins` として `claude plugin marketplace add` で登録し、`.claude/settings.json` の `enabledPlugins` で有効化する。呼び名は `/devflow:<名前>` で、/devflow:consult・/devflow:requirement・/devflow:design・/devflow:spec-review・/devflow:pr・/devflow:implementation・/devflow:implementation-review・/devflow:resolve・/devflow:fix・/devflow:autopilot と、知識Skillの architecture-workflow・parallel-work)で行う。定期作業の /retrospective・/scan-sandbox-sessions は全プロジェクト共通のグローバルSkill(`~/.claude/skills/`)のまま。ワークフロー全体の一覧・遷移図は [.claude/skills/README.md](.claude/skills/README.md) を参照。このリポジトリの `.claude/skills/` にはstudy固有の差分Skill(parallel-work。グローバル版に対するstudy固有の補足のみを書く)だけを置く。
+このプロジェクトの開発作業(機能追加・既存機能の修正・仕様作成・レビュー・PR作成)は、このリポジトリの `.claude/` に置いた開発フロー一式(工程Skill /consult・/requirement・/design・/spec-review・/pr・/implementation・/implementation-review・/resolve・/fix・/autopilot・/test-design と、知識Skillの architecture-workflow・parallel-work は `.claude/skills/`、レビューAgent 4体は `.claude/agents/`、共通ルールは `.claude/dev-flow.md`)で行う。プロジェクトSkillなので study で開いたセッションでだけ読み込まれる(組織ポリシーの `strictKnownMarketplaces` で社内 git 以外のマーケットプレイスが読み込まれないため、プラグインにはしない)。定期作業の /retrospective・/scan-sandbox-sessions は全プロジェクト共通のグローバルSkill(`~/.claude/skills/`)のまま。ワークフロー全体の一覧・遷移図は [.claude/skills/README.md](.claude/skills/README.md) を参照。
 
-プラグインのSkillに対するstudy固有の差分は次の2点(Skill側は「spec配置の例外リポジトリ」としてこの差分を参照する):
+工程Skillのうちstudy固有の差分は次の2点(Skill側は「spec配置の例外リポジトリ」としてこの差分を参照する):
 
 - **specの置き場所**: ローカルミラーではなく `apps/<アプリ名>/specs/<機能名>/` に置き、このリポジトリのgitで管理する(下記「specs/ フォルダ規約」)
-- **仕様の承認方式**: チャット承認ではなく**仕様承認PR**(`/devflow:pr` の「仕様承認PR」)。**要件定義より前にコードを書かない。** 3点セットの仕様承認PRがマージされるまで実装(テストを含む)には着手しない。例外は仕様に影響しない純粋なバグ修正・軽微な変更のみ(`/devflow:fix` の「仕様承認の要否」で判断し、承認ゲートなしで修正してよい)
+- **仕様の承認方式**: チャット承認ではなく**仕様承認PR**(`/pr` の「仕様承認PR」)。**要件定義より前にコードを書かない。** 3点セットの仕様承認PRがマージされるまで実装(テストを含む)には着手しない。例外は仕様に影響しない純粋なバグ修正・軽微な変更のみ(`/fix` の「仕様承認の要否」で判断し、承認ゲートなしで修正してよい)
 
 運用上のルール:
 
-- 入口: 新しい機能・アプリ → `/devflow:requirement`、既存機能のバグ・小規模改修 → `/devflow:fix`、方針の壁打ち → `/devflow:consult`
-- `gh`コマンドは常に `-R dnode-ryosuke-yamazaki/study` を明示し、既存PRを扱うサブコマンドにはブランチ名/PR番号も添える。マージは `--squash` を既定にする(詳細は `/devflow:pr` の共通ルール)
-- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。基本手順はプラグインの `claude-plugins/plugins/devflow/skills/parallel-work/SKILL.md`、study固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照(`~/.claude/hooks/enforce-worktree.sh` による強制は、組織ポリシーでユーザー定義hookが無効なため現在は効かない。運用ルールとして遵守する)
+- 入口: 新しい機能・アプリ → `/requirement`、既存機能のバグ・小規模改修 → `/fix`、方針の壁打ち → `/consult`
+- `gh`コマンドは常に `-R dnode-ryosuke-yamazaki/study` を明示し、既存PRを扱うサブコマンドにはブランチ名/PR番号も添える。マージは `--squash` を既定にする(詳細は `/pr` の共通ルール)
+- 2つ以上の機能を並行して進める場合は `git checkout`/`git switch` によるブランチの往復ではなく、git worktree を使う。手順とstudy固有の重複検出・環境構築は `.claude/skills/parallel-work/SKILL.md` を参照(`~/.claude/hooks/enforce-worktree.sh` による強制は、組織ポリシーでユーザー定義hookが無効なため現在は効かない。運用ルールとして遵守する)
 
 ## specs/ フォルダ規約
 
@@ -34,9 +34,9 @@ apps/<app-name>/
         └── tasks.md
 ```
 
-- 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `claude-plugins/plugins/devflow/skills/requirement/SKILL.md` のStep0を参照
-- `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `claude-plugins/plugins/devflow/skills/architecture-workflow/SKILL.md` を参照
-- **仕様書(requirements.md/design.md/architecture.md)には常に今の正しい仕様だけを現在形で書く。** 変更の経緯・履歴・移設マーカー・内輪の呼称・合意日付は書かず、書き換えるときはあたかも最初からその仕様だったかのように書き直す(詳細は `claude-plugins/plugins/devflow/skills/requirement/SKILL.md` の「仕様書は『最新仕様のみ』を書く」)
+- 1機能(1ユーザーストーリー)= 1 `specs/<feature-name>/` フォルダが原則。既存機能の修正か新規機能かの判断基準は `.claude/skills/requirement/SKILL.md` のStep0を参照
+- `apps/<app-name>/specs/architecture.md` の作成基準・書き方は `.claude/skills/architecture-workflow/SKILL.md` を参照
+- **仕様書(requirements.md/design.md/architecture.md)には常に今の正しい仕様だけを現在形で書く。** 変更の経緯・履歴・移設マーカー・内輪の呼称・合意日付は書かず、書き換えるときはあたかも最初からその仕様だったかのように書き直す(詳細は `.claude/skills/requirement/SKILL.md` の「仕様書は『最新仕様のみ』を書く」)
 - 経緯・決定理由を残す必要がある場合は仕様書に書かずADRに分離する。**複数アプリにまたがる技術選定・方針**(DB・ホスティング・認証基盤・CI基盤など)は `doc/adr/`(リポジトリ全体で連番)、**1アプリ内で完結する設計判断**は `apps/<app-name>/specs/adr/`(アプリごとに0001から採番)に置く。仕様書からは必要ならリンクだけを張る
 - 特定の`apps/<app-name>/`に属さない、リポジトリ横断のCI/tooling機能(例: JIRA連携などの`.github/workflows/`)の仕様3点セットは、上記構成の例外としてリポジトリ直下`specs/<feature-name>/`に置く(例: `doc/adr/0002-jira-automation-via-github-actions.md`)
 
