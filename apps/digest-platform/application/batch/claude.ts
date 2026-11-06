@@ -3,6 +3,8 @@
 // 起動引数・付け足す文・利用枠切れの文言は appendix「Claude の呼び出し」が正。
 
 import { type ChildProcessByStdio, spawn } from "node:child_process";
+import { chmodSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 /** 1回の呼び出しの上限(10分) */
@@ -119,6 +121,35 @@ function classify(stdout: string): ClaudeResult {
   return { ok: true, text: lines.slice(0, -1).join("\n").trimEnd() };
 }
 
+/** 控え(claude-io)の書き手。指示文と応答を <試行番号>-<連番2桁>-prompt.txt / -response.json として残す */
+interface ClaudeIORecord {
+  writeResponse(text: string): void;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 控えの置き場所に指示文を書き、応答を書くための口を返す。置き場所か試行番号が渡されていなければ控えを残さない */
+function recordPrompt(env: Record<string, string | undefined>, prompt: string): ClaudeIORecord {
+  const dir = env.DIGEST_CLAUDE_IO_DIR;
+  const attempt = env.DIGEST_ATTEMPT;
+  if (!dir || !attempt) return { writeResponse: () => {} };
+
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  // 同じ試行番号で既にある控えの続きから振る(やり直した回も前の回を上書きしない)
+  const pattern = new RegExp(`^${escapeRegExp(attempt)}-(\\d+)-(?:prompt\\.txt|response\\.json)$`);
+  const used = readdirSync(dir).map((file) => pattern.exec(file)?.[1]).filter((n): n is string => n !== undefined).map(Number);
+  const seq = String(Math.max(0, ...used) + 1).padStart(2, "0");
+  const base = join(dir, `${attempt}-${seq}`);
+  // wx: 既にあるファイルは上書きしない
+  writeFileSync(`${base}-prompt.txt`, prompt, { mode: 0o600, flag: "wx" });
+  return {
+    writeResponse: (text) => writeFileSync(`${base}-response.json`, text, { mode: 0o600, flag: "wx" }),
+  };
+}
+
 /** Claude を1回呼ぶ。失敗は例外ではなく種類で返す */
 export async function callClaude(request: ClaudeRequest, options: ClaudeOptions = {}): Promise<ClaudeResult> {
   const sourceEnv = options.env ?? process.env;
@@ -131,7 +162,10 @@ export async function callClaude(request: ClaudeRequest, options: ClaudeOptions 
   const childEnv = { ...sourceEnv };
   delete childEnv.ANTHROPIC_API_KEY;
 
+  const record = recordPrompt(sourceEnv, prompt);
   const outcome = await runClaude(bin, ["-p", prompt, ...CLAUDE_ARGS], request.materials, childEnv, timeoutMs);
+  // 応答の封筒は失敗したときも全文を残す。打ち切りは {"timeout": true}
+  record.writeResponse(outcome.timedOut ? `${JSON.stringify({ timeout: true })}\n` : outcome.stdout);
   if (outcome.timedOut) return { ok: false, kind: "timeout" };
   return classify(outcome.stdout);
 }

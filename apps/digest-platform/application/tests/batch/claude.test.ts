@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,7 +49,15 @@ function setupFake(fake: FakeOptions) {
     stdin: () => readFileSync(join(work, "stdin"), "utf8"),
     apiKey: () => readFileSync(join(work, "api-key"), "utf8"),
   };
-  return { env, received };
+  return { env, received, work };
+}
+
+/** 控えの置き場所(実行係が渡す claude-io/<系統>/<配信日>/ に当たる。まだ無いフォルダ)と試行番号を環境変数に足す */
+function withClaudeIO(env: Record<string, string | undefined>, work: string, attempt: string) {
+  const ioDir = join(work, "claude-io", "publish", "2026-11-06");
+  env.DIGEST_CLAUDE_IO_DIR = ioDir;
+  env.DIGEST_ATTEMPT = attempt;
+  return ioDir;
 }
 
 const request = { prompt: "今日の記事を要約してください。", materials: "材料の本文", name: "summary" };
@@ -182,5 +190,69 @@ describe("Claude の呼び出し(5アプリのバッチが同じ約束で Claude
       expect(args.some((arg) => arg.startsWith("--allowedTools") || arg.startsWith("--allowed-tools"))).toBe(false);
       expect(received.apiKey()).toBe("unset");
     });
+  });
+});
+
+describe("Claude の呼び出しの控え(要約が変だったときに、何を頼んで何が返ったかを後から確かめられるようにする)", () => {
+  // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-6、apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-2
+  // 否定確認: 控えの prompt に付け足す前の指示文を書くと落ちる / response に封筒ではなく本文だけを書くと落ちる / ファイルの権限を 644 に、フォルダの権限を 755 にすると落ちる
+  it("呼び出すと、控えの置き場所に試行番号と連番の名前で、付け足した文を含む指示文の全文と、JSON として読める応答の封筒の全文が本人だけ読める権限で残る", async () => {
+    const { env, received, work } = setupFake({ response: join(fixturesDir, "claude-ok.json") });
+    const ioDir = withClaudeIO(env, work, "1");
+    await callClaude(request, { env });
+
+    expect(readdirSync(ioDir).sort()).toEqual(["1-01-prompt.txt", "1-01-response.json"]);
+    const args = received.args();
+    const sentPrompt = args[args.indexOf("-p") + 1];
+    expect(readFileSync(join(ioDir, "1-01-prompt.txt"), "utf8")).toBe(sentPrompt);
+    expect(sentPrompt).toContain("CLAUDE-CALL-OK");
+    const response = JSON.parse(readFileSync(join(ioDir, "1-01-response.json"), "utf8"));
+    expect(response).toEqual(JSON.parse(readFileSync(join(fixturesDir, "claude-ok.json"), "utf8")));
+    expect(statSync(ioDir).mode & 0o777).toBe(0o700);
+    expect(statSync(join(ioDir, "1-01-prompt.txt")).mode & 0o777).toBe(0o600);
+    expect(statSync(join(ioDir, "1-01-response.json")).mode & 0o777).toBe(0o600);
+  });
+
+  // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-6
+  // 否定確認: 打ち切りのときに応答の控えを書かないと落ちる
+  it("打ち切ったときも、応答の控えに打ち切りだったことを JSON で残す", async () => {
+    const { env, work } = setupFake({ sleep: 30 });
+    const ioDir = withClaudeIO(env, work, "1");
+    await callClaude(request, { env, timeoutMs: 2000 });
+    expect(JSON.parse(readFileSync(join(ioDir, "1-01-response.json"), "utf8"))).toEqual({ timeout: true });
+  }, 15_000);
+
+  // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-6
+  // 否定確認: 連番を 01 に固定すると落ちる
+  it("同じ試行の中で2回呼ぶと、連番が01・02と増えて両方の控えが残る", async () => {
+    const { env, work } = setupFake({ response: join(fixturesDir, "claude-ok.json") });
+    const ioDir = withClaudeIO(env, work, "2");
+    await callClaude(request, { env });
+    await callClaude({ ...request, prompt: "二回目の指示文です。" }, { env });
+
+    expect(readdirSync(ioDir).sort()).toEqual(["2-01-prompt.txt", "2-01-response.json", "2-02-prompt.txt", "2-02-response.json"]);
+    expect(readFileSync(join(ioDir, "2-01-prompt.txt"), "utf8").startsWith(request.prompt)).toBe(true);
+    expect(readFileSync(join(ioDir, "2-02-prompt.txt"), "utf8").startsWith("二回目の指示文です。")).toBe(true);
+  });
+
+  // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-6
+  // 否定確認: 既にあるファイルを数えずに 01 から振ると落ちる / 他の試行番号のファイルまで数えると落ちる
+  it("同じ試行番号でやり直した回(前の回の控えが残っている)は、続きの連番で書いて前の回の控えを上書きせず、別の試行番号の控えは数えない", async () => {
+    const { env, work } = setupFake({ response: join(fixturesDir, "claude-ok.json") });
+    const ioDir = withClaudeIO(env, work, "manual-091500");
+    mkdirSync(ioDir, { recursive: true, mode: 0o700 });
+    // 前の回: 1回目は応答まで、2回目は指示文だけ残って落ちた。別の試行番号「1」の控えも同じ場所にある
+    writeFileSync(join(ioDir, "manual-091500-01-prompt.txt"), "前の回の指示文");
+    writeFileSync(join(ioDir, "manual-091500-01-response.json"), "{}");
+    writeFileSync(join(ioDir, "manual-091500-02-prompt.txt"), "前の回の2回目の指示文");
+    writeFileSync(join(ioDir, "1-07-prompt.txt"), "定時の回の指示文");
+
+    await callClaude(request, { env });
+
+    expect(readFileSync(join(ioDir, "manual-091500-01-prompt.txt"), "utf8")).toBe("前の回の指示文");
+    expect(readFileSync(join(ioDir, "manual-091500-02-prompt.txt"), "utf8")).toBe("前の回の2回目の指示文");
+    expect(readFileSync(join(ioDir, "manual-091500-03-prompt.txt"), "utf8").startsWith(request.prompt)).toBe(true);
+    expect(JSON.parse(readFileSync(join(ioDir, "manual-091500-03-response.json"), "utf8")).is_error).toBe(false);
+    expect(readdirSync(ioDir).filter((file) => file.startsWith("1-"))).toEqual(["1-07-prompt.txt"]);
   });
 });
