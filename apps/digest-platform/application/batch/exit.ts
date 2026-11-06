@@ -35,18 +35,12 @@ export function createExit(io: ExitIO): BatchExit {
   };
 }
 
-// @types/node を入れていないため、使う分だけの型を持つ
-interface NodeProcessLike {
-  stdout: { write(chunk: string, callback: () => void): boolean };
-  exit(code: number): never;
-}
-
 const nodeIO: ExitIO = {
   write(text, done) {
-    (globalThis as unknown as { process: NodeProcessLike }).process.stdout.write(text, done);
+    process.stdout.write(text, done);
   },
   exit(code) {
-    (globalThis as unknown as { process: NodeProcessLike }).process.exit(code);
+    process.exit(code);
   },
 };
 
