@@ -172,42 +172,6 @@
           "../trend-digest/application/reviews/{yearMonth}.md"
         ]
       }
-    },
-    "smoke": {
-      "publish": {
-        "enabled": true,
-        "weekdays": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
-        ],
-        "editionByWeekday": null,
-        "maxAttempts": 4,
-        "command": [
-          "{node}",
-          "{tsx}",
-          "batch/smoke.ts"
-        ],
-        "artifacts": [
-          "out/smoke/{date}{edition}/article.json"
-        ]
-      },
-      "review": {
-        "dayOfMonth": null,
-        "maxAttempts": 1,
-        "command": [
-          "{node}",
-          "{tsx}",
-          "batch/smoke.ts"
-        ],
-        "artifacts": [
-          "out/smoke/review-{yearMonth}.json"
-        ]
-      }
     }
   }
 }

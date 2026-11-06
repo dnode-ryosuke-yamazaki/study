@@ -125,9 +125,7 @@ class アプリ登録表からのlaunchdジョブの生成(TempDirTestCase):
         self.assertNotIn("com.example.digest-news-digest-publish.plist", plists)
         self.assertNotIn("com.example.digest-news-digest-review.plist", plists)
         self.assertIn("com.example.digest-trend-digest-publish.plist", plists)
-        # 環境スモーク(タスク16・21)の間だけ登録表にある検証用の smoke の plist は、5アプリの確かめから除く
-        real = {n: p for n, p in self.generate(os.path.join(LAUNCHD_DIR, "apps.json"), out_name="real").items() if "digest-smoke-" not in n}
-        self.assertEqual(real, {}, "本番の登録表は実装直後は全アプリ無効")
+        self.assertEqual(self.generate(os.path.join(LAUNCHD_DIR, "apps.json"), out_name="real"), {}, "本番の登録表は実装直後は全アプリ無効")
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-5
     def test_バージョン番号を含むパスと存在しないパスは拒否して何も書かない(self):
