@@ -1,4 +1,4 @@
-# 設計(/devflow:design, ../skills/design/SKILL.md)の評価
+# 設計(/design, ../skills/design/SKILL.md)の評価
 description: 設計Skillの評価 — 承認済みの requirements.md から、必須5見出し+テスト戦略を満たす design.md と、TDD宣言・担当マーク付きの tasks.md を作成できることを検証
 
 extensions:
@@ -10,11 +10,10 @@ providers:
     config:
       apiKeyRequired: false
       working_dir: ./.tmp/design-from-approved
-      setting_sources: ['user'] # ~/.claude/CLAUDE.md の全体ルールを読む(実運用と同じ条件)
-      plugins:
-        - type: local
-          path: .. # devflow プラグインのルート(検証対象のSkillはここから読む)
-      skills: ['devflow:design'] # 検証対象のSkillだけを許可する
+      # user: ~/.claude/CLAUDE.md の全体ルール、project: extensionHook が作業ディレクトリへ写した
+      # study の .claude(skills・agents・文書)。どちらも実運用と同じ読み込み経路
+      setting_sources: ['user', 'project']
+      skills: ['design'] # 検証対象のSkillだけを許可する
       permission_mode: acceptEdits
       disallowed_tools: ['Write', 'Edit', 'NotebookEdit', 'Bash']
       effort: medium
@@ -79,7 +78,7 @@ tests:
         - from: fixtures/design/requirements.md
           to: specs/note-deletion/requirements.md
       request: >-
-        /devflow:design を実行してください。対象は ./specs/note-deletion/ です(requirements.md は
+        /design を実行してください。対象は ./specs/note-deletion/ です(requirements.md は
         ヒアリング済みで内容は確定。承認は3点セットがそろった後の仕様レビューで受ける)。対象プロジェクトは AWS Lambda(Python)+ API Gateway + DynamoDB で構成された
         ノートAPIで、ノートは `notes` テーブル(パーティションキー noteId、属性に ownerId・title・
         body・createdAt を持つ)に保存されています。呼び出し元の利用者IDは API Gateway の認可で

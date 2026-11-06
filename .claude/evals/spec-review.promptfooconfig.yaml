@@ -1,4 +1,4 @@
-# 仕様レビュー(/devflow:spec-review, ../skills/spec-review/SKILL.md)の評価
+# 仕様レビュー(/spec-review, ../skills/spec-review/SKILL.md)の評価
 description: 仕様レビューSkillの評価 — 欠陥を仕込んだ3点セットに対して、チェックリスト(base+company)を根拠に欠陥を検出し、フィードバックテンプレートの形で報告できることを検証
 
 extensions:
@@ -10,11 +10,10 @@ providers:
     config:
       apiKeyRequired: false
       working_dir: ./.tmp/spec-review-planted
-      setting_sources: ['user'] # ~/.claude/CLAUDE.md の全体ルールを読む(実運用と同じ条件)
-      plugins:
-        - type: local
-          path: .. # devflow プラグインのルート(検証対象のSkillはここから読む)
-      skills: ['devflow:spec-review'] # 検証対象のSkillだけを許可する
+      # user: ~/.claude/CLAUDE.md の全体ルール、project: extensionHook が作業ディレクトリへ写した
+      # study の .claude(skills・agents・文書)。どちらも実運用と同じ読み込み経路
+      setting_sources: ['user', 'project']
+      skills: ['spec-review'] # 検証対象のSkillだけを許可する
       permission_mode: acceptEdits # spec-reviewer エージェントの起動(Agentツール)を許可待ちで止めない
       disallowed_tools: ['Write', 'Edit', 'NotebookEdit', 'Bash']
       effort: medium
@@ -34,7 +33,7 @@ providers:
         - Bash が無効化されているため、層分けの機械検査スクリプトは起動できない。この場合の
           扱いは spec-review Skill の「起動前の機械検査」に書かれているとおりにする。
         - spec-reviewer エージェントを起動できる場合は起動してよいが、起動できない場合は
-          メインスレッドが同じチェックリスト(プラグインの quality-standards/base/spec-review.md と
+          メインスレッドが同じチェックリスト(.claude/quality-standards/base/spec-review.md と
           company/spec-review.md)を読んで直接レビューする。
         - レビュー結果はフィードバックテンプレートの形式で、要約せずこの最終応答のテキストに
           そのまま含める。承認を求める文で応答を終えてよいが、承認待ちで止まらない。
@@ -73,7 +72,7 @@ tests:
         - from: fixtures/spec-review/tasks.md
           to: specs/note-deletion/tasks.md
       request: >-
-        /devflow:spec-review を実行してください。対象は ./specs/note-deletion/ です
+        /spec-review を実行してください。対象は ./specs/note-deletion/ です
         (requirements.md / design.md / tasks.md の3点セット)。
     assert:
       - description: フィードバックテンプレートの必須節が含まれている

@@ -2,7 +2,7 @@
   "name": "claude-devflow-evals",
   "private": true,
   "type": "module",
-  "description": "devflow プラグインの開発フローSkill(requirement / design / spec-review)の出力を promptfoo で回帰検証するスイート。Skill本文を直したあとに成果物の質が落ちていないかを採点する。製品コードのテストではない。",
+  "description": "study の .claude に置いた開発フローSkill(requirement / design / spec-review)の出力を promptfoo で回帰検証するスイート。Skill本文を直したあとに成果物の質が落ちていないかを採点する。製品コードのテストではない。",
   "devDependencies": {
     "promptfoo": "0.123.0"
   },

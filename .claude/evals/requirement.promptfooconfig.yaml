@@ -1,4 +1,4 @@
-# 要件定義(/devflow:requirement, ../skills/requirement/SKILL.md)の評価
+# 要件定義(/requirement, ../skills/requirement/SKILL.md)の評価
 description: 要件定義Skillの評価 — ヒアリング済みの内容から、自分の書式(固定セットの見出し・要点と畳み・出所の目印・[n]採番・ステータス行)を満たす requirements.md を新規作成できることを検証
 
 extensions:
@@ -11,11 +11,10 @@ providers:
       apiKeyRequired: false
       # extensionHook(beforeEach)が空のgitリポジトリとして作る使い捨てディレクトリ
       working_dir: ./.tmp/requirement-new-spec
-      setting_sources: ['user'] # ~/.claude/CLAUDE.md の全体ルールを読む(実運用と同じ条件)
-      plugins:
-        - type: local
-          path: .. # devflow プラグインのルート(検証対象のSkillはここから読む)
-      skills: ['devflow:requirement'] # 検証対象のSkillだけを許可する
+      # user: ~/.claude/CLAUDE.md の全体ルール、project: extensionHook が作業ディレクトリへ写した
+      # study の .claude(skills・agents・文書)。どちらも実運用と同じ読み込み経路
+      setting_sources: ['user', 'project']
+      skills: ['requirement'] # 検証対象のSkillだけを許可する
       permission_mode: acceptEdits
       disallowed_tools: ['Write', 'Edit', 'NotebookEdit', 'Bash']
       effort: medium
@@ -75,7 +74,7 @@ tests:
     vars:
       workDir: .tmp/requirement-new-spec
       request: >-
-        /devflow:requirement を実行してください。対象は新しい機能「ノートの削除API」です。
+        /requirement を実行してください。対象は新しい機能「ノートの削除API」です。
         ヒアリングは済んでおり、確認できた内容は次のとおりです。この内容だけで書いてください。
         - 誰・何のため: ノートアプリ(notes-api)の利用者が、自分で作成したノートを削除するための
           API。呼び出し元はフロントエンドのノート一覧画面。
@@ -170,7 +169,7 @@ tests:
     vars:
       workDir: .tmp/requirement-new-spec
       request: >-
-        /devflow:requirement を実行してください。対象は新しい機能「メモの読み上げ画面」です。
+        /requirement を実行してください。対象は新しい機能「メモの読み上げ画面」です。
         ヒアリングと画面イメージのすり合わせは済んでおり、確認できた内容は次のとおりです。
         この内容だけで書いてください。
         - 誰・何のため: 自分のMacで作業する運用者が、貼った文章を音声で聞くための画面。
@@ -212,7 +211,7 @@ tests:
     vars:
       workDir: .tmp/requirement-new-spec
       request: >-
-        /devflow:requirement を実行してください。対象は新しい機能「バッチの実行条件チェック」です。
+        /requirement を実行してください。対象は新しい機能「バッチの実行条件チェック」です。
         ヒアリングは済んでおり、確認できた内容は次のとおりです。この内容だけで書いてください。
         - 誰・何のため: 夜間バッチの運用者が、実行前に前提条件を機械で確かめられるようにする。
         - 何ができればよいか: 条件を1つずつ判定し、満たさないものを一覧で返す。

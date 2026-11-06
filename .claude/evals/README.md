@@ -1,6 +1,6 @@
 # 開発フローSkillの回帰テスト(evals)
 
-devflow プラグイン(`claude-plugins/plugins/devflow/skills/`)の開発フローSkillのうち `requirement` / `design` / `spec-review` の3本について、「この入力を渡したら、この形の成果物が返る」ことを promptfoo で採点する。**検査対象は手順書(SKILL.md)そのもの**で、製品コード(Lambda・SDK・バッチ)のテストではない。Skill本文を改修したあとに、成果物の質が落ちていないかを確かめるために回す。
+study の `.claude/skills/` に置いた開発フローSkillのうち `requirement` / `design` / `spec-review` の3本について、「この入力を渡したら、この形の成果物が返る」ことを promptfoo で採点する。**検査対象は手順書(SKILL.md)そのもの**で、製品コード(Lambda・SDK・バッチ)のテストではない。Skill本文を改修したあとに、成果物の質が落ちていないかを確かめるために回す。
 
 構成は社内標準テンプレート(`add-skeleton/evals/`)の方式を踏襲している(provider・非対話化のシステムプロンプト・fixtureの使い捨て配置)。
 
@@ -9,7 +9,7 @@ devflow プラグイン(`claude-plugins/plugins/devflow/skills/`)の開発フロ
 サンドボックス内の Claude Code からは `npm install` も API 通信も通らないため、手元のターミナルで実行する。
 
 ```bash
-cd /Users/ryosyamazaki/repo/study/claude-plugins/plugins/devflow/evals
+cd /Users/ryosyamazaki/repo/study/.claude/evals
 npm install                      # 初回のみ(promptfoo を node_modules/ に入れる)
 npm run eval -- requirement      # 1カテゴリだけ
 npm run eval:all                 # 3カテゴリ順に
@@ -21,7 +21,7 @@ cat logs/requirement.promptfoo.log.yaml   # 結果(pass/fail と reason)
 - Claude Code にログイン済みであること(`ANTHROPIC_API_KEY` は不要。provider は `apiKeyRequired: false` でローカルのログインを使う)
 - 検証対象は各Skillの**最終応答テキストのみ**。`disallowed_tools` で Write / Edit / Bash を無効化しており、実ファイルの書き込みは起きない
 - 既存specが前提のケースは `libs/extensions/stage-fixtures.mjs` が `.tmp/<category>-<case>/` に使い捨ての作業ディレクトリ(空のgitリポジトリ)を作り、fixture を配置する。実行後に自動削除する
-- Skillは `plugins:`(`type: local`・`path: ..` = devflow プラグインのルート)から読み、`skills:` で対象1本(`devflow:<名前>`)に絞る。`setting_sources: ['user']` により `~/.claude/CLAUDE.md` の全体ルールも同時に読まれる(実運用と同じ条件)。プラグイン配置での再実行は未実施のため、初回は出力に SKILL.md 本文にしかない文言(「JIRAチケット確認」「次のステップ案内」)が現れることで読み込みを確かめる
+- Skillは実運用と同じプロジェクトSkillの経路で読む。`stage-fixtures.mjs` が作業ディレクトリの `.claude/` に study の `.claude` の skills・agents・文書(dev-flow.md・test-policy.md・jira-ticket-check.md・quality-standards/・lib/)を写し、`setting_sources: ['user', 'project']` で `~/.claude/CLAUDE.md` の全体ルールと一緒に読ませる。`skills:` で対象1本(`<名前>`)に絞る。`settings.json`・`hooks/` は写さない。この配置での再実行は未実施のため、初回は出力に SKILL.md 本文にしかない文言(「JIRAチケット確認」「次のステップ案内」)が現れることで読み込みを確かめる
 - 1ケースの実行は Claude の利用枠を消費する(`max_turns: 20`)。頻繫に回すものではなく、Skill本文を変更したときに回す。目安(初回実測 2026-09-11、モデルはセッション既定のOpus): `requirement` 約53秒・約3.1万トークン(生成1.8万+採点1.3万)、`design` 約3分13秒・約10.3万トークン(生成7.6万+採点2.7万)、`spec-review` 約1分51秒。3カテゴリとも初回で全合格
 - `skills:` に挙げたSkillの本文は、Skillツールを呼ばなくても最初から読み込まれている(初回実測で `toolCalls: []` のまま、SKILL.md本文にしかない「JIRAチケット確認」「次のステップ案内」の文言が出力に現れた)。つまり検査対象は確かにSKILL.md本文
 
