@@ -96,6 +96,15 @@ describe("Claude の呼び出し(5アプリのバッチが同じ約束で Claude
       const { env } = setupFake({ responseText: JSON.stringify({ type: "result", is_error: true, api_error_status: null, result: "Claude AI Weekly Limit reached" }) });
       expect(await callClaude(request, { env })).toEqual({ ok: false, kind: "quota" });
     });
+
+    // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-4
+    // 否定確認: エラーの応答文が文字列でないときに文字列として扱うと落ちる
+    it("エラーの応答で応答文が文字列でないときは落ちずに分ける(状態番号が429なら利用枠切れ、それ以外は一時的な失敗)", async () => {
+      const nullResult = setupFake({ responseText: JSON.stringify({ type: "result", is_error: true, api_error_status: null, result: null }) });
+      expect(await callClaude(request, { env: nullResult.env })).toEqual({ ok: false, kind: "temporary" });
+      const objectResult = setupFake({ responseText: JSON.stringify({ type: "result", is_error: true, api_error_status: 429, result: { message: "limit" } }) });
+      expect(await callClaude(request, { env: objectResult.env })).toEqual({ ok: false, kind: "quota" });
+    });
   });
 
   describe("実際に届いた応答の封筒を正しく分ける(契約)", () => {

@@ -287,6 +287,16 @@ class 実行係自身が動けなかったとき(RunnerTestCase):
         self.assertIn("result=locked date=- edition=- attempt=- status=- log=-", self.finished_lines()[-1])
         self.assertTrue(os.path.exists(os.path.join(self.data_dir, "lock", "publish")), "他人のロックを外さない")
 
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-8
+    def test_ロック中で終わる起動は前の配信日の再実行待ちを締めない(self):
+        from digest_runner import lock
+        self.run_at(at(2026, 10, 31, 6, 30), mode="fail1")
+        self.assertTrue(lock.acquire(os.path.join(self.data_dir, "lock", "publish")))
+        self.assertEqual(self.run_at(at(*SAT, 6, 30)), 0)
+        self.assertEqual(self.calls(), ["1"])
+        self.assertEqual(self.state_of("2026-10-31")["status"], "retry_pending")
+        self.assertEqual(self.received, [])
+
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-5、apps/digest-platform/specs/batch-runner/requirements.md#再実行-3
     def test_実行ファイルが見つからなければバッチを起動せず再試行しても直らない失敗になる(self):
         os.unlink(os.path.join(self.root, "node_modules", ".bin", "tsx"))
