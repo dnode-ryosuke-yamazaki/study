@@ -17,10 +17,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../ai-dev-digest/application/batch/publish.ts"
+          "../../ai-dev-digest/application/batch/publish.ts"
         ],
         "artifacts": [
-          "../ai-dev-digest/application/articles/{date}{edition}.json",
+          "../../ai-dev-digest/application/articles/{date}{edition}.json",
           "out/ai-dev-digest/{date}{edition}/index.html"
         ]
       },
@@ -30,10 +30,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../ai-dev-digest/application/batch/review.ts"
+          "../../ai-dev-digest/application/batch/review.ts"
         ],
         "artifacts": [
-          "../ai-dev-digest/application/reviews/{yearMonth}.md"
+          "../../ai-dev-digest/application/reviews/{yearMonth}.md"
         ]
       }
     },
@@ -54,10 +54,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../news-digest/application/batch/publish.ts"
+          "../../news-digest/application/batch/publish.ts"
         ],
         "artifacts": [
-          "../news-digest/application/articles/{date}{edition}.json",
+          "../../news-digest/application/articles/{date}{edition}.json",
           "out/news-digest/{date}{edition}/index.html"
         ]
       },
@@ -67,10 +67,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../news-digest/application/batch/review.ts"
+          "../../news-digest/application/batch/review.ts"
         ],
         "artifacts": [
-          "../news-digest/application/reviews/{yearMonth}.md"
+          "../../news-digest/application/reviews/{yearMonth}.md"
         ]
       }
     },
@@ -85,10 +85,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../future-digest/application/batch/publish.ts"
+          "../../future-digest/application/batch/publish.ts"
         ],
         "artifacts": [
-          "../future-digest/application/articles/{date}{edition}.json",
+          "../../future-digest/application/articles/{date}{edition}.json",
           "out/future-digest/{date}{edition}/index.html"
         ]
       },
@@ -98,10 +98,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../future-digest/application/batch/review.ts"
+          "../../future-digest/application/batch/review.ts"
         ],
         "artifacts": [
-          "../future-digest/application/reviews/{yearMonth}.md"
+          "../../future-digest/application/reviews/{yearMonth}.md"
         ]
       }
     },
@@ -116,10 +116,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../research-digest/application/batch/publish.ts"
+          "../../research-digest/application/batch/publish.ts"
         ],
         "artifacts": [
-          "../research-digest/application/articles/{date}{edition}.json",
+          "../../research-digest/application/articles/{date}{edition}.json",
           "out/research-digest/{date}{edition}/index.html"
         ]
       },
@@ -129,10 +129,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../research-digest/application/batch/review.ts"
+          "../../research-digest/application/batch/review.ts"
         ],
         "artifacts": [
-          "../research-digest/application/reviews/{yearMonth}.md"
+          "../../research-digest/application/reviews/{yearMonth}.md"
         ]
       }
     },
@@ -153,10 +153,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../trend-digest/application/batch/publish.ts"
+          "../../trend-digest/application/batch/publish.ts"
         ],
         "artifacts": [
-          "../trend-digest/application/articles/{date}{edition}.json",
+          "../../trend-digest/application/articles/{date}{edition}.json",
           "out/trend-digest/{date}{edition}/index.html"
         ]
       },
@@ -166,10 +166,10 @@
         "command": [
           "{node}",
           "{tsx}",
-          "../trend-digest/application/batch/review.ts"
+          "../../trend-digest/application/batch/review.ts"
         ],
         "artifacts": [
-          "../trend-digest/application/reviews/{yearMonth}.md"
+          "../../trend-digest/application/reviews/{yearMonth}.md"
         ]
       }
     }

@@ -13,17 +13,17 @@
         "weekdays": [6],
         "editionByWeekday": { "6": null },
         "maxAttempts": 4,
-        "command": ["{node}", "{tsx}", "../research-digest/application/batch/publish.ts"],
+        "command": ["{node}", "{tsx}", "../../research-digest/application/batch/publish.ts"],
         "artifacts": [
-          "../research-digest/application/articles/{date}{edition}.json",
+          "../../research-digest/application/articles/{date}{edition}.json",
           "out/research-digest/{date}{edition}/index.html"
         ]
       },
       "review": {
         "dayOfMonth": null,
         "maxAttempts": 1,
-        "command": ["{node}", "{tsx}", "../research-digest/application/batch/review.ts"],
-        "artifacts": ["../research-digest/application/reviews/{yearMonth}.md"]
+        "command": ["{node}", "{tsx}", "../../research-digest/application/batch/review.ts"],
+        "artifacts": ["../../research-digest/application/reviews/{yearMonth}.md"]
       }
     }
   }
@@ -153,7 +153,7 @@ research-digest(土曜のみ)の続き物の例。11-07(土)は 06:30・10:30 �
 === digest runner ===
 startedAt=2026-11-07T06:30:02+09:00
 app=research-digest kind=publish date=2026-11-07 edition=- attempt=1 manual=false
-command=/usr/local/bin/node /Users/<運営者>/repo/study/apps/digest-platform/application/node_modules/.bin/tsx ../research-digest/application/batch/publish.ts
+command=/usr/local/bin/node /Users/<運営者>/repo/study/apps/digest-platform/application/node_modules/.bin/tsx ../../research-digest/application/batch/publish.ts
 cwd=/Users/<運営者>/repo/study/apps/digest-platform/application
 claudeIoDir=/Users/<運営者>/Library/Application Support/digest/research-digest/claude-io/publish/2026-11-07
 caBundle=/Users/<運営者>/Library/Application Support/ca-bundle/ca-bundle.pem

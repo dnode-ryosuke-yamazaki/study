@@ -16,9 +16,9 @@ def publish_entry(app, weekdays=None, enabled=True, edition_by_weekday=None, max
         "weekdays": list(DAILY if weekdays is None else weekdays),
         "editionByWeekday": edition_by_weekday,
         "maxAttempts": max_attempts,
-        "command": ["{node}", "{tsx}", f"../{app}/application/batch/publish.ts"],
+        "command": ["{node}", "{tsx}", f"../../{app}/application/batch/publish.ts"],
         "artifacts": [
-            f"../{app}/application/articles/{{date}}{{edition}}.json",
+            f"../../{app}/application/articles/{{date}}{{edition}}.json",
             f"out/{app}/{{date}}{{edition}}/index.html",
         ],
     }
@@ -28,8 +28,8 @@ def review_entry(app, day_of_month=1):
     return {
         "dayOfMonth": day_of_month,
         "maxAttempts": 1,
-        "command": ["{node}", "{tsx}", f"../{app}/application/batch/review.ts"],
-        "artifacts": [f"../{app}/application/reviews/{{yearMonth}}.md"],
+        "command": ["{node}", "{tsx}", f"../../{app}/application/batch/review.ts"],
+        "artifacts": [f"../../{app}/application/reviews/{{yearMonth}}.md"],
     }
 
 

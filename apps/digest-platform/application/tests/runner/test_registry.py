@@ -95,6 +95,23 @@ class アプリ登録表からの起動対象の引き当て(TempDirTestCase):
             with self.assertRaises(registry.Unregistered):
                 reg.get(app, "publish")
 
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-3
+    def test_本番の登録表のバッチと生成物のパスは作業フォルダから各アプリのフォルダに届く(self):
+        """否定確認: アプリのパスを ../<アプリ名>/ にすると apps/digest-platform/<アプリ名>/ を指して落ちる"""
+        app_root = os.path.dirname(LAUNCHD_DIR)
+        apps_dir = os.path.dirname(os.path.dirname(app_root))
+        for app, entry in registry.load(os.path.join(LAUNCHD_DIR, "apps.json")).raw()["apps"].items():
+            for kind in ("publish", "review"):
+                paths = [entry[kind]["command"][-1]] + entry[kind]["artifacts"]
+                for p in paths:
+                    resolved = os.path.normpath(os.path.join(app_root, p))
+                    with self.subTest(app=app, kind=kind, path=p):
+                        self.assertTrue(
+                            resolved.startswith(os.path.join(apps_dir, app, "application") + os.sep)
+                            or resolved.startswith(os.path.join(app_root, "out", app) + os.sep),
+                            resolved,
+                        )
+
 
 if __name__ == "__main__":
     unittest.main()
