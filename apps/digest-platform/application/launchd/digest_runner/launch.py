@@ -153,3 +153,23 @@ def write_result(log_path, launched, marker, artifacts_ok, result, missing):
         _write(fd, text)
     finally:
         os.close(fd)
+
+
+def not_started(log_path, header, command, cwd, reason):
+    """バッチを起動できなかった(実行ファイルが見つからない等)ことを詳細ログに書き、run と同じ形の結果を返す。"""
+    fd = _open_log(log_path)
+    started_at = now()
+    try:
+        _write(fd, _header_text(started_at, header, command, cwd))
+        _write(fd, f"起動に失敗しました: {reason}\n")
+    finally:
+        os.close(fd)
+    return {
+        "exit_code": None,
+        "timed_out": False,
+        "start_failed": True,
+        "started_at": started_at,
+        "ended_at": now(),
+        "output_lines": [],
+        "last_line": None,
+    }
