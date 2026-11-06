@@ -1,6 +1,6 @@
 # Skill一覧と遷移図
 
-このプロジェクトの開発工程は**全プロジェクト共通のグローバルSkill**(`~/.claude/skills/`。/autopilot・/retrospective・/scan-sandbox-sessions・商用案件向けの任意工程 /test-design を含む)で行い、このリポジトリの `.claude/skills/` には**study固有の差分Skillだけ**を置く([parallel-work](parallel-work/SKILL.md)。git worktreeの基本手順は全プロジェクト共通の`~/.claude/skills/parallel-work/SKILL.md`を参照し、このファイルにはstudy固有の重複検出手順のみを書く)。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、グローバルSkillが「spec配置の例外リポジトリ」として参照する。
+このプロジェクトの開発工程は、このリポジトリ内の **devflow プラグイン**(`claude-plugins/plugins/devflow/`。ローカルマーケットプレイス `study-plugins` として登録し、`.claude/settings.json` の `enabledPlugins` で有効化する。呼び名は `/devflow:<名前>`。/devflow:autopilot・商用案件向けの任意工程 /devflow:test-design を含む)で行い、定期作業の /retrospective・/scan-sandbox-sessions は全プロジェクト共通のグローバルSkill(`~/.claude/skills/`)のまま。このリポジトリの `.claude/skills/` には**study固有の差分Skillだけ**を置く([parallel-work](parallel-work/SKILL.md)。git worktreeの基本手順はプラグインの[parallel-work](../../claude-plugins/plugins/devflow/skills/parallel-work/SKILL.md)を参照し、このファイルにはstudy固有の重複検出手順のみを書く)。study固有の差分(specの置き場所・仕様承認PR方式)は [CLAUDE.md](../../CLAUDE.md) の「開発ワークフロー」に定義があり、プラグインのSkillが「spec配置の例外リポジトリ」として参照する。
 
 各工程Skillは冒頭に「ワークフロー上の位置」(前工程の成果物が必要なものは「前提条件」も)を持ち、完了時に次のステップを案内する。
 
@@ -8,14 +8,14 @@
 
 Skillを明示的に選ばない会話も、次の2層でワークフローに合流する:
 
-1. **途中**: 前工程の成果物を必要とする工程Skillは冒頭の「前提条件」で確認し、満たしていなければ上流の工程Skillへ誘導する(例: requirements.mdなしで/designを始めない)
+1. **途中**: 前工程の成果物を必要とする工程Skillは冒頭の「前提条件」で確認し、満たしていなければ上流の工程Skillへ誘導する(例: requirements.mdなしで/devflow:designを始めない)
 2. **出口**: 各Skill末尾の「完了時の次ステップ案内」で次の工程へ誘導する
 
-> **フックについて**: `../hooks/route-to-workflow.sh`(入口のルーティング注入)と `../hooks/check-main-freshness.sh`(main鮮度警告)は `../settings.json` に登録されているが、**組織ポリシー(`allowManagedHooksOnly`)によりユーザー定義hookは現在実行されない**(`~/.claude/sandbox-limitations.md` 参照)。入口の判定(新機能→/requirement、バグ→/fix、壁打ち→/consult)はCLAUDE.mdの文章ルールとして運用する。hookが解放されたら再び機能する。
+> **フックについて**: `../hooks/route-to-workflow.sh`(入口のルーティング注入)と `../hooks/check-main-freshness.sh`(main鮮度警告)は `../settings.json` に登録されているが、**組織ポリシー(`allowManagedHooksOnly`)によりユーザー定義hookは現在実行されない**(`~/.claude/sandbox-limitations.md` 参照)。入口の判定(新機能→/devflow:requirement、バグ→/devflow:fix、壁打ち→/devflow:consult)はCLAUDE.mdの文章ルールとして運用する。hookが解放されたら再び機能する。
 
 ## 自動運転モード
 
-`/autopilot`(全プロジェクト共通のグローバルSkill)は工程を確認なしで連結する**モードSkill**で、ユーザーが明示的に起動したときだけ働く。小規模・低リスクの変更が対象で、対話は「要件ヒアリング/入口確認」と「仕様承認PRのレビュー」の2箇所に絞られる。push・PR作成・マージはこの環境では自動化できないため、コマンドを提示してユーザーの手元での実行結果を待つ引き継ぎポイントになる。
+`/devflow:autopilot`(devflow プラグイン)は工程を確認なしで連結する**モードSkill**で、ユーザーが明示的に起動したときだけ働く。小規模・低リスクの変更が対象で、対話は「要件ヒアリング/入口確認」と「仕様承認PRのレビュー」の2箇所に絞られる。push・PR作成・マージはこの環境では自動化できないため、コマンドを提示してユーザーの手元での実行結果を待つ引き継ぎポイントになる。
 
 ## 起動者(誰がSkillを起動できるか)
 
@@ -32,69 +32,69 @@ Skillの`.claude/skills/`直下はフラット構造しか使えない(`<Skill�
 
 ## まとめ表
 
-### 機能開発フロー(工程Skill・すべて `~/.claude/skills/` のグローバルSkill)
+### 機能開発フロー(工程Skill・すべて devflow プラグイン `claude-plugins/plugins/devflow/skills/`)
 
 | Skill | 役割 | 使うタイミング | 完了後の遷移先 |
 |---|---|---|---|
-| `/consult` | 方針の壁打ち。ファイルを変更せず論点整理と推奨案の提示に徹する | 作る前に方針・技術選定・機能の切り方を相談したいとき(任意) | /requirement または /fix |
-| `/requirement` | 要件ヒアリング→requirements.md作成。spec分割・新規spec vs 既存spec更新の判断・`[n]`採番 | 新しい機能・アプリの要件定義を始めるとき | /design |
-| `/design` | design.md(処理フロー中心)とtasks.md(TDDタスク分解)の作成 | requirements.md作成後 | /spec-review |
-| `/spec-review` | 3点セットの一括レビュー(チェックリスト・重要度・テンプレート付き)。実施はspec-reviewerエージェント | 3点セットが揃ったとき | 指摘あり: /resolve / なし: /pr(仕様承認PR) |
-| `/pr` | 仕様承認PR・実装PRの作成。承認ゲートの運用、impl-pr-reviewer・CIの確認 | レビュー通過後 | 仕様承認PR承認後: /implementation / 実装PRマージ後: 本番反映確認・ブランチ掃除(手動) |
-| `/implementation` | TDD実装(Red→Green→Refactor)。テスト命名・仕様コメント・仕様との対応付け。並行開発時などはimplementerエージェントに委譲可 | 仕様承認PRのマージ後 | /implementation-review |
-| `/implementation-review` | 実装のコードレビュー(仕様整合・テスト・品質のチェックリスト付き)。実施はcode-reviewerエージェント | 実装・動作確認の完了後 | 指摘あり: /resolve / なし: /pr(実装PR) |
-| `/resolve` | レビュー指摘の修正。重要度順に対応し、対応結果を報告する | /spec-review・/implementation-review・PR上で指摘を受けたとき | 指摘元のレビューを再実行 → 元の工程の次ステップへ |
-| `/fix` | バグ修正・既存機能の小規模改修の入口。既存spec更新の影響洗い出しと承認要否の判断 | 不具合修正・文言修正・スコープ外項目への対応など | 仕様変更あり: /pr(仕様承認PR) / 純粋なバグ: 修正後 /implementation-review |
-| `/test-design` | 商用案件向けの任意工程。全specを横断する総合試験仕様書(`apps/<アプリ名>/specs/system-test.md`)を作成する。複数機能をまたぐ業務シナリオ試験(ST-001〜)・非機能試験(ST-101〜)・要件との対応表・合否判定基準。spec単位の網羅確認(design.mdのテスト戦略表とテストの仕様コメント)は既存のまま | 顧客への受入根拠が要る案件で、/implementation-review 通過後・リリース前 | /spec-review(system-test.mdのレビュー)→ 承認 → 試験実施・結果記録 → /pr(実装PR)またはリリース判定 |
+| `/devflow:consult` | 方針の壁打ち。ファイルを変更せず論点整理と推奨案の提示に徹する | 作る前に方針・技術選定・機能の切り方を相談したいとき(任意) | /devflow:requirement または /devflow:fix |
+| `/devflow:requirement` | 要件ヒアリング→requirements.md作成。spec分割・新規spec vs 既存spec更新の判断・`[n]`採番 | 新しい機能・アプリの要件定義を始めるとき | /devflow:design |
+| `/devflow:design` | design.md(処理フロー中心)とtasks.md(TDDタスク分解)の作成 | requirements.md作成後 | /devflow:spec-review |
+| `/devflow:spec-review` | 3点セットの一括レビュー(チェックリスト・重要度・テンプレート付き)。実施はspec-reviewerエージェント | 3点セットが揃ったとき | 指摘あり: /devflow:resolve / なし: /devflow:pr(仕様承認PR) |
+| `/devflow:pr` | 仕様承認PR・実装PRの作成。承認ゲートの運用、impl-pr-reviewer・CIの確認 | レビュー通過後 | 仕様承認PR承認後: /devflow:implementation / 実装PRマージ後: 本番反映確認・ブランチ掃除(手動) |
+| `/devflow:implementation` | TDD実装(Red→Green→Refactor)。テスト命名・仕様コメント・仕様との対応付け。並行開発時などはimplementerエージェントに委譲可 | 仕様承認PRのマージ後 | /devflow:implementation-review |
+| `/devflow:implementation-review` | 実装のコードレビュー(仕様整合・テスト・品質のチェックリスト付き)。実施はcode-reviewerエージェント | 実装・動作確認の完了後 | 指摘あり: /devflow:resolve / なし: /devflow:pr(実装PR) |
+| `/devflow:resolve` | レビュー指摘の修正。重要度順に対応し、対応結果を報告する | /devflow:spec-review・/devflow:implementation-review・PR上で指摘を受けたとき | 指摘元のレビューを再実行 → 元の工程の次ステップへ |
+| `/devflow:fix` | バグ修正・既存機能の小規模改修の入口。既存spec更新の影響洗い出しと承認要否の判断 | 不具合修正・文言修正・スコープ外項目への対応など | 仕様変更あり: /devflow:pr(仕様承認PR) / 純粋なバグ: 修正後 /devflow:implementation-review |
+| `/devflow:test-design` | 商用案件向けの任意工程。全specを横断する総合試験仕様書(`apps/<アプリ名>/specs/system-test.md`)を作成する。複数機能をまたぐ業務シナリオ試験(ST-001〜)・非機能試験(ST-101〜)・要件との対応表・合否判定基準。spec単位の網羅確認(design.mdのテスト戦略表とテストの仕様コメント)は既存のまま | 顧客への受入根拠が要る案件で、/devflow:implementation-review 通過後・リリース前 | /devflow:spec-review(system-test.mdのレビュー)→ 承認 → 試験実施・結果記録 → /devflow:pr(実装PR)またはリリース判定 |
 
-### モードSkill(`~/.claude/skills/` のグローバルSkill)
+### モードSkill(devflow プラグイン)
 
 | Skill | 役割 | 使うタイミング | 完了後の遷移先 |
 |---|---|---|---|
-| `/autopilot` | 上の工程Skillを確認なしで連結する自動運転モード。対話は2箇所(要件ヒアリング/入口確認・仕様承認PRレビュー)に絞る。手順は各工程Skillに委譲し、本Skillは止まる箇所だけを定める | 小規模・低リスクの変更を最後まで一気に進めたいとき(ユーザーが明示起動) | 実装PRのマージ後、本番反映確認・ブランチ掃除(手動) |
+| `/devflow:autopilot` | 上の工程Skillを確認なしで連結する自動運転モード。対話は2箇所(要件ヒアリング/入口確認・仕様承認PRレビュー)に絞る。手順は各工程Skillに委譲し、本Skillは止まる箇所だけを定める | 小規模・低リスクの変更を最後まで一気に進めたいとき(ユーザーが明示起動) | 実装PRのマージ後、本番反映確認・ブランチ掃除(手動) |
 
 ### 定期作業Skill(開発ループ外・ユーザーが`/xxx`で明示起動・`~/.claude/skills/` のグローバルSkill)
 
 | Skill | 役割 | 頻度 | 異常時の遷移先 |
 |---|---|---|---|
-| `/retrospective` | ワークフローと実際の進め方のずれを振り返り、Skill側を更新する | 月1回〜四半期に1回 | /pr(Skill更新PR) |
+| `/retrospective` | ワークフローと実際の進め方のずれを振り返り、Skill側を更新する | 月1回〜四半期に1回 | /devflow:pr(Skill更新PR) |
 | `/scan-sandbox-sessions` | 直近セッションのログから記録し忘れたサンドボックス制限の候補を棚卸しする | 任意(気づいたとき) | 候補あり: /record-sandbox-limitation の手順で追記 |
 
 ### 知識Skill(工程から参照される)
 
 | Skill | 役割 | 参照元 |
 |---|---|---|
-| `/architecture-workflow`(グローバル) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新。**設計図(Mermaid)の種類・記載先・作成条件・書き方ルールもここに集約** | /requirement、/design、/fix、/spec-review |
-| [parallel-work](parallel-work/SKILL.md)(このリポジトリ固有) | git worktreeでの並行開発のうち、study固有の部分(specs/フォルダでの重複検出)。worktreeの基本手順は`~/.claude/skills/parallel-work/SKILL.md`(全プロジェクト共通)を参照 | /requirement、/fix、/implementation、/pr |
+| `/devflow:architecture-workflow`(devflow プラグイン) | `apps/<アプリ名>/specs/architecture.md`(アプリ全体像)の作成・更新。**設計図(Mermaid)の種類・記載先・作成条件・書き方ルールもここに集約** | /devflow:requirement、/devflow:design、/devflow:fix、/devflow:spec-review |
+| [parallel-work](parallel-work/SKILL.md)(このリポジトリ固有) | git worktreeでの並行開発のうち、study固有の部分(specs/フォルダでの重複検出)。worktreeの基本手順はプラグインの`claude-plugins/plugins/devflow/skills/parallel-work/SKILL.md`を参照 | /devflow:requirement、/devflow:fix、/devflow:implementation、/devflow:pr |
 
 > `record-sandbox-limitation` はプロジェクト固有ではないため `~/.claude/skills/` 側(全プロジェクト共通)にある。/scan-sandbox-sessions から候補確認後もそちらを呼ぶ。
 
-### Agent(作業者・すべて `~/.claude/agents/` のグローバルAgent)
+### Agent(作業者・すべて devflow プラグイン `claude-plugins/plugins/devflow/agents/`。Agentツールの`subagent_type`は`devflow:<名前>`)
 
 Skill=手順・知識・テンプレート、Agent=別コンテキストで動く作業者、という役割分担。
 
 | Agent | 役割 | 起動元 | モデル |
 |---|---|---|---|
-| spec-reviewer | 仕様3点セットのレビュー。書き込みツールを持たず報告に徹する | /spec-review | inherit(判断が本体) |
-| code-reviewer | 実装コードのレビュー。テスト・lint等は実行するが修正はしない | /implementation-review | inherit(判断が本体) |
-| impl-pr-reviewer | 実装PR作成前の横断チェック(承認ステータス・仕様とテストの対応・CI) | /pr(実装PRのみ) | haiku(機械的チェック) |
-| implementer | 承認済み仕様のTDD実装。仕様との食い違い時は中断して報告 | /implementation(並行開発時などの委譲は任意) | sonnet(仕様に拘束された作業) |
+| spec-reviewer | 仕様3点セットのレビュー。書き込みツールを持たず報告に徹する | /devflow:spec-review | inherit(判断が本体) |
+| code-reviewer | 実装コードのレビュー。テスト・lint等は実行するが修正はしない | /devflow:implementation-review | inherit(判断が本体) |
+| impl-pr-reviewer | 実装PR作成前の横断チェック(承認ステータス・仕様とテストの対応・CI) | /devflow:pr(実装PRのみ) | haiku(機械的チェック) |
+| implementer | 承認済み仕様のTDD実装。仕様との食い違い時は中断して報告 | /devflow:implementation(並行開発時などの委譲は任意) | sonnet(仕様に拘束された作業) |
 
 ## 遷移図1: 新機能開発の流れ
 
 ```mermaid
 flowchart TD
-    consult["/consult<br>方針の壁打ち"]
-    requirement["/requirement<br>要件定義"]
-    design["/design<br>設計・タスク分解"]
-    specreview["/spec-review<br>仕様レビュー"]
-    prspec["/pr<br>仕様承認PR"]
-    implementation["/implementation<br>TDD実装"]
-    implreview["/implementation-review<br>コードレビュー"]
-    primpl["/pr<br>実装PR"]
+    consult["/devflow:consult<br>方針の壁打ち"]
+    requirement["/devflow:requirement<br>要件定義"]
+    design["/devflow:design<br>設計・タスク分解"]
+    specreview["/devflow:spec-review<br>仕様レビュー"]
+    prspec["/devflow:pr<br>仕様承認PR"]
+    implementation["/devflow:implementation<br>TDD実装"]
+    implreview["/devflow:implementation-review<br>コードレビュー"]
+    primpl["/devflow:pr<br>実装PR"]
     release["本番反映確認・ブランチ掃除(手動)"]
-    resolve1["/resolve<br>指摘修正"]
-    resolve2["/resolve<br>指摘修正"]
+    resolve1["/devflow:resolve<br>指摘修正"]
+    resolve2["/devflow:resolve<br>指摘修正"]
 
     consult -.任意.-> requirement
     requirement --> design
@@ -117,13 +117,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    consult["/consult<br>方針の壁打ち"]
-    fix["/fix<br>入口確認・3点セットへの影響洗い出し"]
+    consult["/devflow:consult<br>方針の壁打ち"]
+    fix["/devflow:fix<br>入口確認・3点セットへの影響洗い出し"]
     branch{"仕様そのものを<br>変える?"}
-    prspec["/pr<br>仕様承認PR"]
-    tdd["TDD修正<br>(/fix Step3: 再現テスト→修正)"]
-    implreview["/implementation-review<br>コードレビュー"]
-    primpl["/pr<br>実装PR"]
+    prspec["/devflow:pr<br>仕様承認PR"]
+    tdd["TDD修正<br>(/devflow:fix Step3: 再現テスト→修正)"]
+    implreview["/devflow:implementation-review<br>コードレビュー"]
+    primpl["/devflow:pr<br>実装PR"]
     release["本番反映確認・ブランチ掃除(手動)"]
 
     consult -.任意.-> fix
@@ -136,8 +136,8 @@ flowchart TD
     primpl ==>|ユーザーがマージ| release
 ```
 
-- レビューで指摘が出た場合の `/resolve` ループは遷移図1と同じ(省略)
-- 本番で問題を見つけた場合もこの図の `/fix` から入る
+- レビューで指摘が出た場合の `/devflow:resolve` ループは遷移図1と同じ(省略)
+- 本番で問題を見つけた場合もこの図の `/devflow:fix` から入る
 
 ## 定期作業の遷移
 
@@ -145,6 +145,6 @@ flowchart TD
 
 ## この文書の保守
 
-- 工程Skill本体(グローバル)を変更したら、このREADMEの表・遷移図とのずれがないかを確認する(/retrospective の確認対象)
+- 工程Skill本体(devflow プラグイン)を変更したら、このREADMEの表・遷移図とのずれがないかを確認する(/retrospective の確認対象)
 - このリポジトリ固有のSkill・Agentの追加・削除・遷移の変更をしたら、このREADMEの表と遷移図も同じPRで更新する
-- ワークフローの入口(/requirement・/fix・/consultの使い分け)が変わったら、CLAUDE.mdの「開発ワークフロー」と、(hookが解放された場合は)`../hooks/route-to-workflow.sh` の指示文も同じPRで更新する
+- ワークフローの入口(/devflow:requirement・/devflow:fix・/devflow:consultの使い分け)が変わったら、CLAUDE.mdの「開発ワークフロー」と、(hookが解放された場合は)`../hooks/route-to-workflow.sh` の指示文も同じPRで更新する

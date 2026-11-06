@@ -1,0 +1,121 @@
+# 仕様レビュー(/devflow:spec-review, ../skills/spec-review/SKILL.md)の評価
+description: 仕様レビューSkillの評価 — 欠陥を仕込んだ3点セットに対して、チェックリスト(base+company)を根拠に欠陥を検出し、フィードバックテンプレートの形で報告できることを検証
+
+extensions:
+  - file://./libs/extensions/stage-fixtures.mjs:extensionHook
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    label: planted-defects
+    config:
+      apiKeyRequired: false
+      working_dir: ./.tmp/spec-review-planted
+      setting_sources: ['user'] # ~/.claude/CLAUDE.md の全体ルールを読む(実運用と同じ条件)
+      plugins:
+        - type: local
+          path: .. # devflow プラグインのルート(検証対象のSkillはここから読む)
+      skills: ['devflow:spec-review'] # 検証対象のSkillだけを許可する
+      permission_mode: acceptEdits # spec-reviewer エージェントの起動(Agentツール)を許可待ちで止めない
+      disallowed_tools: ['Write', 'Edit', 'NotebookEdit', 'Bash']
+      effort: medium
+      max_turns: 20
+      append_system_prompt: |
+        # 評価ハーネス実行時の特別指示
+
+        このセッションは、spec-review Skill(および spec-reviewer エージェント)のレビュー
+        ロジックを機械的に検証するための、完全に自動化・非対話の評価ハーネス上で実行されて
+        います。人間のユーザーは存在せず、質問を出しても回答は得られません。Write/Edit/Bash
+        は無効化されています。
+
+        この実行に限り、次のように読み替えてください:
+        - 対象specのパスは、作業ディレクトリ直下の `specs/note-deletion/` とみなす。
+          プロジェクトプロファイルの解決・仕様承認PR方式の判定は行わない(チャット承認方式と
+          みなす)。プロジェクト固有(project層)のチェックリストは存在しないものとして扱う。
+        - Bash が無効化されているため、層分けの機械検査スクリプトは起動できない。この場合の
+          扱いは spec-review Skill の「起動前の機械検査」に書かれているとおりにする。
+        - spec-reviewer エージェントを起動できる場合は起動してよいが、起動できない場合は
+          メインスレッドが同じチェックリスト(プラグインの quality-standards/base/spec-review.md と
+          company/spec-review.md)を読んで直接レビューする。
+        - レビュー結果はフィードバックテンプレートの形式で、要約せずこの最終応答のテキストに
+          そのまま含める。承認を求める文で応答を終えてよいが、承認待ちで止まらない。
+
+        これはこの評価セッションに限った特別指示で、通常運用の原則を否定するものではありません。
+
+prompts:
+  - |
+    {{request}}
+
+    (本検証では実際のファイル編集はできません。レビュー結果をフィードバックテンプレートの
+    形式で、この1回の最終応答のテキストとしてそのまま出力してください。)
+
+defaultTest:
+  options:
+    provider:
+      id: anthropic:claude-agent-sdk
+      config:
+        apiKeyRequired: false
+        working_dir: .
+        append_system_prompt: |
+          # 採点時の注意
+          あなたは、別のエージェントが生成したレビュー結果のテキストを判定基準に照らして採点します。
+          渡された最終応答のテキスト内容のみで判定してください。
+
+tests:
+  - description: 仕込んだ5つの欠陥(テスト戦略の漏れ・図の半角括弧・差分ナラティブ・決定事項の表の網羅漏れ・担当マーク無し)を検出し、テンプレート形式で報告できる
+    providers: [planted-defects]
+    vars:
+      workDir: .tmp/spec-review-planted
+      stage:
+        - from: fixtures/spec-review/requirements.md
+          to: specs/note-deletion/requirements.md
+        - from: fixtures/spec-review/design.md
+          to: specs/note-deletion/design.md
+        - from: fixtures/spec-review/tasks.md
+          to: specs/note-deletion/tasks.md
+      request: >-
+        /devflow:spec-review を実行してください。対象は ./specs/note-deletion/ です
+        (requirements.md / design.md / tasks.md の3点セット)。
+    assert:
+      - description: フィードバックテンプレートの必須節が含まれている
+        type: contains-all
+        value:
+          - '## 仕様レビュー結果'
+          - '### 良い点'
+          - '### 指摘事項'
+          - '### 次のステップ'
+
+      - description: 参照したチェックリストに company 層が含まれている
+        type: icontains
+        value: 'company'
+
+      - description: 指摘なし(承認)で終えていない
+        type: not-icontains
+        value: '承認(指摘なし)'
+
+      - description: 機械検査を起動できなかったことが🔴として報告に出ている
+        type: contains-all
+        value:
+          - '🔴'
+          - '起動失敗'
+
+      - description: 仕込んだ欠陥を根拠つきで検出し、修正はしていないか
+        type: llm-rubric
+        value: >-
+          レビュー結果が次の5つの欠陥のうち、(a)(b)(c)(e) の4つを必ず指摘していること
+          ((d) は指摘があれば加点、無くても不合格にしない)。
+          (e) design.md のセキュリティ本文で「アプリ側での読み取り後の比較は採らず、
+          DynamoDB の条件式で行う」と選択・却下を述べているのに、その行が決定事項の表に
+          載っていない(表の網羅漏れ)。
+          (a) design.md のテスト戦略の表に、requirements.md の「削除できる対象-3」
+          (他人のノートを指定した場合も404)の行が無い(割り当て漏れ)。
+          (b) design.md のシーケンス図で、メッセージのラベルに半角括弧「(存在しない場合)」が
+          使われている(Mermaid の描画エラーの原因)。
+          (c) design.md に「旧仕様では〜だったが、〜に変更した」という変更の経緯(差分ナラティブ)が
+          書かれている(仕様書には今の仕様だけを書くルールに反する)。
+          (d) tasks.md の各タスク行に担当マーク(【担当: claude】等)が付いていない。
+          あわせて、(1) 各指摘に重要度(🔴/🟡/🟢)と根拠が添えられている、(2) 良い点が1つ以上
+          挙げられている、(3) レビュー中に対象ファイルを修正したり修正後の全文を提示したりして
+          いない(指摘の報告に徹している)、(4) 次のステップとして /resolve での修正と再レビューを
+          案内している、ことを確認する。
+          (a)(b)(c)(e) のいずれかを指摘していない、または (1)〜(4) のいずれかを満たさない場合は
+          不合格とし、理由を具体的に述べること。
