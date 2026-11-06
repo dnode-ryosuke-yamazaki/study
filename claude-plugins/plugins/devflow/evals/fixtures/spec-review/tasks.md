@@ -1,3 +1,8 @@
+---
+status: draft
+version: "0.1"
+---
+
 # ノートの削除API タスク
 
 > TDDで進める。各タスクは 🔴 Red(失敗するテストを書く) → 🟢 Green(最小実装) → 🔵 Refactor の順で進める。
