@@ -175,7 +175,7 @@ endedAt=2026-11-07T06:41:10+09:00 exitCode=0 marker=missing artifacts=ok result=
 | `DIGEST_MANUAL` | `1` / `0` |
 | `DIGEST_CLAUDE_IO_DIR` | 控えの置き場所(`claude-io/<系統>/<配信日>[-<編>]/`) |
 | `DIGEST_CLAUDE_BIN` | claude の絶対パス |
-| `DIGEST_DATA_DIR` | `~/Library/Application Support/digest/<アプリ名>/` |
+| `DIGEST_DATA_DIR` | データフォルダ。既定は `~/Library/Application Support/digest/<アプリ名>/` で、実行係を起動した環境に同じ名前の変数があればその値 |
 | `NODE_EXTRA_CA_CERTS` / `SSL_CERT_FILE` | CAバンドルのパス |
 | `TZ` | `Asia/Tokyo` |
 | `PATH` | node と claude のフォルダを前置した `PATH` |

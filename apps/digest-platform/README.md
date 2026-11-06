@@ -94,6 +94,8 @@ launchctl disable gui/$(id -u)/com.example.digest-research-digest-publish
 
 ## アプリを有効にするとき
 
+failure-notification(失敗通知の判定関数 `failure_notification`)を実装するまでは、どのアプリも有効にしない。実装前に有効にすると、失敗が確定するたびに判定関数を読み込めず「通知の失敗」(要約ログに WARNING と `RUN-FAILED`)になり、35日間、起動のたびに渡し直しが繰り返される。
+
 各アプリの spec を実装したら、次をまとめて行う。
 
 1. `application/launchd/apps.json` のそのアプリの `publish.enabled` を `true` にする(月次見直しも動かすなら `review.dayOfMonth` に日を入れる)
@@ -116,6 +118,7 @@ python3 launchd/runner.py research-digest publish --manual
 - 成功済みの日は手動実行でも起動しない(要約ログに `result=already_succeeded`)
 - 月次見直しは再実行しないので、失敗したら系統を `review` にして手動実行で補う
 - 終了コード: 0=成功・起動しなかった(成功済み・ロック中)、1=バッチが一時的な失敗、2=再試行しても直らない失敗・未登録・実行係自身のエラー
+- シェルに環境変数 `DIGEST_DATA_DIR` が残っていると、記録とログが既定の `~/Library/Application Support/digest/<アプリ名>/` でなくその場所に書かれる。手動実行の前に `unset DIGEST_DATA_DIR` で外しておく
 
 ## 成功済みの日をやり直す
 
