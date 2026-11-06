@@ -1,1 +1,3 @@
 node_modules/
+# smoke アプリの生成物(環境スモーク用)
+out/

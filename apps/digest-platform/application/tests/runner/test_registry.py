@@ -76,12 +76,13 @@ class アプリ登録表からの起動対象の引き当て(TempDirTestCase):
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-1、apps/digest-platform/specs/batch-runner/requirements.md#再実行-1
     def test_本番の登録表は5アプリとも上限4回で記事公開がまだ有効でない(self):
+        """環境スモーク(タスク16・21)の間だけ登録表にある検証用の smoke は、5アプリの確かめから除く。"""
         reg = registry.load(os.path.join(LAUNCHD_DIR, "apps.json"))
         self.assertEqual(
-            sorted(reg.apps()),
+            sorted(app for app in reg.apps() if app != "smoke"),
             ["ai-dev-digest", "future-digest", "news-digest", "research-digest", "trend-digest"],
         )
-        raw = reg.raw()["apps"]
+        raw = {app: entry for app, entry in reg.raw()["apps"].items() if app != "smoke"}
         self.assertEqual(raw["research-digest"]["publish"]["weekdays"], [6])
         self.assertEqual(raw["future-digest"]["publish"]["weekdays"], [0])
         for app in ("ai-dev-digest", "news-digest", "trend-digest"):
