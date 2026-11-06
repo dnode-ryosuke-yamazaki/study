@@ -1,5 +1,8 @@
 import ast
 import os
+import signal
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -286,6 +289,33 @@ class 実行係自身が動けなかったとき(RunnerTestCase):
         self.assertEqual(self.calls(), [])
         self.assertIn("result=locked date=- edition=- attempt=- status=- log=-", self.finished_lines()[-1])
         self.assertTrue(os.path.exists(os.path.join(self.data_dir, "lock", "publish")), "他人のロックを外さない")
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#定時起動-4
+    def test_実行係がTERMで止められるとバッチを止めてロックを外してから終わる(self):
+        """否定確認: TERM を中断に変える処理を消すと、バッチとロックが残って落ちる"""
+        from digest_runner import lock
+
+        class TermNotConverted(BaseException):
+            pass
+
+        def sentinel(signum, frame):
+            raise TermNotConverted()
+
+        previous = signal.signal(signal.SIGTERM, sentinel)
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        timer = threading.Timer(1.0, os.kill, (os.getpid(), signal.SIGTERM))
+        timer.start()
+        self.addCleanup(timer.cancel)
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_at(at(*SAT, 6, 30), mode="sleep")
+        with open(os.path.join(self.root, "batch.pid")) as f:
+            batch_pid = int(f.read().strip())
+        deadline = time.monotonic() + 3
+        while lock.pid_alive(batch_pid) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertFalse(lock.pid_alive(batch_pid), "バッチが残っている")
+        self.assertFalse(os.path.exists(os.path.join(self.data_dir, "lock", "publish")), "ロックが残っている")
+        self.assertIs(signal.getsignal(signal.SIGTERM), sentinel, "TERM の扱いを元に戻していない")
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-8
     def test_ロック中で終わる起動は前の配信日の再実行待ちを締めない(self):

@@ -10,6 +10,7 @@
 import argparse
 import os
 import re
+import signal
 import sys
 import traceback
 
@@ -36,7 +37,22 @@ def _say(message):
     print(message, file=sys.stderr)
 
 
+def _interrupt(signum, frame):
+    raise KeyboardInterrupt(f"signal {signum}")
+
+
 def main(argv=None, env=None, clock=None, app_root=None, registry_path=None, home=None):
+    # TERM・HUP(launchctl bootout・ターミナルを閉じるなど)も Ctrl-C と同じ中断に変え、バッチのグループを止めて
+    # ロックを外してから終わる。そのまま落ちると、60分の打ち切りを失ったバッチが残り、ロックの回収後に二重に動く
+    previous = {sig: signal.signal(sig, _interrupt) for sig in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        return _main(argv, env, clock, app_root, registry_path, home)
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
+def _main(argv, env, clock, app_root, registry_path, home):
     args = _parse(sys.argv[1:] if argv is None else argv)
     env = dict(os.environ if env is None else env)
     clock = clock or cal.now_jst

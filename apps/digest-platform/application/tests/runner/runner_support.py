@@ -1,7 +1,8 @@
 """runner.py の入口を、一時フォルダのアプリの土台・偽のバッチ・偽の判定関数で動かす小道具。
 
 偽のバッチは /bin/sh のスクリプトで、一時フォルダの mode ファイルの値で終わり方を変える:
-ok(生成物を書いて成功マーカー)・warn(警告の行のあと成功)・fail1(exit 1)・fail2(exit 2)・nomarker(生成物は書くがマーカー無し)。
+ok(生成物を書いて成功マーカー)・warn(警告の行のあと成功)・fail1(exit 1)・fail2(exit 2)・nomarker(生成物は書くがマーカー無し)・
+sleep(pid を batch.pid に書いて眠り続ける)。
 呼ばれるたびに calls ファイルへ1行足す。偽の判定関数は契約どおり12項目を受け取って記録する。
 """
 
@@ -27,6 +28,7 @@ case "$mode" in
   warn) : > "out/$DIGEST_DATE$EDITION_SUFFIX.txt"; echo "DIGEST-BATCH-WARN broadcast_failed"; echo DIGEST-BATCH-OK; exit 0 ;;
   nomarker) : > "out/$DIGEST_DATE$EDITION_SUFFIX.txt"; echo done; exit 0 ;;
   fail2) echo "quota exhausted"; exit 2 ;;
+  sleep) echo $$ > '{root}/batch.pid'; sleep 60 ;;
   *) echo "temporary"; exit 1 ;;
 esac
 """
