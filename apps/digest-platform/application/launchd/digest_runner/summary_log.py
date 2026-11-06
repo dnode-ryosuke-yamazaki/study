@@ -59,10 +59,21 @@ def warning(path, what, detail, failed=False, now=None):
     _append(path, f"WARNING {what}: {detail}" + (" " + FAILED_MARK if failed else ""), now)
 
 
-def has_started(path):
-    """要約ログに「実行開始」の行が1つでもあるか(過去に一度でもバッチを起動したか)。"""
+def first_started_date(path):
+    """要約ログの最初の「実行開始」の行の配信日(date= の値)。「実行開始」が1行も無ければ None。"""
     try:
         with open(path, encoding="utf-8") as f:
-            return any(_STARTED in line for line in f)
+            for line in f:
+                if _STARTED in line:
+                    return _field(line, "date")
     except FileNotFoundError:
-        return False
+        pass
+    return None
+
+
+def _field(line, name):
+    for token in line.split():
+        key, sep, value = token.partition("=")
+        if sep and key == name:
+            return None if value == "-" else value
+    return None

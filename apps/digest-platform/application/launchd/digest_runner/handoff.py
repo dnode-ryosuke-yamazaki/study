@@ -155,12 +155,17 @@ def expire_stale(runs_dir, base_date, exclude_date, judge_fn, context, now=None)
 
 
 def expire_missing(runs_dir, registration, current_date, now, judge_fn, context):
-    """今回の配信日の直前の配信日に記録が無く、その 18:30 を過ぎていれば「記録なし」の失敗確定を作って渡す。"""
+    """今回の配信日の直前の配信日に記録が無く、その 18:30 を過ぎていれば「記録なし」の失敗確定を作って渡す。
+    直前の配信日が要約ログの最初の「実行開始」の配信日より前(アプリを有効にする前の回)か、
+    「実行開始」が1行も無いときは締めない。"""
     if registration["kind"] != "publish":
         return []
-    if not summary_log.has_started(context["summary_path"]):
+    first_started = summary_log.first_started_date(context["summary_path"])
+    if first_started is None:
         return []
     previous = cal.previous_delivery_date(registration, current_date)
+    if previous < first_started:
+        return []
     edition = cal.edition_for(registration, previous)
     path = os.path.join(runs_dir, st.file_stem(previous, edition) + ".json")
     if os.path.exists(path) or now < cal.last_chance_at(previous):

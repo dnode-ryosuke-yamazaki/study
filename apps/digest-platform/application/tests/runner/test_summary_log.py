@@ -46,7 +46,7 @@ class 日次ヘルスチェックが読む要約ログ(TempDirTestCase):
         self.assertEqual([l for l in lines if "RUN-SUCCEEDED" in l], [lines[1]])
         self.assertEqual([l for l in lines if "RUN-FAILED" in l], lines[2:])
         self.assertEqual(stat.S_IMODE(os.stat(self.log).st_mode), 0o600)
-        self.assertTrue(summary_log.has_started(self.log))
+        self.assertEqual(summary_log.first_started_date(self.log), "2026-11-07")
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-6
     def test_バッチが成功した起動の実行終了の行に成功の印が付く(self):
@@ -105,13 +105,15 @@ class 日次ヘルスチェックが読む要約ログ(TempDirTestCase):
         self.assertTrue(lines[1].endswith("WARNING 古い記録を消せません: /x/old.log"))
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-9
-    def test_一度もバッチを起動していなければ実行開始の行が無いと分かる(self):
-        self.assertFalse(summary_log.has_started(self.log))
+    def test_最初の実行開始の行の配信日が読め実行開始が無ければ無いと分かる(self):
+        """否定確認: 最初の行でなく最後の実行開始の行を返すようにすると落ちる"""
+        self.assertIsNone(summary_log.first_started_date(self.log))
         summary_log.finished(self.log, "locked", None, None, None, None, None)
-        self.assertFalse(summary_log.has_started(self.log))
+        self.assertIsNone(summary_log.first_started_date(self.log))
         summary_log.started(self.log, dict(app="a", kind="publish", date="2026-11-07", edition="sci", attempt="manual"))
-        self.assertTrue(summary_log.has_started(self.log))
-        self.assertTrue(self.lines()[-1].endswith("edition=sci attempt=manual"))
+        summary_log.started(self.log, dict(app="a", kind="publish", date="2026-11-14", edition="sci", attempt=1))
+        self.assertEqual(summary_log.first_started_date(self.log), "2026-11-07")
+        self.assertTrue(self.lines()[-2].endswith("edition=sci attempt=manual"))
 
 
 if __name__ == "__main__":

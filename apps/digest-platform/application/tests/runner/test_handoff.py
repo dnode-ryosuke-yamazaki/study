@@ -277,6 +277,32 @@ class 記録の無い直前の配信日の締め(HandoffTestCase):
         self.assertFalse(os.path.exists(self.runs))
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-9
+    def test_アプリを有効にした直後の2回目の起動では有効にする前の配信日を締めず通知しない(self):
+        """有効にした日(2026-11-07)の本番で「実行開始」が書かれたあと、同じ日の再実行が来ても、
+        有効にする前の配信日(2026-11-06)は記録が無いのが当然なので「記録なし」にしない。
+        否定確認: 最初の「実行開始」の配信日との比較を外す(実行開始があれば締める)と落ちる"""
+        from digest_runner import summary_log
+        summary_log.started(self.summary, dict(app="research-digest", kind="publish", date="2026-11-07", edition=None, attempt=1))
+        put_state(self.data_dir, "2026-11-07", "pending", [attempt(1, result="temporary_failure")])
+        judge = FakeJudge()
+        retry = dt.datetime(2026, 11, 7, 10, 30, tzinfo=JST)
+        touched = handoff.expire_missing(self.runs, self.registration(DAILY), "2026-11-07", retry, judge, self.ctx())
+        self.assertEqual((touched, judge.calls), ([], []))
+        self.assertFalse(os.path.exists(os.path.join(self.runs, "2026-11-06.json")))
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-9
+    def test_最初の実行開始の配信日と同じ日が直前の配信日なら締める(self):
+        """有効にした日に起動したが記録が残らなかった回(当日の起動は実行開始のみ書かれ、記録が無い)は締めの対象。
+        否定確認: 比較を「以前なら締めない」(<=)に変えると落ちる"""
+        from digest_runner import summary_log
+        summary_log.started(self.summary, dict(app="research-digest", kind="publish", date="2026-11-07", edition=None, attempt=1))
+        judge = FakeJudge()
+        now = dt.datetime(2026, 11, 8, 6, 30, 1, tzinfo=JST)
+        touched = handoff.expire_missing(self.runs, self.registration(DAILY), "2026-11-08", now, judge, self.ctx())
+        self.assertEqual(touched, [os.path.join(self.runs, "2026-11-07.json")])
+        self.assertEqual([f["finalReason"] for f in judge.calls], ["missed"])
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-9
     def test_月次見直しでは作らない(self):
         """否定確認: 系統の確かめを外すと落ちる"""
         self.ever_started()

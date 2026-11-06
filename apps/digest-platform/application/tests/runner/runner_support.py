@@ -110,13 +110,6 @@ class RunnerTestCase(TempDirTestCase):
         return runner.main(argv, env=self.env(app), clock=lambda: when, app_root=self.root,
                            registry_path=self.registry_path(), home=self.path("home"))
 
-    def seed_succeeded(self, date, app="research-digest", kind="publish", edition=None):
-        """直前の配信日を成功済みにしておく(記録の無い回の締めを、その締めを見ないテストで起こさないため)。"""
-        from digest_runner import state
-        data = state.empty(app, kind, date, edition, 4)
-        data["status"] = "succeeded"
-        state.save(state.path_for(self.path("data", app), kind, date, edition), data)
-
     def state_of(self, date, app="research-digest", kind="publish", edition=None):
         from digest_runner import state
         return state.read(state.path_for(self.path("data", app), kind, date, edition))

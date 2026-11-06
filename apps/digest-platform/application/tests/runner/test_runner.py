@@ -15,10 +15,6 @@ SAT = (2026, 11, 7)
 class 定時と手動の起動と成否の記録(RunnerTestCase):
     """launchd と手元ターミナルのどちらから起動しても、同じ判定と記録で1回の実行が完結する。"""
 
-    def setUp(self):
-        super().setUp()
-        self.seed_succeeded("2026-10-31")
-
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-1、apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-6
     def test_本番の起動が成功すると成功が記録され実行終了の行に成功の印が付く(self):
         code = self.run_at(at(*SAT, 6, 30))
@@ -111,7 +107,6 @@ class 定時と手動の起動と成否の記録(RunnerTestCase):
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-7、apps/digest-platform/specs/batch-runner/requirements.md#実行状態の記録-5
     def test_翌日0030の追い実行の失敗は前日の記録に積まれ最後の機会で失敗確定になる(self):
-        self.seed_succeeded("2026-11-06", app="ai-dev-digest")
         self.run_at(at(*SAT, 6, 30), app="ai-dev-digest", mode="fail1")
         self.run_at(at(2026, 11, 8, 0, 30), app="ai-dev-digest")
         self.assertEqual([f["finalReason"] for f in self.received], ["last_chance"])
@@ -123,10 +118,6 @@ class 定時と手動の起動と成否の記録(RunnerTestCase):
 class 手動実行(RunnerTestCase):
     """運営者は手元のターミナルから同じバッチを動かせる。手動の失敗は定時の回数と状態を変えず、
     失敗が確定した日も手動ならやり直せる。成功済みの日は手動でも起動しない。"""
-
-    def setUp(self):
-        super().setUp()
-        self.seed_succeeded("2026-10-31")
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#再実行-4、apps/digest-platform/specs/batch-runner/requirements.md#定時起動-7
     def test_手動の失敗は試行回数と当日の状態を変えず手動実行の失敗として通知に渡る(self):
