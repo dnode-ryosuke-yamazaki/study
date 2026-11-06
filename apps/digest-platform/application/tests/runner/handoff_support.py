@@ -5,7 +5,6 @@
 """
 
 import datetime as dt
-import os
 
 from digest_runner import state
 

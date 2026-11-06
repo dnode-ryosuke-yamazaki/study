@@ -1,5 +1,4 @@
 import os
-import stat
 import unittest
 
 from tests.runner.support import TempDirTestCase

@@ -24,7 +24,7 @@ def _append(path, text, now=None):
     ensure_private_dir(os.path.dirname(path))
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
-        os.write(fd, f"{moment.isoformat(timespec='seconds')} {text}\n".encode("utf-8"))
+        os.write(fd, f"{moment.isoformat(timespec='seconds')} {text}\n".encode())
     finally:
         os.close(fd)
 

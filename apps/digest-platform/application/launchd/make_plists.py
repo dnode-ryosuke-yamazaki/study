@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """アプリ登録表(launchd/apps.json)から、アプリ×系統ごとの launchd の plist を生成する。
 
     python3 launchd/make_plists.py --node <絶対パス> --claude <絶対パス> --python <絶対パス> [--out <フォルダ>]
@@ -19,7 +18,7 @@ LAUNCHD_DIR = os.path.dirname(os.path.abspath(__file__))
 if LAUNCHD_DIR not in sys.path:
     sys.path.insert(0, LAUNCHD_DIR)
 
-from digest_runner import environment, registry  # noqa: E402
+from digest_runner import environment, registry
 
 ALL_WEEKDAYS = set(range(7))
 PUBLISH_FIRST = (6, 30)

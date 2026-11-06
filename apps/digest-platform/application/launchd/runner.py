@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """実行係の入口。launchd(定時・追い実行)と運営者の手元ターミナル(手動実行)から起動する。
 
     python3 launchd/runner.py <アプリ名> <系統 publish|review> [--manual]
@@ -18,8 +17,8 @@ LAUNCHD_DIR = os.path.dirname(os.path.abspath(__file__))
 if LAUNCHD_DIR not in sys.path:
     sys.path.insert(0, LAUNCHD_DIR)
 
-from digest_runner import calendar as cal  # noqa: E402
-from digest_runner import environment, handoff, judge, launch, lock, registry, retention, state, summary_log  # noqa: E402
+from digest_runner import calendar as cal
+from digest_runner import environment, handoff, judge, launch, lock, registry, retention, state, summary_log
 
 APP_ROOT = os.path.dirname(LAUNCHD_DIR)
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
