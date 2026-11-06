@@ -22,7 +22,12 @@
 │   ├── workflows/           # GitHub Actions（上記 specs/ の横断機能の実装）
 │   └── actions/             # workflowから呼ぶリポジトリ内action
 ├── .claude/
-│   ├── skills/              # study固有の差分Skill（ワークフロー一覧は skills/README.md）
+│   ├── skills/              # 開発フローの工程Skill・知識Skill（ワークフロー一覧は skills/README.md）
+│   ├── agents/              # レビュー・実装のAgent 4体
+│   ├── dev-flow.md          # 開発フロー共通ルール（test-policy.md・jira-ticket-check.md も同じ階層）
+│   ├── quality-standards/   # レビューのチェックリスト
+│   ├── lib/                 # 仕様書の層分け検査スクリプトとそのテスト
+│   ├── evals/               # 開発フローSkillの回帰テスト（promptfoo・手元のターミナルで実行）
 │   ├── hooks/               # Claude Code のhookスクリプト
 │   └── settings.json        # リポジトリ共通のClaude Code設定
 ├── doc/
