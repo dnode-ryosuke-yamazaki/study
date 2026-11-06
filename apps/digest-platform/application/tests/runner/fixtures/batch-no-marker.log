@@ -1,0 +1,3 @@
+# タスク16で実出力に置き換える想定の仮置き(想像 fixture)。検証用の smoke バッチを「マーカー無しで終わる」で動かし、claude -p の封筒を標準出力にそのまま出して終了コード0で終わったときの形を仮に書いたもの
+{"type":"result","subtype":"success","is_error":false,"duration_ms":4210,"num_turns":1,"result":"要約できませんでした。材料が空です。","session_id":"00000000-0000-0000-0000-000000000000","total_cost_usd":0.0123}
+smoke: marker skipped (DIGEST_SMOKE_MODE=no-marker)
