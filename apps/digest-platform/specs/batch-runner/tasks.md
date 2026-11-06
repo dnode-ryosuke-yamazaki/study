@@ -74,7 +74,7 @@ Claude の呼び出し部品(TypeScript)のテストを回せるようにする�
 - `state.load(path)` は無ければ `pending` の空の状態、読めれば dict、壊れていれば `StateBroken` 例外(`state.quarantine(path)` が `.corrupt-<日時>` に退避する)
 - `state.save(path, data)` は一時ファイルに書いて置き換え、フォルダは 700・ファイルは 600
 - `state.add_attempt(data, attempt)`・`state.set_status(data, status, final_reason=None)` で当日の状態を更新する。`notified`/`notifyReason` と `warningNotified`/`warningNotifyReason` は別々の印と理由で、警告側の項目が無いファイルは偽・`null` として読む
-- テスト: 正常の読み書き1、構造検証(JSON として読め必須項目を持つ)1、失敗形3(空・壊れた JSON・必須項目の欠け)、退避ファイルの名前1
+- テスト: 正常の読み書き1、構造検証(JSON として読め必須項目を持つ)1、失敗形5(空・壊れた JSON・必須項目の欠け・UTF-8 として読めない・配信日や試行の記録の型の誤り)、退避ファイルの名前1
 
 </details>
 
