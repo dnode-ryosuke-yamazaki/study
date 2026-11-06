@@ -97,6 +97,45 @@ requirements.md / design.md / architecture.md には、**常に今の正しい�
 
 **経緯・決定理由が必要な場合はADRに分離する。** 仕様書には書かず、ADR(Architecture Decision Record)にまとめ、仕様書からは必要ならリンクだけを張る。置き場所と採番は[architecture-workflow](skills/architecture-workflow/SKILL.md)の「ADRの置き場所」を参照する。
 
+## 承認状態のフロントマター
+
+requirements.md / design.md / tasks.md は、先頭のフロントマターで**承認状態**を持つ。仕様書を開いた人が承認済みかどうかを読めるようにし、承認後に内容が黙って変わるのを防ぐため。書式(キーの並び・値の形)の正は[区分け表のファイル](quality-standards/base/spec-layout.md#承認状態のフロントマター)で、ここでは値をいつ・どの工程で書き換えるかを定める。
+
+- `status` — `draft`(書いている・直している)/ `in-review`(指摘なしで承認を待っている)/ `approved`(承認済み)
+- `approved_date` — 承認した日。`approved` のときだけ置く
+- `version` — `"0.1"` で作り、初回の承認で `"1.0"` にする。承認後に変えたら小数点以下を1つ上げる
+
+タイトル直下の「ステータス:」行は**実装進捗**(仕様確認中 / 実装中 / リリース済み)で、承認状態とは別物として残す。
+
+| 場面 | フロントマターの書き換え | 工程 |
+|---|---|---|
+| 新規に作る | `status: draft`・`version: "0.1"` | [/devflow:requirement](skills/requirement/SKILL.md)(requirements.md)・[/devflow:design](skills/design/SKILL.md)(design.md・tasks.md) |
+| 指摘なし(🟢のみ)になり承認を求める | 3ファイルとも `in-review` | [/devflow:spec-review](skills/spec-review/SKILL.md)(仕様承認PR方式ではPRを出す時点で[/devflow:pr](skills/pr/SKILL.md)) |
+| 承認待ちの間に修正依頼・指摘が出る | 直すファイルを `draft` に戻す(version は変えない) | [/devflow:resolve](skills/resolve/SKILL.md)・[/devflow:requirement](skills/requirement/SKILL.md)・[/devflow:design](skills/design/SKILL.md) |
+| 明示的な承認を得る | `in-review` のファイルを `approved` にし、`approved_date` に承認日を入れる。version が `0.x` なら `"1.0"` にする(改訂の再承認なら version はそのまま) | [/devflow:spec-review](skills/spec-review/SKILL.md)(仕様承認PR方式では[/devflow:pr](skills/pr/SKILL.md)がマージ前に) |
+| `approved` のファイルを変える | **変更の大小にかかわらず**(誤字の修正だけでも)、その改訂の最初の変更で `draft` に戻し、`approved_date` を消し、version の小数点以下を1つ上げる(`"1.0"` → `"1.1"`)。再承認までに重ねて直しても上げ直さない。変えていないファイルは `approved` のまま | 仕様に手を入れる全工程([/devflow:fix](skills/fix/SKILL.md)・[/devflow:requirement](skills/requirement/SKILL.md)・[/devflow:design](skills/design/SKILL.md)・[/devflow:resolve](skills/resolve/SKILL.md)) |
+
+- **承認状態に数えない書き換え**: 「ステータス:」行の値、tasks.md の `> 実装中: session ...` マーカー。どちらも進捗の記録で、承認した仕様の中身ではないので、`approved` のまま書き換える
+- `draft` に戻したファイルは、通常どおり[/devflow:spec-review](skills/spec-review/SKILL.md)と明示的な承認を経て `approved` に戻す。3ファイルのどれかが `approved` でない間は[/devflow:implementation](skills/implementation/SKILL.md)に進まない(純粋なバグ修正で仕様に触れない場合は書き換えも再承認も無い)
+- 機械検査(`check_spec_layout.py`)は値の形だけを照合する(フロントマター無しは終了コード2、値の不正は違反)。どの状態が正しいかは工程の側で守る
+
+### フロントマターを持たない既存specの移行
+
+この規則より前に書いた spec はフロントマターを持たず、検査で `フロントマター無し`(終了コード2)になる。層分けの新形式化(次に手を入れる工程で直す)と違い、承認状態は spec を開いた全員が読むものなので、**移行スクリプトで一括して付ける**。
+
+1. 試し実行で判定を見る(書き込まない)。ローカルミラーなら `~/.claude/local-specs/` 配下、例外リポジトリならそのリポジトリの `specs/` 配下を渡す
+   ```
+   python3 ${CLAUDE_PLUGIN_ROOT}/lib/spec_layout_check/scripts/migrate_approval_frontmatter.py <specフォルダ>...
+   ```
+   出力は1ファイル1行(specフォルダ / ファイル / 判定 / 内容か理由)。判定は次のとおり
+   - 「ステータス:」行が `実装中`・`リリース済み` → `approved`・`"1.0"`。承認を経ずに実装へ入らない流れなので承認済みとみなす。`approved_date` はそのファイルを最後にコミットした日(**推定値**。実際の承認日が分かっていれば `--approved-date` で渡す)
+   - それ以外(仕様確認中・行が無い)→ `要判断`。承認の有無を機械で決めない
+2. `要判断` の spec ごとに承認の有無をユーザーに確かめ、`--status approved|draft`(approved なら必要に応じて `--approved-date`)を付けて個別に流す。実装済みでも「ステータス:」行が無い古い spec は、承認済みとして `--status approved` で付けてよい
+3. 判定に問題が無ければ `--apply` を付けて書き込み、各 spec に [check_spec_layout.py](lib/spec_layout_check/scripts/check_spec_layout.py) を掛けて `フロントマター無し`・`フロントマター不正` が出ないことを確かめる
+4. ローカルミラーはそのリポジトリ(`~/.claude/local-specs`)で、例外リポジトリは作業ブランチでコミットする
+
+**移行は、この規則を入れた devflow の更新が使える状態になってから行う。** それより前の検査スクリプトはフロントマターの行を「章の外に本文」の違反として数えるため、先に付けると全 spec のレビューが違反で止まる。
+
 ## specの置き場所(ローカル専用、リポジトリにコミットしない)
 
 仕様3点セット(requirements.md/design.md/tasks.md)は対象プロジェクトのリポジトリには置かず、ローカル専用のミラーディレクトリに置く。プロジェクトのルートディレクトリの絶対パスをそのままディレクトリ階層として再現する:

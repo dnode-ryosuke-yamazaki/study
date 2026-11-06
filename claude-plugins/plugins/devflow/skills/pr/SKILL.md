@@ -58,6 +58,12 @@ specをリポジトリにコミットする例外リポジトリのうち、承�
 
 この段階ではrequirements.mdのタイトル直下に`ステータス: 仕様確認中(未実装) ／ 優先度: …`のラベル1行を入れる(引用`>`にはしない)。これは「テスト不要」という恒久的な判断ではなく、「まだ実装していないだけ」という一時的な状態を表す。実装(🔴Redのテスト)に着手したら「実装中」に書き換える。
 
+**承認状態のフロントマター**(値の遷移の正は[dev-flow.mdの「承認状態のフロントマター」](../../dev-flow.md#承認状態のフロントマター)):
+
+- PRに載せる3点セットのフロントマターは `status: in-review` にする(承認後の改訂なら、直したファイルだけが `in-review` で version は上げたまま。直していないファイルは `approved` のまま)。`approved` のままPRに出さない
+- ユーザーの承認(GitHubのApprove、または「承認します」の明示)を確認したら、**マージの前に**同じPRへ「`in-review` のファイルを `status: approved` にし、`approved_date` に承認日を足す。version が `0.x` なら `"1.0"` にする」1コミットを足し、そのコミットごとマージする。マージ後の main で仕様書が `in-review` のまま残らないようにするため。コミットのメッセージは `docs(spec): <spec名> の仕様承認をフロントマターに記録する` の形にする
+- 承認前に修正依頼が出たら、直すファイルを `draft` に戻して直し、出し直す時点で `in-review` に戻す
+
 本文テンプレート:
 
 ```markdown
@@ -76,7 +82,7 @@ specをリポジトリにコミットする例外リポジトリのうち、承�
 
 # 実装PR
 
-PR作成前にimpl-pr-reviewerエージェント(Agentツールの`subagent_type`は`devflow:impl-pr-reviewer`。定義は`${CLAUDE_PLUGIN_ROOT}/agents/impl-pr-reviewer.md`)でチェックし、❌を解消してから作成する(ステータスのラベルの値の書き換え漏れ・CIの横断チェック)。仕様とテストの対応確認は[/devflow:implementation-review](../implementation-review/SKILL.md)のcode-reviewerが既に行っているため、ここでは繰り返さない([dev-flow.md](../../dev-flow.md#仕様とテストの対応確認は-code-reviewer-に一本化)参照)。
+PR作成前にimpl-pr-reviewerエージェント(Agentツールの`subagent_type`は`devflow:impl-pr-reviewer`。定義は`${CLAUDE_PLUGIN_ROOT}/agents/impl-pr-reviewer.md`)でチェックし、❌を解消してから作成する(承認フロントマター・ステータスのラベルの値の書き換え漏れ・CIの横断チェック)。仕様とテストの対応確認は[/devflow:implementation-review](../implementation-review/SKILL.md)のcode-reviewerが既に行っているため、ここでは繰り返さない([dev-flow.md](../../dev-flow.md#仕様とテストの対応確認は-code-reviewer-に一本化)参照)。
 
 ## Copilotレビュアーの指定(agent-routing)
 
