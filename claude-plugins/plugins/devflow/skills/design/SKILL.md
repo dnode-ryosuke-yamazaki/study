@@ -8,7 +8,7 @@ description: requirements.md作成後の設計フェーズで、design.md(処理
 # 前提条件
 
 - 対象spec(ローカルミラーパス、[dev-flow.md](../../dev-flow.md#specの置き場所ローカル専用リポジトリにコミットしない)参照)の`requirements.md`が存在すること。なければ[/devflow:requirement](../requirement/SKILL.md)(要件定義)から始める(要件ヒアリングを飛ばして設計に入らない)
-- requirements.mdの成立条件に外部サービス・API・クラウド機能・組織ポリシーへの依存がある場合、その実機エンドツーエンド確認の結論が「できる」であること([dev-flow.md](../../dev-flow.md)の「実現性確認の完了条件と報告」参照)。「未確定」のまま設計を進める場合は、毎回の報告冒頭に実現性ステータスを明示し、設計詳細より先に方針判断を仰ぐ
+- requirements.mdの成立条件に外部サービス・API・クラウド機能・組織ポリシーへの依存がある場合、その実機エンドツーエンド確認の結論が「できる」であること(`~/.claude/feasibility-check.md` 参照)。「未確定」のまま設計を進める場合は、毎回の報告冒頭に実現性ステータスを明示し、設計詳細より先に方針判断を仰ぐ
 
 # 仕様書は「最新仕様のみ」を書く(恒久ルール)
 
@@ -470,4 +470,4 @@ python3 ${CLAUDE_PLUGIN_ROOT}/lib/spec_layout_check/scripts/check_spec_layout.py
 
 3点セット(requirements.md/design.md/tasks.md)が揃ったら、[/devflow:spec-review](../spec-review/SKILL.md)(仕様レビュー)へ進むことを案内する。この時点ではまだコード(テストを含む)を書かない。
 
-design.md/tasks.mdを書き終えた時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は[dev-flow.md](../../dev-flow.md)の「セッション終了時の引き継ぎ」に、プロンプト例は同ファイルの「次セッションへの引き継ぎプロンプト例」に従う。
+design.md/tasks.mdを書き終えた時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は `~/.claude/session-handoff.md` に、プロンプト例は[dev-flow.md](../../dev-flow.md)の「次セッションへの引き継ぎプロンプト例」に従う。
