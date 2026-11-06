@@ -115,10 +115,17 @@ def run(command, cwd, env, log_path, timeout_seconds=BATCH_TIMEOUT_SECONDS, head
             _write(fd, f"起動に失敗しました: {type(e).__name__}: {e}\n")
             return result
 
+        # 読み取り側には詳細ログの複製を渡して自分で閉じさせる。グループの外へ抜けた子孫が出力を握ったまま
+        # run が返っても、閉じた番号を使い回した別のファイル(実行状態ファイルの一時ファイルなど)に書かないため
+        pump_fd = os.dup(fd)
+
         def pump():
-            for raw in iter(proc.stdout.readline, b""):
-                os.write(fd, raw)
-                lines.append(raw.decode("utf-8", "replace").rstrip("\r\n"))
+            try:
+                for raw in iter(proc.stdout.readline, b""):
+                    os.write(pump_fd, raw)
+                    lines.append(raw.decode("utf-8", "replace").rstrip("\r\n"))
+            finally:
+                os.close(pump_fd)
 
         reader = threading.Thread(target=pump, daemon=True)
         reader.start()

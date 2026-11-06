@@ -2,6 +2,7 @@ import inspect
 import os
 import signal
 import stat
+import sys
 import threading
 import time
 import unittest
@@ -64,7 +65,35 @@ class バッチの起動と出力の記録と打ち切り(TempDirTestCase):
             time.sleep(0.1)
         self.assertFalse(lock.pid_alive(child), "子プロセスが残っている")
 
-    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-5、apps/digest-platform/specs/batch-runner/requirements.md#時間の上限-1
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-3
+    def test_グループの外へ抜けた子孫が結果を返した後に書いた出力は詳細ログにだけ入り別のファイルに混ざらない(self):
+        """否定確認: 読み取り側に詳細ログの複製を渡さず閉じた番号に書かせると、番号を使い回した別のファイルに混ざって落ちる"""
+        late_pid_file = self.path("late.pid")
+        late = (f"import os, time; os.setsid(); open({late_pid_file!r}, 'w').write(str(os.getpid())); "
+                "time.sleep(8); print('late-output', flush=True)")
+        batch = self.script(
+            f"'{sys.executable}' -c \"{late}\" &\n"
+            f"while [ ! -s '{late_pid_file}' ]; do sleep 0.1; done\necho DIGEST-BATCH-OK\nexit 0\n")
+        log = self.path("logs", "publish", "2026-11-07-1.log")
+        got = launch.run(["/bin/sh", batch], self.tmp, {"PATH": "/usr/bin:/bin"}, log, timeout_seconds=60)
+        self.assertEqual(got["last_line"], "DIGEST-BATCH-OK")
+        other_path = self.path("other.json")
+        other = os.open(other_path, os.O_WRONLY | os.O_CREAT, 0o600)
+        try:
+            with open(late_pid_file) as f:
+                late_pid = int(f.read().strip())
+            deadline = time.monotonic() + 15
+            while lock.pid_alive(late_pid) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            time.sleep(0.5)
+        finally:
+            os.close(other)
+        with open(other_path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "")
+        with open(log, encoding="utf-8") as f:
+            self.assertIn("late-output", f.read())
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#成否の判定-3
     def test_バッチが終わった後も出力をつかんだ子孫が残っていれば止めてすぐ返る(self):
         """否定確認: 終了後のグループの停止を消すと子孫の sleep が終わるまで待って落ちる"""
         child_pid_file = self.path("child.pid")
