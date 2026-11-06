@@ -77,7 +77,11 @@ switch (mode) {
   }
   case "fetch": {
     fetchFixedSource().then(
-      () => finishOk(),
+      () => {
+        // 取得できたことを記事ファイルにも残し、実行係の成否の判定(生成物の有無)で成功になるようにする
+        writeArtifact("smoke: fetched the fixed source through the CA bundle");
+        finishOk();
+      },
       (error: unknown) => failTemporary(`smoke: fetch failed: ${String(error)}`),
     );
     break;
