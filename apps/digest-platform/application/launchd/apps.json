@@ -1,0 +1,177 @@
+{
+  "apps": {
+    "ai-dev-digest": {
+      "publish": {
+        "enabled": false,
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "editionByWeekday": null,
+        "maxAttempts": 4,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../ai-dev-digest/application/batch/publish.ts"
+        ],
+        "artifacts": [
+          "../../ai-dev-digest/application/articles/{date}{edition}.json",
+          "out/ai-dev-digest/{date}{edition}/index.html"
+        ]
+      },
+      "review": {
+        "dayOfMonth": null,
+        "maxAttempts": 1,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../ai-dev-digest/application/batch/review.ts"
+        ],
+        "artifacts": [
+          "../../ai-dev-digest/application/reviews/{yearMonth}.md"
+        ]
+      }
+    },
+    "news-digest": {
+      "publish": {
+        "enabled": false,
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "editionByWeekday": null,
+        "maxAttempts": 4,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../news-digest/application/batch/publish.ts"
+        ],
+        "artifacts": [
+          "../../news-digest/application/articles/{date}{edition}.json",
+          "out/news-digest/{date}{edition}/index.html"
+        ]
+      },
+      "review": {
+        "dayOfMonth": null,
+        "maxAttempts": 1,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../news-digest/application/batch/review.ts"
+        ],
+        "artifacts": [
+          "../../news-digest/application/reviews/{yearMonth}.md"
+        ]
+      }
+    },
+    "future-digest": {
+      "publish": {
+        "enabled": false,
+        "weekdays": [
+          0
+        ],
+        "editionByWeekday": null,
+        "maxAttempts": 4,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../future-digest/application/batch/publish.ts"
+        ],
+        "artifacts": [
+          "../../future-digest/application/articles/{date}{edition}.json",
+          "out/future-digest/{date}{edition}/index.html"
+        ]
+      },
+      "review": {
+        "dayOfMonth": null,
+        "maxAttempts": 1,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../future-digest/application/batch/review.ts"
+        ],
+        "artifacts": [
+          "../../future-digest/application/reviews/{yearMonth}.md"
+        ]
+      }
+    },
+    "research-digest": {
+      "publish": {
+        "enabled": false,
+        "weekdays": [
+          6
+        ],
+        "editionByWeekday": null,
+        "maxAttempts": 4,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../research-digest/application/batch/publish.ts"
+        ],
+        "artifacts": [
+          "../../research-digest/application/articles/{date}{edition}.json",
+          "out/research-digest/{date}{edition}/index.html"
+        ]
+      },
+      "review": {
+        "dayOfMonth": null,
+        "maxAttempts": 1,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../research-digest/application/batch/review.ts"
+        ],
+        "artifacts": [
+          "../../research-digest/application/reviews/{yearMonth}.md"
+        ]
+      }
+    },
+    "trend-digest": {
+      "publish": {
+        "enabled": false,
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "editionByWeekday": null,
+        "maxAttempts": 4,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../trend-digest/application/batch/publish.ts"
+        ],
+        "artifacts": [
+          "../../trend-digest/application/articles/{date}{edition}.json",
+          "out/trend-digest/{date}{edition}/index.html"
+        ]
+      },
+      "review": {
+        "dayOfMonth": null,
+        "maxAttempts": 1,
+        "command": [
+          "{node}",
+          "{tsx}",
+          "../../trend-digest/application/batch/review.ts"
+        ],
+        "artifacts": [
+          "../../trend-digest/application/reviews/{yearMonth}.md"
+        ]
+      }
+    }
+  }
+}

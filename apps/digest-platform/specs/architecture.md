@@ -65,7 +65,7 @@ flowchart TB
 
 | spec | 機能(利用者から見て) | 役割 | 依存 | 状態 |
 |---|---|---|---|---|
-| [batch-runner](batch-runner/requirements.md) | 決まった時刻にアプリの記事づくりが自動で走り、失敗しても決めた回数まで自動でやり直す | 実行係(launchd のジョブ・共通ラッパー・claude -p の呼び出し・実行状態ファイル) | failure-notification(確定した失敗の引き渡し先。関数の契約は batch-runner が決める) | 仕様のみ(未実装) |
+| [batch-runner](batch-runner/requirements.md) | 決まった時刻にアプリの記事づくりが自動で走り、失敗しても決めた回数まで自動でやり直す | 実行係(launchd のジョブ・共通ラッパー・claude -p の呼び出し・実行状態ファイル) | failure-notification(確定した失敗の引き渡し先。関数の契約は batch-runner が決める) | 実装中 |
 | [local-site-serving](local-site-serving/requirements.md) | ブラウザで `http://127.0.0.1:<ポート>/<アプリ名>/` を開くと最新の記事が読める | 配信サーバー(記事サイトの組み立てと配信) | アプリのバッチが記事を書いた後に自分でサイトを組み立てる(batch-runner はその結果を成否の判定で確かめる) | 仕様のみ(未実装) |
 | [local-reader-store](local-reader-store/requirements.md) | 記事に付箋(ブックマークとメモ)とフィードバックを書き、あとで見返せる。月次見直しのバッチが同じデータを読める | 読者データ(配信サーバーの保存APIとローカル保存) | local-site-serving(配信サーバーに同居) | 仕様のみ(未実装) |
 | [teams-broadcast](teams-broadcast/requirements.md) | 新しい記事ができると、Teams の Digestチャネルのアプリごとの配信スレッドに見出しとリンクが届く | 新着通知(teams-post の投稿先への書き出し) | アプリのバッチ(記事を書いてサイトを組み立てたあとに呼ぶ。送り出しの失敗は batch-runner の警告の印で実行係に伝える)、local-site-serving(記事のURL) | 仕様のみ(未実装) |
@@ -255,7 +255,7 @@ Claude Code のサンドボックスからは 127.0.0.1 にも `launchctl` に�
 - launchd は PATH を継承しない。node・tsx・claude・python3 は絶対パスで書く。Python/Node の更新でパスが変わると無言で止まる(終了コード78)ため、毎朝のヘルスチェックを保険にする
 - launchd から出る HTTP は社内プロキシの TLS 差し替えに当たる。CAバンドルを指定しないと全情報源の取得が失敗する
 - `claude -p` は失敗しても終了コード0を返す。成功マーカーと JSON 封筒で成否を決め、利用枠の枯渇(週の上限)は再試行しても直らない失敗として再実行しない。運営者のサブスクの枠を使うため、5アプリ合計の呼び出し回数は各アプリの非機能要件で上限を決める
-- `claude -p` の `--allowedTools` などの許可の指定はこのMacの管理設定で無視され、警告が標準出力に混ざる。ツールは `--tools` で絞る(効くかは batch-runner の環境スモークで確かめる)
+- `claude -p` の `--allowedTools` などの許可の指定はこのMacの管理設定で無視され、警告が標準出力に混ざる。ツールは `--tools` で絞る(このMacの管理設定の下でも効く)
 - `StartCalendarInterval` はスリープ中の回を復帰時に1回だけ追い実行する。本番時刻は起床後の朝に寄せ、深夜には置かない
 - 記事公開は土日祝も動かす(research-digest は土曜、future-digest は日曜、ほかの3アプリは毎日)。定時の Teams 投稿を土日祝に止める共通ルールの例外として投稿する
 - Next.js の静的エクスポートは `file://` で直接開くと CSS・JS・リンクが解決されない。必ず配信サーバー経由で開く

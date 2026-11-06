@@ -1,0 +1,3 @@
+node_modules/
+# アプリの記事サイトの生成物(登録表の artifacts が指す out/<アプリ名>/)
+out/
