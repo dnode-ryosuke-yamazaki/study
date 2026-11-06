@@ -84,6 +84,29 @@ class 実行状態ファイルの読み書き(TempDirTestCase):
             state.load(path, **IDENTITY)
 
     # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#実行状態の記録-3
+    def test_UTF8として読めないファイルは壊れた記録になる(self):
+        """否定確認: 文字コードのエラーを壊れた記録に変えないと UnicodeDecodeError で落ちる"""
+        path = self.state_path()
+        os.makedirs(os.path.dirname(path))
+        with open(path, "wb") as f:
+            f.write(b'{"app": "\xff\xfe"}')
+        with self.assertRaises(state.StateBroken):
+            state.load(path, **IDENTITY)
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#実行状態の記録-3
+    def test_配信日が文字列でないか試行の記録が辞書でないファイルは壊れた記録になる(self):
+        """否定確認: 配信日と試行の各要素の型の検査を消すと落ちる"""
+        path = self.state_path()
+        os.makedirs(os.path.dirname(path))
+        for broken in ({"date": None}, {"attempts": [None]}, {"attempts": ["1"]}):
+            data = state.empty(**IDENTITY)
+            data.update(broken)
+            with open(path, "w") as f:
+                json.dump(data, f)
+            with self.subTest(broken=broken), self.assertRaises(state.StateBroken):
+                state.load(path, **IDENTITY)
+
+    # 仕様: apps/digest-platform/specs/batch-runner/requirements.md#実行状態の記録-3
     def test_必須項目が欠けたファイルは壊れた記録になる(self):
         """否定確認: 必須項目の検査を消すと落ちる"""
         path = self.state_path()

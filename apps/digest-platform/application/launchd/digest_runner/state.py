@@ -80,7 +80,7 @@ def read(path):
     try:
         with open(path, encoding="utf-8") as f:
             text = f.read()
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         raise StateBroken(f"読めません: {type(e).__name__}: {e}") from e
     try:
         data = json.loads(text)
@@ -93,6 +93,8 @@ def read(path):
         raise StateBroken(f"必須項目がありません: {', '.join(missing)}")
     if data["status"] not in STATUSES or not isinstance(data["attempts"], list) or not isinstance(data["notified"], bool):
         raise StateBroken("必須項目の値が不正です")
+    if not isinstance(data["date"], str) or not all(isinstance(a, dict) for a in data["attempts"]):
+        raise StateBroken("配信日または試行の記録の値が不正です")
     for key, value in _OPTIONAL_DEFAULTS.items():
         if data.get(key) is None:
             data[key] = value
