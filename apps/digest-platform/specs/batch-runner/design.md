@@ -1,7 +1,6 @@
 ---
-status: approved
-approved_date: 2026-11-06
-version: "1.0"
+status: draft
+version: "1.1"
 ---
 
 # 実行係(バッチの定時起動と成否の記録)の設計
@@ -302,7 +301,7 @@ sequenceDiagram
 
 - `apps/digest-platform/specs/architecture.md` — 採用技術の要点行と表(実行係は Python、Claude の起動は TypeScript 部品)、関連ADR、アーキテクチャ概要の要点行と「起動」「実行係」「要約」、機能一覧表の batch-runner・local-site-serving・teams-broadcast・failure-notification の機能列と依存列、用語集の「実行係」、技術的制約の土日祝と利用枠切れの記述
 - `apps/digest-platform/specs/adr/0001-local-only-platform.md` — ステータスに 0002 で改定した範囲と、再実行の範囲が仕様側で広がったことを書く
-- `apps/digest-platform/specs/failure-notification/requirements.md` — 概要の「通知の判定」、通知の判定の [1][2][4][5][6][7](記事公開は5アプリとも再実行あり、受け取る項目と返す理由は batch-runner の契約に従う、通知済みは失敗と警告で別、[6] は廃止)、通知の本文と投稿の [1][3][6](警告の定型句と件名、渡し直しは実行係が行う)、通知のタイミングの [3]、ヘルスチェックの宣言の [2][3](成功の印、週1回と月次は稼働判定の対象外、月次の取りこぼしは手動)
+- `apps/digest-platform/specs/failure-notification/requirements.md` — 概要の「通知の判定」、通知の判定の [1][2][4][5][6](記事公開は5アプリとも再実行あり、受け取る項目と返す理由は batch-runner の契約に従う、通知済みは失敗と警告で別)、通知の本文と投稿の [1][3][6](警告の定型句と件名、渡し直しは実行係が行う)、通知のタイミングの [3]、ヘルスチェックの宣言の [2][3](成功の印、週1回と月次は稼働判定の対象外、月次の取りこぼしは手動)
 - `apps/digest-platform/specs/teams-broadcast/requirements.md` — 非機能要件 [2](週の件数を毎日の3アプリ+週1回の2アプリに)
 
 </details>
