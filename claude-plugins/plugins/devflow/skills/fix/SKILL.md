@@ -88,4 +88,4 @@ python3 ${CLAUDE_PLUGIN_ROOT}/lib/spec_layout_check/scripts/check_spec_layout.py
 
 修正・テスト・動作確認・上記振り返りが済んだら、[/devflow:implementation-review](../implementation-review/SKILL.md)(コードレビュー)→[/devflow:pr](../pr/SKILL.md)(実装PR)へ進むことを案内する。
 
-修正とテストをコミットした時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は[dev-flow.md](../../dev-flow.md)の「セッション終了時の引き継ぎ」に、プロンプト例は同ファイルの「次セッションへの引き継ぎプロンプト例」に従う。
+修正とテストをコミットした時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は `~/.claude/session-handoff.md` に、プロンプト例は[dev-flow.md](../../dev-flow.md)の「次セッションへの引き継ぎプロンプト例」に従う。

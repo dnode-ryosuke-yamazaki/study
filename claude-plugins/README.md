@@ -10,7 +10,8 @@ claude-plugins/
         ├── .claude-plugin/plugin.json
         ├── skills/<名前>/SKILL.md    # 工程Skill 13本
         ├── agents/<名前>.md          # レビューAgent 4体(Agentツールでは devflow:<名前>)
-        ├── dev-flow.md               # 開発フロー共通ルール(specの置き場所・コミット粒度・引き継ぎ)
+        ├── hooks/                    # hooks.json(SessionStart)と check-implementation-marker.sh(別ブランチ向けの実装中マーカー警告。管理設定下では実行されない)
+        ├── dev-flow.md               # 開発フロー共通ルール(specの置き場所・コミット粒度・1工程1セッション。引き継ぎ書式と実現性確認はホームの session-handoff.md / feasibility-check.md)
         ├── test-policy.md            # テストの種類・量・完了条件
         ├── jira-ticket-check.md      # 着手時のJIRAチケット確認
         ├── quality-standards/        # レビューのチェックリスト(base / company の2層。project層は各リポジトリ側)

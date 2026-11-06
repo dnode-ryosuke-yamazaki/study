@@ -61,4 +61,4 @@ spec単位の「仕様項目とテストの対応」は既に2段で確認され
 
 - system-test.mdを書き終えたら[/devflow:spec-review](../spec-review/SKILL.md)でレビューを受ける(チェックリストは[quality-standards/base/spec-review.md](../../quality-standards/base/spec-review.md)の「system-test.md」節)。承認後に試験を実施する
 - 試験を実施したら結果を記録し、全体の合否をユーザーに報告する。合格なら[dev-flow.md](../../dev-flow.md)の「マージ後のリリース確認チェックリスト」へ、不合格なら[/devflow:fix](../fix/SKILL.md)へ進むことを案内する
-- セッション終了時の出力形式は[dev-flow.md](../../dev-flow.md)の「セッション終了時の引き継ぎ」に従う
+- セッション終了時の出力形式は `~/.claude/session-handoff.md` に従う

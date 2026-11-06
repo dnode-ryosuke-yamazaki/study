@@ -323,4 +323,4 @@ python3 ${CLAUDE_PLUGIN_ROOT}/lib/spec_layout_check/scripts/check_spec_layout.py
 
 requirements.mdをユーザーに提示し、[/devflow:design](../design/SKILL.md)(設計・タスク分解)へ進むことを案内する。仕様が承認されるまでコード(テストを含む)は書き始めない。
 
-requirements.mdを書き終えた時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は[dev-flow.md](../../dev-flow.md)の「セッション終了時の引き継ぎ」に、プロンプト例は同ファイルの「次セッションへの引き継ぎプロンプト例」に従う。
+requirements.mdを書き終えた時点で、compactや新しいセッションへの切り替えを行っても支障はない。セッション終了時の出力形式は `~/.claude/session-handoff.md` に、プロンプト例は[dev-flow.md](../../dev-flow.md)の「次セッションへの引き継ぎプロンプト例」に従う。

@@ -1,0 +1,15 @@
+{
+  "description": "devflow の SessionStart hook。現在のブランチに対応する spec の tasks.md に別ブランチ向けの実装中マーカーがあれば警告する(ブロックはしない)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/check-implementation-marker.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
