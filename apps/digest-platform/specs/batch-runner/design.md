@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-11-06
+version: "1.0"
+---
+
 # 実行係(バッチの定時起動と成否の記録)の設計
 
 ## 概要
