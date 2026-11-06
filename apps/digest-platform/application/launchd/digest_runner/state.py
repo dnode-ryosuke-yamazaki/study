@@ -24,7 +24,7 @@ _OPTIONAL_DEFAULTS = {
 
 
 class StateBroken(Exception):
-    """実行状態ファイルが空・JSON として壊れている・必須項目が欠けている。"""
+    """実行状態ファイルが読めない・空・JSON として壊れている・必須項目が欠けているか値や型が誤っている。"""
 
 
 def ensure_private_dir(path):

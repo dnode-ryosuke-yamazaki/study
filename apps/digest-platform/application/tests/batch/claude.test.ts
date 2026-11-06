@@ -106,7 +106,7 @@ describe("Claude の呼び出し(5アプリのバッチが同じ約束で Claude
       expect(Date.now() - started).toBeLessThan(10_000);
     }, 15_000);
 
-    // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#時間の上限-1
+    // 仕様: apps/digest-platform/specs/batch-runner/requirements.md#Claude の呼び出し規約-3
     // 否定確認: SIGTERM で Claude のグループを止める処理を外すと、別グループの Claude が残って落ちる
     it("バッチが実行係から SIGTERM で止められたときは、別のプロセスグループで動いている Claude も止めてから終わる", async () => {
       const { env, work } = setupFake({ sleep: 60 });

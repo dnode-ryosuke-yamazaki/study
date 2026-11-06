@@ -80,7 +80,7 @@
 - `notified`(失敗を通知済み)と `warningNotified`(警告を通知済み)は一度真になったら真のまま(手動実行の失敗で通知したあとに定時の失敗確定が来ても偽に戻さない)。`warningNotified`・`warningNotifyReason` は省略可で、無ければ偽・`null` として読む
 - `lastHandoff`(失敗用)と `lastWarningHandoff`(警告用)は、失敗通知に渡したのに通知できなかったとき(理由が `write_failed`・`notify_error`)に、渡した12項目の dict をそのまま残す。通知できたら `null`。次の起動の渡し直しはこの dict を使う。省略可で、無ければ `null` として読む
 - 前日以前に `pending`(手動の失敗だけ)または `retry_pending` のまま残った記録を締めたときは、`status` を `failed`(`finalReason=expired`)にし、`attempts` は変えない
-- 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。欠けていれば壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
+- 必須項目は `app`・`kind`・`date`・`status`・`attempts`・`notified`。UTF-8 として読めない、必須項目が欠けている、または値や型が誤っている(`date` が文字列でない、`status` が4値以外、`attempts` が試行のオブジェクトの配列でない、`notified` が真偽値でない)ときは壊れた記録として `<元の名前>.corrupt-<YYYYMMDD-HHMMSS>` に退避する
 - 書き込みは同じフォルダの一時ファイルに書いて置き換える
 
 ## 失敗通知に渡す項目と返る項目(Python の関数の契約)
