@@ -2,7 +2,7 @@
 
 ## 本文
 
-投稿用ファイル `<投稿先フォルダ>/post-<YYYYMMDD-HHMMSS>[-<連番2〜1000>].txt`(UTF-8。中身は HTML断片)。一時ファイルは `$TMPDIR/failure-notification-<ランダム>.txt`。
+投稿用ファイル `<投稿先フォルダ>/post-<YYYYMMDD-HHMMSS>[-<連番2〜1000>].txt`(UTF-8。中身は HTML断片)。
 
 失敗のとき:
 

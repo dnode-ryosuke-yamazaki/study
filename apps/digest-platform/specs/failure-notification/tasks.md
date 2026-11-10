@@ -60,7 +60,7 @@ teams-post と同じ規則で書き出して Power Automate のフローがそ�
 - `application/launchd/failure_notification/writer.py` の `write_post(content, profiles_path=None, now=None)` が `True` / `False` を返す
 - `~/.claude/config/project-profiles.json` の `user.teams.destinations["Digest監視"].folder_path` を読む。無い・壊れている・キーが無いは `False`
 - 書き出しの前に `setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_ON)` を ctypes で呼ぶ(失敗しても続ける。teams-transcript-fetcher の materialize と同じ値)
-- 本文を `$TMPDIR` の一時ファイルに書き切り、投稿先フォルダへ `post-<YYYYMMDD-HHMMSS>.txt` として `os.link` で置いてから一時ファイルを消す。名前が埋まっていれば(`FileExistsError`)`-2`〜`-1000` を試す。`os.link` が別ボリューム・非対応で失敗したら(`EXDEV`・`ENOTSUP`・`EPERM`)、投稿先フォルダへ `open(..., "x")` で直接書く。フォルダは作らない
+- 投稿先フォルダに `post-<YYYYMMDD-HHMMSS>.txt` を `open(..., "x")` で作り、本文を1回の書き込みで書いて閉じる。名前が埋まっていれば(`FileExistsError`)`-2`〜`-1000` を試す。フォルダは作らない
 - 書き込みの失敗は10秒おきに最大3回まで試す(待ちは引数で差し替えられるようにし、テストは0秒で回す)。投稿先の設定が引けない・フォルダが無いときは試し直さない
 - 3回とも失敗したら標準エラーに `failure-notification: write_failed <例外の種類>` を1行。パスは出さない
 - 受け入れ条件(契約): 通知の本文と投稿-6。`tests/failure_notification/test_writer.py`(一時フォルダと一時の設定ファイルで。設定ファイルは `project-profiles.example.json` の destinations の形に合わせる)
@@ -153,7 +153,7 @@ plist と同じ登録表から宣言を作り、起動時刻と点検の時刻�
 <details><summary>詳細を開く</summary>
 
 - 前提: 運営者が監視スレッドと投稿先「Digest監視」を用意済み
-- launchd に登録した環境スモーク用のアプリのジョブを即時起動し、手動実行の失敗を起こす(`DIGEST_HANDOFF_MODULE` は付けない)。監視スレッドに【失敗】の返信が届き、実行状態ファイルの「通知済み」が真になる。投稿先フォルダへハードリンクで置けたか、直接の新規作成に切り替わったかを確かめ、書きかけのファイルが投稿されていないことを見る
+- launchd に登録した環境スモーク用のアプリのジョブを即時起動し、手動実行の失敗を起こす(`DIGEST_HANDOFF_MODULE` は付けない)。監視スレッドに【失敗】の返信が届き、実行状態ファイルの「通知済み」が真になる。書きかけのファイル(空や途中で切れた本文)が投稿されていないことを見る
 - `make_health_declarations.py --apply` を環境スモーク用の登録表で流し、日次ヘルスチェックの判定を手で1回回して新しい条目が読める。終わったら宣言を元に戻す
 - 受け入れ条件(環境スモーク): 通知の本文と投稿-4・ヘルスチェックの宣言への追加-1。結果は下の確認チェックリストに書く
 
