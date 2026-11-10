@@ -1,5 +1,6 @@
 ---
-status: in-review
+status: approved
+approved_date: 2026-11-10
 version: "1.1"
 ---
 

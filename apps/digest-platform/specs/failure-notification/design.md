@@ -1,6 +1,7 @@
 ---
-status: in-review
-version: "0.1"
+status: approved
+approved_date: 2026-11-10
+version: "1.0"
 ---
 
 # 失敗通知の設計
