@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-review
 version: "0.1"
 ---
 
@@ -60,7 +60,7 @@ teams-post と同じ規則で書き出して Power Automate のフローがそ�
 - `application/launchd/failure_notification/writer.py` の `write_post(content, profiles_path=None, now=None)` が `True` / `False` を返す
 - `~/.claude/config/project-profiles.json` の `user.teams.destinations["Digest監視"].folder_path` を読む。無い・壊れている・キーが無いは `False`
 - 書き出しの前に `setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_ON)` を ctypes で呼ぶ(失敗しても続ける。teams-transcript-fetcher の materialize と同じ値)
-- 投稿先フォルダに `post-<YYYYMMDD-HHMMSS>.txt` を `open(..., "x")` で作り、本文を1回の書き込みで書いて閉じる。名前が埋まっていれば(`FileExistsError`)`-2`〜`-1000` を試す。フォルダは作らない
+- 投稿先フォルダに `post-<YYYYMMDD-HHMMSS>.txt` を `open(..., "x")` で作り、本文を1回の書き込みで書いて閉じる。名前が埋まっていれば(`FileExistsError`)`-2`〜`-1000` を試す。フォルダは作らない。作ったあとの書き込みで失敗したら、そのファイルを消してからやり直す
 - 書き込みの失敗は10秒おきに最大3回まで試す(待ちは引数で差し替えられるようにし、テストは0秒で回す)。投稿先の設定が引けない・フォルダが無いときは試し直さない
 - 3回とも失敗したら標準エラーに `failure-notification: write_failed <例外の種類>` を1行。パスは出さない
 - 受け入れ条件(契約): 通知の本文と投稿-6。`tests/failure_notification/test_writer.py`(一時フォルダと一時の設定ファイルで。設定ファイルは `project-profiles.example.json` の destinations の形に合わせる)
