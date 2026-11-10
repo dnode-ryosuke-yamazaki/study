@@ -1,3 +1,9 @@
+---
+status: approved
+approved_date: 2026-11-06
+version: "1.0"
+---
+
 # batch-runner タスク
 
 タスク 21件(claude 20 / copilot 1)
